@@ -192,6 +192,76 @@
     }, true);
   }
 
+  async function listProjectHistory(projectId = '', limit = 30) {
+    const safeLimit = Math.min(Math.max(Number(limit) || 30, 1), 100);
+    const projectFilter = projectId
+      ? `&project_id=eq.${encodeURIComponent(projectId)}`
+      : '';
+    const rows = await dataRequest(
+      `project_change_history?select=id,project_id,action,changed_by,changed_at,changed_fields,before_data,after_data&order=changed_at.desc&limit=${safeLimit}${projectFilter}`,
+      {},
+      true
+    );
+    return rows || [];
+  }
+
+  async function listChangeProposals(status = 'pending', limit = 40) {
+    const safeLimit = Math.min(Math.max(Number(limit) || 40, 1), 100);
+    const statusFilter = status
+      ? `&status=eq.${encodeURIComponent(status)}`
+      : '';
+    const rows = await dataRequest(
+      `project_change_proposals?select=id,project_id,status,source_title,source_url,source_publisher,source_published_at,source_excerpt,analysis_summary,proposed_patch,changed_fields,confidence,baseline_updated_at,suggested_by,detected_at,reviewed_by,reviewed_at,review_note&order=detected_at.desc&limit=${safeLimit}${statusFilter}`,
+      {},
+      true
+    );
+    return rows || [];
+  }
+
+  async function getMonitoringDashboard() {
+    return dataRequest('rpc/get_project_monitoring_dashboard', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: '{}'
+    }, true);
+  }
+
+  async function requestProjectCheck(projectId) {
+    const session = await getSession();
+    const userId = session?.user?.id;
+    if (!session?.access_token || !userId) throw new Error('Admin sign-in required.');
+    const rows = await dataRequest('project_monitoring_requests?on_conflict=project_id', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=representation'
+      },
+      body: JSON.stringify({
+        project_id: projectId,
+        requested_by: userId,
+        requested_at: new Date().toISOString(),
+        status: 'queued'
+      })
+    }, true);
+    return Array.isArray(rows) ? rows[0] : rows;
+  }
+
+  async function reviewChangeProposal(proposalId, decision, note = '') {
+    return dataRequest('rpc/review_project_change_proposal', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        p_proposal_id: Number(proposalId),
+        p_decision: decision,
+        p_note: note || null
+      })
+    }, true);
+  }
+
   async function listSavedIds() {
     const session = await getSession();
     const userId = session?.user?.id;
@@ -230,6 +300,11 @@
     listProjects,
     upsertProject,
     deleteProject,
+    listProjectHistory,
+    listChangeProposals,
+    getMonitoringDashboard,
+    requestProjectCheck,
+    reviewChangeProposal,
     listSavedIds,
     setSaved
   });
