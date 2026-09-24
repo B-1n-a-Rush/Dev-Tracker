@@ -118,7 +118,6 @@
     subtypes: row.subtypes || [],
     dri: row.dri || '',
     program: row.metadata?.program || 'Details pending',
-    homes: Number(row.homes) || 0,
     residentialUnits: Number(row.residential_units) || 0,
     delivery: row.metadata?.delivery || 'Not provided',
     transit: row.transit || 'Not specified',
@@ -144,7 +143,6 @@
     project_type: project.projectType || 'Commercial',
     subtypes: project.subtypes || [],
     dri: String(project.dri || '').trim() || null,
-    homes: Number(project.homes) || 0,
     residential_units: Number(project.residentialUnits) || 0,
     transit: project.transit || null,
     investment: project.investment || null,
@@ -198,11 +196,23 @@
       ? `&project_id=eq.${encodeURIComponent(projectId)}`
       : '';
     const rows = await dataRequest(
-      `project_change_history?select=id,project_id,action,changed_by,changed_at,changed_fields,before_data,after_data&order=changed_at.desc&limit=${safeLimit}${projectFilter}`,
+      `project_change_history?select=id,project_id,action,changed_by,changed_at,changed_fields,before_data,after_data,change_reason&order=changed_at.desc&limit=${safeLimit}${projectFilter}`,
       {},
       true
     );
     return rows || [];
+  }
+
+  async function reverseProjectChange(historyId) {
+    return dataRequest('rpc/reverse_project_change', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        p_history_id: Number(historyId)
+      })
+    }, true);
   }
 
   async function listChangeProposals(status = 'pending', limit = 40) {
@@ -301,6 +311,7 @@
     upsertProject,
     deleteProject,
     listProjectHistory,
+    reverseProjectChange,
     listChangeProposals,
     getMonitoringDashboard,
     requestProjectCheck,
