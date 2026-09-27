@@ -3,5 +3,7 @@
 window.TRACKSIDE_SUPABASE_CONFIG = Object.freeze({
   url: 'https://jhscjyxufwvoslzxrwwq.supabase.co',
   publishableKey: 'sb_publishable_TNZAAdoqnh7ELP6HxVk_Sw_RLdchcvR',
-  syncEnabled: true
+  syncEnabled: true,
+  sessionIdleTimeoutMinutes: 30,
+  sessionMaxLifetimeHours: 8
 });

@@ -5,6 +5,13 @@
   const sessionKey = 'trackside-supabase-session-v1';
   const authUrl = `${config.url}/auth/v1`;
   const restUrl = `${config.url}/rest/v1`;
+  const sessionIdleTimeoutMs = Math.max(Number(config.sessionIdleTimeoutMinutes) || 30, 5) * 60 * 1000;
+  const sessionMaxLifetimeMs = Math.max(Number(config.sessionMaxLifetimeHours) || 8, 1) * 60 * 60 * 1000;
+  const sessionStartedField = 'trackside_started_at';
+  const sessionActivityField = 'trackside_last_activity_at';
+  let sessionExpiryTimer = null;
+  let lastActivityWrite = 0;
+  let expiringSession = null;
 
   const readSession = () => {
     try {
@@ -17,7 +24,75 @@
   const writeSession = session => {
     if (session) localStorage.setItem(sessionKey, JSON.stringify(session));
     else localStorage.removeItem(sessionKey);
+    scheduleSessionExpiry(session);
   };
+
+  const withSessionMetadata = (session, previous = null, markActive = false) => {
+    const now = Date.now();
+    return {
+      ...session,
+      [sessionStartedField]: Number(previous?.[sessionStartedField]) || now,
+      [sessionActivityField]: markActive
+        ? now
+        : Number(previous?.[sessionActivityField]) || now
+    };
+  };
+
+  const sessionExpiration = (session, now = Date.now()) => {
+    const startedAt = Number(session?.[sessionStartedField]) || now;
+    const lastActivityAt = Number(session?.[sessionActivityField]) || startedAt;
+    const maximumAt = startedAt + sessionMaxLifetimeMs;
+    const inactivityAt = lastActivityAt + sessionIdleTimeoutMs;
+    const expiresAt = Math.min(maximumAt, inactivityAt);
+    return {
+      expired: now >= expiresAt,
+      expiresAt,
+      reason: maximumAt <= inactivityAt ? 'maximum_lifetime' : 'inactivity'
+    };
+  };
+
+  function scheduleSessionExpiry(session) {
+    if (sessionExpiryTimer) clearTimeout(sessionExpiryTimer);
+    sessionExpiryTimer = null;
+    if (!session?.access_token) return;
+    const expiration = sessionExpiration(session);
+    const delay = Math.max(0, expiration.expiresAt - Date.now());
+    sessionExpiryTimer = setTimeout(() => {
+      const current = readSession();
+      if (!current?.access_token) return;
+      const currentExpiration = sessionExpiration(current);
+      if (currentExpiration.expired) void expireSession(current, currentExpiration.reason);
+      else scheduleSessionExpiry(current);
+    }, Math.min(delay + 50, 2147483647));
+  }
+
+  async function expireSession(session, reason) {
+    if (expiringSession) return expiringSession;
+    expiringSession = (async () => {
+      try {
+        if (session?.access_token) {
+          await request(`${authUrl}/logout`, {
+            method: 'POST',
+            headers: {
+              apikey: config.publishableKey,
+              Authorization: `Bearer ${session.access_token}`
+            }
+          });
+        }
+      } catch {
+        // Local expiry still takes effect if the network is unavailable.
+      } finally {
+        writeSession(null);
+        if (typeof window.dispatchEvent === 'function' && typeof window.CustomEvent === 'function') {
+          window.dispatchEvent(new window.CustomEvent('trackside:session-expired', {
+            detail: { reason }
+          }));
+        }
+      }
+    })();
+    try { await expiringSession; }
+    finally { expiringSession = null; }
+  }
 
   async function request(url, options = {}) {
     const response = await fetch(url, options);
@@ -44,13 +119,23 @@
       },
       body: JSON.stringify({ refresh_token: session.refresh_token })
     });
-    writeSession(refreshed);
-    return refreshed;
+    const refreshedWithMetadata = withSessionMetadata(refreshed, session);
+    writeSession(refreshedWithMetadata);
+    return refreshedWithMetadata;
   }
 
   async function getSession() {
     let session = readSession();
     if (!session?.access_token) return null;
+    if (!session[sessionStartedField] || !session[sessionActivityField]) {
+      session = withSessionMetadata(session, session);
+      writeSession(session);
+    }
+    const expiration = sessionExpiration(session);
+    if (expiration.expired) {
+      await expireSession(session, expiration.reason);
+      return null;
+    }
     const expiresAt = Number(session.expires_at || 0);
     if (expiresAt && expiresAt <= Math.floor(Date.now() / 1000) + 60) {
       try { session = await refreshSession(session); }
@@ -68,8 +153,26 @@
       },
       body: JSON.stringify({ email, password })
     });
+    const sessionWithMetadata = withSessionMetadata(session, null, true);
+    writeSession(sessionWithMetadata);
+    return sessionWithMetadata;
+  }
+
+  function recordActivity() {
+    const session = readSession();
+    if (!session?.access_token) return false;
+    const expiration = sessionExpiration(session);
+    if (expiration.expired) {
+      void expireSession(session, expiration.reason);
+      return false;
+    }
+    const now = Date.now();
+    if (now - lastActivityWrite < 15000) return true;
+    lastActivityWrite = now;
+    session[sessionActivityField] = now;
+    if (!session[sessionStartedField]) session[sessionStartedField] = now;
     writeSession(session);
-    return session;
+    return true;
   }
 
   async function signOut() {
@@ -130,6 +233,9 @@
     copy: row.description || '',
     sourceUrl: row.source_url || '',
     sourceStatus: row.source_status || '',
+    metadata: row.metadata || {},
+    lastVerifiedAt: row.metadata?.last_verified_at || row.updated_at || '',
+    updatedAt: row.updated_at || '',
     events: row.events || [],
     sortOrder: Number(row.sort_order) || 0
   });
@@ -155,6 +261,7 @@
     source_status: project.sourceStatus || null,
     color: project.color || null,
     metadata: {
+      ...(project.metadata || {}),
       program: project.program || null,
       delivery: project.delivery || null,
       source_copy: project.sourceCopy || null,
@@ -203,6 +310,29 @@
     return rows || [];
   }
 
+  async function listAllRows(path, pageSize = 500) {
+    const safePageSize = Math.min(Math.max(Number(pageSize) || 500, 1), 1000);
+    const rows = [];
+    for (let offset = 0; ; offset += safePageSize) {
+      const separator = path.includes('?') ? '&' : '?';
+      const batch = await dataRequest(
+        `${path}${separator}limit=${safePageSize}&offset=${offset}`,
+        {},
+        true
+      );
+      const page = Array.isArray(batch) ? batch : [];
+      rows.push(...page);
+      if (page.length < safePageSize) break;
+    }
+    return rows;
+  }
+
+  async function listAllProjectHistory() {
+    return listAllRows(
+      'project_change_history?select=id,project_id,action,changed_by,changed_at,changed_fields,before_data,after_data,change_reason&order=changed_at.desc'
+    );
+  }
+
   async function reverseProjectChange(historyId) {
     return dataRequest('rpc/reverse_project_change', {
       method: 'POST',
@@ -221,11 +351,17 @@
       ? `&status=eq.${encodeURIComponent(status)}`
       : '';
     const rows = await dataRequest(
-      `project_change_proposals?select=id,project_id,status,source_title,source_url,source_publisher,source_published_at,source_excerpt,analysis_summary,proposed_patch,changed_fields,confidence,baseline_updated_at,suggested_by,detected_at,reviewed_by,reviewed_at,review_note&order=detected_at.desc&limit=${safeLimit}${statusFilter}`,
+      `project_change_proposals?select=id,project_id,status,source_title,source_url,source_publisher,source_published_at,source_excerpt,analysis_summary,proposed_patch,changed_fields,confidence,baseline_updated_at,suggested_by,detected_at,reviewed_by,reviewed_at,review_note,approved_fields,rejected_fields&order=detected_at.desc&limit=${safeLimit}${statusFilter}`,
       {},
       true
     );
     return rows || [];
+  }
+
+  async function listAllChangeProposals() {
+    return listAllRows(
+      'project_change_proposals?select=id,project_id,status,source_title,source_url,source_publisher,source_published_at,source_excerpt,analysis_summary,proposed_patch,changed_fields,confidence,baseline_updated_at,suggested_by,detected_at,reviewed_by,reviewed_at,review_note,approved_fields,rejected_fields&order=detected_at.desc'
+    );
   }
 
   async function getMonitoringDashboard() {
@@ -272,6 +408,49 @@
     }, true);
   }
 
+  async function reviewChangeProposalFields(proposalId, approvedFields, rejectedFields, note = '') {
+    return dataRequest('rpc/review_project_change_proposal_fields', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        p_proposal_id: Number(proposalId),
+        p_approved_fields: approvedFields || [],
+        p_rejected_fields: rejectedFields || [],
+        p_note: note || null
+      })
+    }, true);
+  }
+
+  async function reviewChangeProposalsBulk(proposalIds, note = '') {
+    return dataRequest('rpc/review_project_change_proposals_bulk', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        p_proposal_ids: (proposalIds || []).map(Number),
+        p_note: note || null
+      })
+    }, true);
+  }
+
+  async function submitProjectInformationReport(projectId, category, details, sourceUrl = '') {
+    return dataRequest('rpc/submit_project_information_report', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        p_project_id: projectId,
+        p_category: category,
+        p_details: details,
+        p_source_url: sourceUrl || null
+      })
+    });
+  }
+
   async function listSavedIds() {
     const session = await getSession();
     const userId = session?.user?.id;
@@ -301,21 +480,40 @@
     }
   }
 
+  const storedSession = readSession();
+  if (storedSession?.access_token) {
+    if (!storedSession[sessionStartedField] || !storedSession[sessionActivityField]) {
+      writeSession(withSessionMetadata(storedSession, storedSession));
+    } else {
+      scheduleSessionExpiry(storedSession);
+    }
+  }
+
   window.tracksideSupabase = Object.freeze({
     enabled: Boolean(config.syncEnabled),
     getSession,
     signIn,
     signOut,
+    recordActivity,
+    sessionPolicy: Object.freeze({
+      idleTimeoutMinutes: sessionIdleTimeoutMs / 60000,
+      maximumLifetimeHours: sessionMaxLifetimeMs / 3600000
+    }),
     isAdmin,
     listProjects,
     upsertProject,
     deleteProject,
     listProjectHistory,
+    listAllProjectHistory,
     reverseProjectChange,
     listChangeProposals,
+    listAllChangeProposals,
     getMonitoringDashboard,
     requestProjectCheck,
     reviewChangeProposal,
+    reviewChangeProposalFields,
+    reviewChangeProposalsBulk,
+    submitProjectInformationReport,
     listSavedIds,
     setSaved
   });
