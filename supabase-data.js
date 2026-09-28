@@ -5,6 +5,17 @@
   const sessionKey = 'trackside-supabase-session-v1';
   const authUrl = `${config.url}/auth/v1`;
   const restUrl = `${config.url}/rest/v1`;
+  const projectStatusColors = Object.freeze({
+    Planning: '#7b61c7',
+    Construction: '#f4a261',
+    Complete: '#3d9bd1'
+  });
+  const normalizeProjectStatus = value => {
+    const status = String(value || '').trim().toLowerCase();
+    if (status.includes('construct') || status === 'active') return 'Construction';
+    if (status.includes('complete') || status === 'open' || status === 'built') return 'Complete';
+    return 'Planning';
+  };
   const sessionIdleTimeoutMs = Math.max(Number(config.sessionIdleTimeoutMinutes) || 30, 5) * 60 * 1000;
   const sessionMaxLifetimeMs = Math.max(Number(config.sessionMaxLifetimeHours) || 8, 1) * 60 * 60 * 1000;
   const sessionStartedField = 'trackside_started_at';
@@ -216,7 +227,7 @@
     name: row.name,
     area: row.area || 'REGIONAL DEVELOPMENT',
     location: row.location || 'MARTA service area',
-    status: row.status,
+    status: normalizeProjectStatus(row.status || row.source_status),
     projectType: row.project_type,
     subtypes: row.subtypes || [],
     dri: row.dri || '',
@@ -228,7 +239,7 @@
     lat: Number(row.latitude),
     lng: Number(row.longitude),
     parcels: row.parcels || [],
-    color: row.color || { Planning: '#7b61c7', Construction: '#f4a261', Complete: '#3d9bd1' }[row.status],
+    color: projectStatusColors[normalizeProjectStatus(row.status || row.source_status)],
     sourceCopy: row.metadata?.source_copy || row.description || '',
     copy: row.description || '',
     sourceUrl: row.source_url || '',
@@ -245,7 +256,7 @@
     name: project.name,
     area: project.area || null,
     location: project.location || null,
-    status: project.status || 'Planning',
+    status: normalizeProjectStatus(project.status || project.sourceStatus),
     project_type: project.projectType || 'Commercial',
     subtypes: project.subtypes || [],
     dri: String(project.dri || '').trim() || null,
@@ -259,7 +270,7 @@
     description: project.copy || project.sourceCopy || null,
     source_url: project.sourceUrl || null,
     source_status: project.sourceStatus || null,
-    color: project.color || null,
+    color: projectStatusColors[normalizeProjectStatus(project.status || project.sourceStatus)],
     metadata: {
       ...(project.metadata || {}),
       program: project.program || null,
