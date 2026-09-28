@@ -374,6 +374,19 @@
     }, true);
   }
 
+  async function getProjectDataHealth(staleAfterDays = 30) {
+    const safeDays = Math.min(Math.max(Number(staleAfterDays) || 30, 1), 365);
+    return dataRequest('rpc/get_project_data_health', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        p_stale_after_days: safeDays
+      })
+    }, true);
+  }
+
   async function requestProjectCheck(projectId) {
     const session = await getSession();
     const userId = session?.user?.id;
@@ -451,6 +464,59 @@
     });
   }
 
+  async function submitPublicProjectSubmission(submission) {
+    return dataRequest('rpc/submit_public_project_submission', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        p_submission_type: submission.submissionType,
+        p_project_id: submission.projectId || null,
+        p_project_name: submission.projectName || null,
+        p_category: submission.category || null,
+        p_corrected_value: submission.correctedValue || null,
+        p_details: submission.details,
+        p_source_url: submission.sourceUrl,
+        p_website: submission.website || null
+      })
+    });
+  }
+
+  async function getProjectSubmissionStatus(trackingCode) {
+    return dataRequest('rpc/get_project_submission_status', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ p_tracking_code: trackingCode })
+    });
+  }
+
+  async function listProjectSubmissions(status = 'pending') {
+    return dataRequest('rpc/admin_list_project_submissions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ p_status: status })
+    }, true);
+  }
+
+  async function reviewProjectSubmission(reportId, status, resolutionNote = '') {
+    return dataRequest('rpc/admin_review_project_submission', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        p_report_id: Number(reportId),
+        p_status: status,
+        p_resolution_note: resolutionNote || null
+      })
+    }, true);
+  }
+
   async function listSavedIds() {
     const session = await getSession();
     const userId = session?.user?.id;
@@ -509,11 +575,16 @@
     listChangeProposals,
     listAllChangeProposals,
     getMonitoringDashboard,
+    getProjectDataHealth,
     requestProjectCheck,
     reviewChangeProposal,
     reviewChangeProposalFields,
     reviewChangeProposalsBulk,
     submitProjectInformationReport,
+    submitPublicProjectSubmission,
+    getProjectSubmissionStatus,
+    listProjectSubmissions,
+    reviewProjectSubmission,
     listSavedIds,
     setSaved
   });
