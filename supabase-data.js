@@ -5,6 +5,7 @@
   const sessionKey = 'trackside-supabase-session-v1';
   const authUrl = `${config.url}/auth/v1`;
   const restUrl = `${config.url}/rest/v1`;
+  const functionsUrl = `${config.url}/functions/v1`;
   const projectStatusColors = Object.freeze({
     Planning: '#7b61c7',
     Construction: '#f4a261',
@@ -169,6 +170,62 @@
     return sessionWithMetadata;
   }
 
+  const decodeJwtPayload = token => {
+    try {
+      const encoded = String(token || '').split('.')[1];
+      if (!encoded) return {};
+      const normalized = encoded.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+      return JSON.parse(atob(padded));
+    } catch {
+      return {};
+    }
+  };
+
+  async function consumeAuthRedirect() {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const query = new URLSearchParams(window.location.search);
+    const error = hash.get('error_description') || query.get('error_description');
+    if (error) {
+      window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+      return { error, type: hash.get('type') || query.get('type') || '' };
+    }
+    const accessToken = hash.get('access_token');
+    if (!accessToken) return null;
+    const payload = decodeJwtPayload(accessToken);
+    const expiresIn = Number(hash.get('expires_in')) || 3600;
+    const session = withSessionMetadata({
+      access_token: accessToken,
+      refresh_token: hash.get('refresh_token') || '',
+      expires_in: expiresIn,
+      expires_at: Number(hash.get('expires_at')) || Math.floor(Date.now() / 1000) + expiresIn,
+      token_type: hash.get('token_type') || 'bearer',
+      user: {
+        id: payload.sub || '',
+        email: payload.email || ''
+      }
+    }, null, true);
+    writeSession(session);
+    const callbackType = hash.get('type') || '';
+    window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+    return { session, type: callbackType };
+  }
+
+  async function updatePassword(password) {
+    const session = await getSession();
+    if (!session?.access_token) throw new Error('The invitation session expired. Ask the owner to send a new invitation.');
+    await request(`${authUrl}/user`, {
+      method: 'PUT',
+      headers: {
+        apikey: config.publishableKey,
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ password })
+    });
+    return getSession();
+  }
+
   function recordActivity() {
     const session = readSession();
     if (!session?.access_token) return false;
@@ -214,12 +271,42 @@
     return request(`${restUrl}/${path}`, { ...options, headers });
   }
 
-  async function isAdmin() {
+  async function getAdminMembership() {
     const session = await getSession();
     const userId = session?.user?.id;
-    if (!userId) return false;
-    const rows = await dataRequest(`admin_users?select=user_id&user_id=eq.${encodeURIComponent(userId)}`, {}, true);
-    return Array.isArray(rows) && rows.length === 1;
+    if (!userId) return null;
+    const rows = await dataRequest(`admin_users?select=user_id,role,created_at,invited_at&user_id=eq.${encodeURIComponent(userId)}`, {}, true);
+    return Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+  }
+
+  async function isAdmin() {
+    return Boolean(await getAdminMembership());
+  }
+
+  async function teamAccessRequest(action, values = {}) {
+    const session = await getSession();
+    if (!session?.access_token) throw new Error('Owner sign-in is required.');
+    return request(`${functionsUrl}/manage-tracker-admins`, {
+      method: 'POST',
+      headers: {
+        apikey: config.publishableKey,
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ action, ...values })
+    });
+  }
+
+  function listAdminTeam() {
+    return teamAccessRequest('list');
+  }
+
+  function inviteAdmin(email) {
+    return teamAccessRequest('invite', { email });
+  }
+
+  function revokeAdmin(userId) {
+    return teamAccessRequest('revoke', { userId });
   }
 
   const fromRow = row => ({
@@ -579,12 +666,18 @@
     getSession,
     signIn,
     signOut,
+    consumeAuthRedirect,
+    updatePassword,
     recordActivity,
     sessionPolicy: Object.freeze({
       idleTimeoutMinutes: sessionIdleTimeoutMs / 60000,
       maximumLifetimeHours: sessionMaxLifetimeMs / 3600000
     }),
     isAdmin,
+    getAdminMembership,
+    listAdminTeam,
+    inviteAdmin,
+    revokeAdmin,
     listProjects,
     upsertProject,
     deleteProject,
