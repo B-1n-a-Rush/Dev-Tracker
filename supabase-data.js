@@ -116,7 +116,10 @@
     }
     if (!response.ok) {
       const message = body?.message || body?.msg || body?.error_description || body?.error || `Request failed (${response.status})`;
-      throw new Error(message);
+      const error = new Error(message);
+      error.status = response.status;
+      error.code = body?.code || null;
+      throw error;
     }
     return body;
   }
@@ -268,7 +271,22 @@
       ...options.headers
     };
     if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-    return request(`${restUrl}/${path}`, { ...options, headers });
+    try {
+      return await request(`${restUrl}/${path}`, { ...options, headers });
+    } catch (error) {
+      const authorizationEnded = requireAuth && (
+        error?.status === 401 ||
+        (error?.status === 403 && (
+          error?.code === '42501' ||
+          /row-level security|permission denied/i.test(String(error?.message || ''))
+        ))
+      );
+      if (!authorizationEnded) throw error;
+      await expireSession(session, 'server_session_ended');
+      const sessionError = new Error('This browser’s admin session is no longer active. Sign in again, then save your changes.');
+      sessionError.code = 'admin_session_inactive';
+      throw sessionError;
+    }
   }
 
   async function getAdminMembership() {
@@ -409,7 +427,7 @@
       ? `&project_id=eq.${encodeURIComponent(projectId)}`
       : '';
     const rows = await dataRequest(
-      `project_change_history?select=id,project_id,action,changed_by,changed_at,changed_fields,before_data,after_data,change_reason&order=changed_at.desc&limit=${safeLimit}${projectFilter}`,
+      `project_change_history?select=id,project_id,action,changed_by,changed_by_email,changed_at,changed_fields,before_data,after_data,change_reason&order=changed_at.desc&limit=${safeLimit}${projectFilter}`,
       {},
       true
     );
@@ -435,7 +453,7 @@
 
   async function listAllProjectHistory() {
     return listAllRows(
-      'project_change_history?select=id,project_id,action,changed_by,changed_at,changed_fields,before_data,after_data,change_reason&order=changed_at.desc'
+      'project_change_history?select=id,project_id,action,changed_by,changed_by_email,changed_at,changed_fields,before_data,after_data,change_reason&order=changed_at.desc'
     );
   }
 
