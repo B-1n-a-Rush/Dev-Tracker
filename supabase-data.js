@@ -349,7 +349,7 @@
     lng: Number(row.longitude),
     parcels: row.parcels || [],
     color: projectStatusColors[normalizeProjectStatus(row.status || row.source_status)],
-    sourceCopy: typeof row.metadata?.source_copy === 'string' ? row.metadata.source_copy : (row.description || ''),
+    sourceCopy: row.description || '',
     copy: row.description || '',
     sourceUrl: row.source_url || '',
     sourceStatus: row.source_status || '',
@@ -376,7 +376,7 @@
     longitude: Number(project.lng),
     parcels: project.parcels || [],
     events: project.events || [],
-    description: project.copy || project.sourceCopy || null,
+    description: String(project.sourceCopy || '').trim() || null,
     source_url: project.sourceUrl || null,
     source_status: project.sourceStatus || null,
     color: projectStatusColors[normalizeProjectStatus(project.status || project.sourceStatus)],
@@ -384,7 +384,7 @@
       ...(project.metadata || {}),
       program: project.program || null,
       delivery: project.delivery || null,
-      source_copy: project.sourceCopy ?? null,
+      source_copy: undefined,
       hotel_units: Number(project.hotelUnits) || 0,
       retail_space_sq_ft: Number(project.retailSpaceSqFt) || 0,
       commercial_space_sq_ft: Number(project.commercialSpaceSqFt) || 0,
@@ -641,6 +641,56 @@
     }, true);
   }
 
+  async function listProjectNews(projectId, limit = 5) {
+    const safeLimit = Math.min(Math.max(Number(limit) || 5, 1), 20);
+    const rows = await dataRequest(
+      `project_news_articles?select=id,project_id,title,url,publisher,published_at,discovered_at,evidence_excerpt,match_confidence,review_status&project_id=eq.${encodeURIComponent(projectId)}&review_status=eq.approved&order=published_at.desc.nullslast,discovered_at.desc&limit=${safeLimit}`
+    );
+    return rows || [];
+  }
+
+  async function listApprovedNews(limit = 40) {
+    const safeLimit = Math.min(Math.max(Number(limit) || 40, 1), 100);
+    const rows = await dataRequest(
+      `project_news_articles?select=id,project_id,title,url,publisher,published_at,discovered_at,evidence_excerpt,match_confidence,review_status&review_status=eq.approved&order=published_at.desc.nullslast,discovered_at.desc&limit=${safeLimit}`
+    );
+    return rows || [];
+  }
+
+  async function getProjectNewsStatus(projectId) {
+    const rows = await dataRequest(
+      `project_news_monitoring_status?select=project_id,last_checked_at&project_id=eq.${encodeURIComponent(projectId)}&limit=1`
+    );
+    return Array.isArray(rows) && rows.length ? rows[0] : null;
+  }
+
+  async function listNewsReviewQueue(status = 'pending', limit = 60) {
+    const safeLimit = Math.min(Math.max(Number(limit) || 60, 1), 100);
+    const statusFilter = status && status !== 'all'
+      ? `&review_status=eq.${encodeURIComponent(status)}`
+      : '';
+    const rows = await dataRequest(
+      `project_news_articles?select=id,project_id,title,url,publisher,published_at,discovered_at,source_query,evidence_excerpt,match_confidence,review_status,reviewed_at,review_note&order=discovered_at.desc&limit=${safeLimit}${statusFilter}`,
+      {},
+      true
+    );
+    return rows || [];
+  }
+
+  async function reviewProjectNewsArticle(articleId, decision, note = '') {
+    return dataRequest('rpc/review_project_news_article', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        p_article_id: Number(articleId),
+        p_decision: decision,
+        p_note: note || null
+      })
+    }, true);
+  }
+
   async function listSavedIds() {
     const session = await getSession();
     const userId = session?.user?.id;
@@ -715,6 +765,11 @@
     getProjectSubmissionStatus,
     listProjectSubmissions,
     reviewProjectSubmission,
+    listProjectNews,
+    listApprovedNews,
+    getProjectNewsStatus,
+    listNewsReviewQueue,
+    reviewProjectNewsArticle,
     listSavedIds,
     setSaved
   });
