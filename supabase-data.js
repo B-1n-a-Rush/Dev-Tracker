@@ -402,6 +402,69 @@
     return (rows || []).map(fromRow);
   }
 
+  async function listTransitRoutes() {
+    return dataRequest(
+      'transit_routes?select=id,slug,name,mode,color,dash_array,geometry,miles,source_filename,sort_order,is_published,created_at,updated_at&order=sort_order.asc,name.asc'
+    );
+  }
+
+  async function upsertTransitRoute(route) {
+    const rows = await dataRequest('transit_routes?on_conflict=slug', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=representation'
+      },
+      body: JSON.stringify({
+        slug: route.slug,
+        name: route.name,
+        mode: route.mode,
+        color: route.color,
+        dash_array: route.dashArray || '10 7',
+        geometry: route.geometry,
+        miles: Number(route.miles),
+        source_filename: route.sourceFilename || null,
+        sort_order: Number(route.sortOrder) || 0,
+        is_published: route.isPublished !== false,
+        updated_at: new Date().toISOString()
+      })
+    }, true);
+    return Array.isArray(rows) ? rows[0] : rows;
+  }
+
+  async function updateTransitRoute(id, route) {
+    const rows = await dataRequest(`transit_routes?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation'
+      },
+      body: JSON.stringify({
+        slug: route.slug,
+        name: route.name,
+        mode: route.mode,
+        color: route.color,
+        dash_array: route.dashArray || '10 7',
+        geometry: route.geometry,
+        miles: Number(route.miles),
+        source_filename: route.sourceFilename || null,
+        is_published: route.isPublished !== false,
+        updated_at: new Date().toISOString()
+      })
+    }, true);
+    if (!Array.isArray(rows) || rows.length !== 1) {
+      throw new Error('Route was not updated. Refresh and check your admin access.');
+    }
+    return rows[0];
+  }
+
+  async function deleteTransitRoute(id) {
+    await dataRequest(`transit_routes?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' }
+    }, true);
+  }
+
   async function upsertProject(project, sortOrder) {
     const rows = await dataRequest('projects?on_conflict=id', {
       method: 'POST',
@@ -747,6 +810,10 @@
     inviteAdmin,
     revokeAdmin,
     listProjects,
+    listTransitRoutes,
+    upsertTransitRoute,
+    updateTransitRoute,
+    deleteTransitRoute,
     upsertProject,
     deleteProject,
     listProjectHistory,
