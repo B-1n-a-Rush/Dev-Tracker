@@ -343,7 +343,10 @@
     commercialSpaceSqFt: Number(row.metadata?.commercial_space_sq_ft) || 0,
     medicalSpaceSqFt: Number(row.metadata?.medical_space_sq_ft) || 0,
     delivery: row.metadata?.delivery || 'Not provided',
-    transit: row.transit || 'Not specified',
+    transit: row.transit || '',
+    transitRouteOverrides: Array.isArray(row.transit_route_overrides)
+      ? row.transit_route_overrides.slice(0, 2)
+      : null,
     investment: row.investment || 'Not disclosed',
     lat: Number(row.latitude),
     lng: Number(row.longitude),
@@ -371,6 +374,9 @@
     dri: String(project.dri || '').trim() || null,
     residential_units: Number(project.residentialUnits) || 0,
     transit: project.transit || null,
+    transit_route_overrides: Array.isArray(project.transitRouteOverrides)
+      ? project.transitRouteOverrides.slice(0, 2)
+      : null,
     investment: project.investment || null,
     latitude: Number(project.lat),
     longitude: Number(project.lng),
@@ -841,3 +847,4 @@
     setSaved
   });
 })();
+
