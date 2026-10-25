@@ -1,0 +1,32 @@
+/* Printable raster tiles + projected vectors; no screenshot/canvas or CORS-dependent export. */
+(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.TracksideBriefingMap=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
+'use strict';
+function parts(g){if(!g)return [];if(g.type==='GeometryCollection')return (g.geometries||[]).flatMap(parts);if(g.type==='Point')return [[g.coordinates]];if(['MultiPoint','LineString'].includes(g.type))return g.type==='MultiPoint'?g.coordinates.map(p=>[p]):[g.coordinates];if(['Polygon','MultiLineString'].includes(g.type))return g.coordinates;if(g.type==='MultiPolygon')return g.coordinates.flat();return [];}
+const valid=p=>Array.isArray(p)&&p.length>=2&&p.slice(0,2).every(Number.isFinite)&&Math.abs(p[0])<=180&&Math.abs(p[1])<=85.05112878;
+function world(p,z){const size=256*2**z,lat=p[1]*Math.PI/180;return [(p[0]+180)/360*size,(1-Math.asinh(Math.tan(lat))/Math.PI)/2*size];}
+function plan(geometries,width=1000,height=400){
+ const points=geometries.flatMap(parts).flat().filter(valid);if(!points.length)return null;
+ let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;for(const p of points){const [x,y]=world(p,0);x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}
+ const zoom=Math.max(0,Math.min(17,Math.floor(Math.log2(Math.min((width-80)/Math.max(x1-x0,.000001),(height-80)/Math.max(y1-y0,.000001)))))),factor=2**zoom;
+ const left=(x0+x1)/2*factor-width/2,top=(y0+y1)/2*factor-height/2,count=2**zoom,tiles=[];
+ for(let y=Math.floor(top/256);y<=Math.floor((top+height-1)/256);y++)for(let x=Math.floor(left/256);x<=Math.floor((left+width-1)/256);x++)if(y>=0&&y<count)tiles.push({x:((x%count)+count)%count,y,z:zoom,left:x*256-left,top:y*256-top});
+ return {width,height,zoom,tiles,project:p=>{const v=world(p,zoom);return [v[0]-left,v[1]-top];}};
+}
+function create(opts){
+ const doc=opts.document||document,N=(tag,cls,text)=>{const e=doc.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;};
+ // Frame the alignment, since a nearby agency record may contain citywide geometry.
+ const rows=opts.rows||[],model=plan([opts.route.geometry])||plan(rows.map(i=>i.row.geometry)),figure=N('figure','coord-briefing-map'),frame=N('div','coord-briefing-map-frame'),status=N('p','land-note');status.setAttribute('role','status');figure.append(frame,status);
+ const credit=N('figcaption','coord-map-credit');credit.append(N('span','','© OpenStreetMap contributors · '));for(const [label,href]of [['openstreetmap.org/copyright','https://www.openstreetmap.org/copyright'],['© CARTO · carto.com/attribution','https://carto.com/attribution/']]){const a=N('a','',label);a.href=href;a.target='_blank';a.rel='noopener noreferrer';credit.append(a,N('span','',' '));}credit.append(N('span','','OpenStreetMap data under ODbL.'));figure.append(credit);
+ let canceled=false,generation=0,jobs=[];const images=[];
+ if(!model){status.textContent='No usable geometry is available for the briefing map.';return {element:figure,ready:Promise.resolve({loaded:0,total:0,failed:0}),retry:()=>Promise.resolve({loaded:0,total:0,failed:0}),cancel(){}};}
+ frame.style.aspectRatio=model.width+' / '+model.height;frame.setAttribute('role','img');frame.setAttribute('aria-label','Street basemap with the selected MARTA route and filtered infrastructure projects');
+ for(const tile of model.tiles){const img=N('img','coord-map-tile');img.alt='';img.loading='eager';img.decoding='async';img.draggable=false;img.style.left=tile.left/model.width*100+'%';img.style.top=tile.top/model.height*100+'%';img.style.width=256/model.width*100+'%';img.style.height=256/model.height*100+'%';const url=opts.tileUrl.replace('{z}',tile.z).replace('{x}',tile.x).replace('{y}',tile.y);if(!/^https?:\/\//i.test(url))throw Error('The basemap tile address is invalid.');images.push({img,url});frame.append(img);}
+ const svg=doc.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 '+model.width+' '+model.height);svg.setAttribute('aria-hidden','true');frame.append(svg);
+ function draw(g,color,width,route=false){for(const line of parts(g)){const coords=line.filter(valid);if(!coords.length)continue;const e=doc.createElementNS('http://www.w3.org/2000/svg',coords.length===1?'circle':'path');if(coords.length===1){const p=model.project(coords[0]);e.setAttribute('cx',p[0]);e.setAttribute('cy',p[1]);e.setAttribute('r',route?'5':'4');e.setAttribute('fill',color);e.setAttribute('stroke','#fff');e.setAttribute('stroke-width','1.5');}else{e.setAttribute('d',coords.map((p,i)=>(i?'L':'M')+model.project(p).join(',')).join(' '));e.setAttribute('fill','none');e.setAttribute('stroke',color);e.setAttribute('stroke-width',width);e.setAttribute('stroke-linecap','round');e.setAttribute('stroke-linejoin','round');if(route&&opts.route.kind==='rapid')e.setAttribute('stroke-dasharray',opts.route.dashArray||'10 7');}svg.append(e);}}
+ for(const item of rows)draw(item.row.geometry,item.state==='overlap'?'#b85d35':'#718d76','3');const color=/^#[0-9a-f]{6}$/i.test(opts.route.color)?opts.route.color:'#136647';draw(opts.route.geometry,'#fff','7');draw(opts.route.geometry,color,'4',true);
+ function load(img,url){return new Promise(resolve=>{let done=false;const finish=ok=>{if(done)return;done=true;clearTimeout(timer);img.onload=img.onerror=null;resolve(ok);};const timer=setTimeout(()=>finish(false),12000);jobs.push(()=>finish(false));img.onload=()=>finish(true);img.onerror=()=>finish(false);img.src=url;if(img.complete&&img.naturalWidth>0)finish(true);});}
+ async function retry(){const token=++generation;for(const cancel of jobs)cancel();jobs=[];status.textContent='Loading the street basemap before printing…';const results=await Promise.all(images.map(({img,url})=>(opts.loadImage||load)(img,url)));const loaded=results.filter(Boolean).length,failed=results.length-loaded;if(!canceled&&token===generation){status.textContent=failed?failed+' of '+results.length+' basemap tiles could not load. Retry the map before printing; the route and project overlays are still shown.':'Street basemap loaded. Route and filtered infrastructure shown.';status.className=failed?'land-note land-banner':'land-note';}return {loaded,total:results.length,failed};}
+ return {element:figure,ready:retry(),retry,cancel(){canceled=true;generation++;for(const cancel of jobs)cancel();jobs=[];}};
+}
+return {parts,world,plan,create};
+});

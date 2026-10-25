@@ -31,4 +31,3 @@ revoke all on function private.prevent_proposal_transit_overwrite()
   from public, anon, authenticated;
 
 commit;
-

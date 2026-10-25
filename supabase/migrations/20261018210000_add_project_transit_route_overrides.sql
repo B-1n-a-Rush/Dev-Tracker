@@ -20,4 +20,3 @@ comment on column public.projects.transit is
   'Compatibility display value for nearby high-capacity route names. Station proximity is stored separately in area and location.';
 
 commit;
-

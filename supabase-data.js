@@ -408,6 +408,43 @@
     return (rows || []).map(fromRow);
   }
 
+  async function listRouteSchedules() {
+    return dataRequest('route_construction_schedules?select=*&order=route_id.asc');
+  }
+  async function listRouteScheduleHistory(routeId, offset=0) {
+    if(!/^\d+$/.test(String(routeId))||!Number.isSafeInteger(Number(offset))||Number(offset)<0)throw new Error('Invalid schedule history request');
+    return dataRequest('route_schedule_history?select=*&route_id=eq.'+encodeURIComponent(routeId)+'&order=recorded_at.desc,id.desc&limit=30&offset='+Number(offset),{},true);
+  }
+  async function listCoordinationScheduleCheckpoints() {
+    const result=[];
+    for(let offset=0;offset<10000;offset+=500){const rows=await dataRequest('infrastructure_coordination_reviews?select=route_key,route_id,infrastructure_id,project_name,status,reviewed_schedule_version,updated_at&order=route_key.asc,infrastructure_id.asc&limit=500&offset='+offset,{},true);if(!Array.isArray(rows))throw new Error('Invalid coordination checkpoint response');result.push(...rows);if(rows.length<500)return result;}
+    throw new Error('Coordination queue exceeds the retrieval limit; its totals are unavailable.');
+  }
+  async function saveCoordinationRecord(table, record, baseline, keys) {
+    const suffix=keys.map(key=>encodeURIComponent(key)+'=eq.'+encodeURIComponent(record[key])).join('&');
+    const existing=Boolean(baseline?.updated_at);
+    const rows=await dataRequest(table+(existing?'?'+suffix+'&updated_at=eq.'+encodeURIComponent(baseline.updated_at):''),{
+      method:existing?'PATCH':'POST',
+      headers:{'Content-Type':'application/json',Prefer:'return=representation'},
+      body:JSON.stringify(record)
+    },true);
+    if(!Array.isArray(rows)||rows.length!==1)throw new Error('Another administrator changed this record. Refresh the watchlist before saving again.');
+    return rows[0];
+  }
+  async function saveRouteSchedule(record, baseline) {
+    const keys=['route_id','construction_start','start_label','construction_finish','finish_label','phase','source_url','source_title','source_published_at','checked_at','evidence','notes','additional_sources'];
+    const clean=Object.fromEntries(keys.filter(key=>record[key]!==undefined).map(key=>[key,record[key]]));
+    return saveCoordinationRecord('route_construction_schedules',clean,baseline,['route_id']);
+  }
+  async function listCoordinationReviews(routeKey) {
+    return dataRequest('infrastructure_coordination_reviews?select=*&route_key=eq.'+encodeURIComponent(routeKey)+'&order=updated_at.desc',{},true);
+  }
+  async function saveCoordinationReview(record, baseline) {
+    const keys=['route_key','route_id','infrastructure_id','project_name','source_url','status','assigned_to','contact','next_action','due_date','notes','reviewed_schedule_version'];
+    const clean=Object.fromEntries(keys.filter(key=>record[key]!==undefined).map(key=>[key,record[key]]));
+    return saveCoordinationRecord('infrastructure_coordination_reviews',clean,baseline,['route_key','infrastructure_id']);
+  }
+
   async function listTransitRoutes() {
     return dataRequest(
       'transit_routes?select=id,slug,name,mode,color,dash_array,geometry,miles,source_filename,sort_order,is_published,created_at,updated_at&order=sort_order.asc,name.asc'
@@ -817,6 +854,12 @@
     revokeAdmin,
     listProjects,
     listTransitRoutes,
+    listRouteSchedules,
+    listRouteScheduleHistory,
+    listCoordinationScheduleCheckpoints,
+    saveRouteSchedule,
+    listCoordinationReviews,
+    saveCoordinationReview,
     upsertTransitRoute,
     updateTransitRoute,
     deleteTransitRoute,
@@ -847,4 +890,3 @@
     setSaved
   });
 })();
-

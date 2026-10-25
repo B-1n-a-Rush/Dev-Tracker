@@ -110,4 +110,3 @@ drop function private.migration_route_distance_meters(
 );
 
 commit;
-

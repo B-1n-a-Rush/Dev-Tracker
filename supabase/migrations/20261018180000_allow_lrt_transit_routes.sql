@@ -8,4 +8,3 @@ alter table public.transit_routes
   check (mode in ('BRT', 'ART', 'LRT'));
 
 commit;
-

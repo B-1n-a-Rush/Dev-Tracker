@@ -10,6 +10,7 @@ Supabase project: `Dev-Tracker` (`jhscjyxufwvoslzxrwwq`)
 - Project creation, editing, and deletion require an authenticated user listed in `admin_users`.
 - Saved projects are private to the signed-in user.
 - The browser configuration uses only the public publishable key. No secret or `service_role` key is stored in this repository.
+- Project station context remains in `area`/`location`; nearby BRT, ART, and LRT access is calculated from route geometry within one-half mile. `transit_route_overrides` is null for automatic matching and stores no more than two administrator-selected route names when a manual exception is necessary.
 - The 138 browser-local projects have been migrated, including local edits, DRI numbers, parcel geometry, timelines, and separate home/residential-unit totals.
 - `outputs/supabase-config.js` has `syncEnabled: true`; Supabase is now the canonical project source with a browser-local fallback if the API is temporarily unavailable.
 - The owner's Supabase Auth account is created and allow-listed in `public.admin_users`.
