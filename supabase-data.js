@@ -440,9 +440,35 @@
     return dataRequest('infrastructure_coordination_reviews?select=*&route_key=eq.'+encodeURIComponent(routeKey)+'&order=updated_at.desc',{},true);
   }
   async function saveCoordinationReview(record, baseline) {
-    const keys=['route_key','route_id','infrastructure_id','project_name','source_url','status','assigned_to','contact','next_action','due_date','notes','reviewed_schedule_version'];
+    const keys=['route_key','route_id','infrastructure_id','project_name','source_url','status','assigned_to','contact','next_action','due_date','notes','reviewed_schedule_version','bus_decision','bus_concerns','bus_resolution','reviewed_match_fingerprint','reviewed_network_fingerprint','bus_match_snapshot'];
     const clean=Object.fromEntries(keys.filter(key=>record[key]!==undefined).map(key=>[key,record[key]]));
     return saveCoordinationRecord('infrastructure_coordination_reviews',clean,baseline,['route_key','infrastructure_id']);
+  }
+
+  async function listLocalBusNetworks() {
+    return dataRequest('local_bus_network_versions?select=fingerprint,network_key,map_name,source_filename,archive_sha256,imported_at,effective_date,verification_status,verification_note,counts,is_active,updated_at&order=imported_at.desc&limit=100');
+  }
+  async function getLocalBusNetwork(fingerprint) {
+    if(!/^[0-9a-f]{64}$/.test(fingerprint))throw new Error('Invalid network version.');
+    const rows=await dataRequest('local_bus_network_versions?select=*&fingerprint=eq.'+fingerprint);
+    if(rows?.length!==1)throw new Error('Network version is unavailable.');return rows[0];
+  }
+  async function importLocalBusNetwork(bundle,onProgress) {
+    const rpc=(name,body)=>dataRequest('rpc/'+name,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)},true);
+    const id=await rpc('begin_local_bus_upload',{p_fingerprint:bundle.fingerprint,p_archive_sha256:bundle.archive_sha256,p_source_filename:bundle.source_filename});
+    const payload=JSON.stringify(bundle.data),size=40000,total=Math.ceil(payload.length/size);
+    try{
+      for(let part=0;part<total;part++){await rpc('append_local_bus_upload',{p_upload_id:id,p_part:part,p_content:payload.slice(part*size,(part+1)*size)});onProgress?.(part+1,total);}
+      return await rpc('finish_local_bus_upload',{p_upload_id:id,p_parts:total});
+    }catch(error){try{await rpc('cancel_local_bus_upload',{p_upload_id:id});}catch{}throw error;}
+  }
+  async function updateLocalBusNetwork(record,baseline) {
+    const keys=['effective_date','verification_status','verification_note','mode_overrides'];
+    const rows=await dataRequest('local_bus_network_versions?fingerprint=eq.'+encodeURIComponent(record.fingerprint)+'&updated_at=eq.'+encodeURIComponent(baseline.updated_at),{method:'PATCH',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({...Object.fromEntries(keys.filter(k=>record[k]!==undefined).map(k=>[k,record[k]])),updated_at:new Date().toISOString()})},true);
+    if(rows?.length!==1)throw new Error('Network metadata changed. Reload before saving.');return rows[0];
+  }
+  async function syncLocalBusFindings(fingerprint,lineId,findings,complete=false) {
+    return dataRequest('rpc/sync_local_bus_findings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_network_fingerprint:fingerprint,p_line_id:lineId,p_findings:findings,p_complete:complete})},true);
   }
 
   async function listTransitRoutes() {
@@ -860,6 +886,11 @@
     saveRouteSchedule,
     listCoordinationReviews,
     saveCoordinationReview,
+    listLocalBusNetworks,
+    getLocalBusNetwork,
+    importLocalBusNetwork,
+    updateLocalBusNetwork,
+    syncLocalBusFindings,
     upsertTransitRoute,
     updateTransitRoute,
     deleteTransitRoute,
