@@ -446,7 +446,7 @@
   }
 
   async function listLocalBusNetworks() {
-    return dataRequest('local_bus_network_versions?select=fingerprint,network_key,map_name,source_filename,archive_sha256,imported_at,effective_date,verification_status,verification_note,counts,is_active,updated_at&order=imported_at.desc&limit=100');
+    return dataRequest('local_bus_network_versions?select=fingerprint,network_key,map_name,source_filename,archive_sha256,imported_at,effective_date,verification_status,verification_note,counts,is_active,updated_at,mode_overrides&order=imported_at.desc&limit=100');
   }
   async function getLocalBusNetwork(fingerprint) {
     if(!/^[0-9a-f]{64}$/.test(fingerprint))throw new Error('Invalid network version.');
