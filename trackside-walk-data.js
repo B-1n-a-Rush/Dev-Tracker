@@ -1,0 +1,19 @@
+/* Lazy saved pedestrian networks. Station changes never depend on a public routing API. */
+(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.TracksideWalkData=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
+'use strict';
+const county='https://services2.arcgis.com/IxVN2oUE9EYLSnPE/arcgis/rest/services/Sidewalk_Line/FeatureServer/83';
+function create({fetcher=globalThis.fetch,core=globalThis.TracksideWalkCore,now=()=>Date.now()}={}){
+ const cache=new Map(),inventoryCache=new Map(),inflight=new Map();let catalog=null,catalogPending=null;
+ async function json(url,{refresh=false}={}){const response=await fetcher(url,{signal:AbortSignal.timeout(25000),...(refresh?{cache:'reload'}:{})});if(!response.ok)throw Error('Source returned HTTP '+response.status);const data=await response.json();if(data.error||data.remark)throw Error(data.error?.message||data.remark);return data;}
+ function put(map,key,value,limit){map.delete(key);map.set(key,value);while(map.size>limit)map.delete(map.keys().next().value);return value;}
+ async function list(refresh=false){if(catalog&&!refresh)return catalog;if(catalogPending)return catalogPending;catalogPending=json('./walk-data/catalog.json',{refresh}).then(data=>{if(data.schema_version!==undefined&&data.schema_version!==1||!Array.isArray(data.snapshots))throw Error('Saved pedestrian catalog is invalid.');catalog=data;return data;}).finally(()=>{catalogPending=null;});return catalogPending;}
+ async function read(center,{refresh=false}={}){const index=await list(refresh),entry=index.snapshots.map(s=>({s,d:core.distance(center,s.center)})).filter(({s,d})=>d<=200&&s.radius_m>=1400).sort((a,b)=>a.d-b.d)[0]?.s;if(!entry)throw Error('Saved pedestrian data has not been prepared for this location. No live-service request or circular substitute was used.');
+  if(!/^walk-data\/[a-z0-9-]+\.json$/.test(entry.file))throw Error('Invalid saved pedestrian source path.');const key=entry.id+':'+entry.sha256;if(!refresh&&cache.has(key))return cache.get(key);const bundle=await json('./'+entry.file,{refresh});
+  if(bundle.schema_version!==1||bundle.data?.remark||!Array.isArray(bundle.data?.elements)||bundle.data.elements.length>200000||bundle.radius_m<1400||core.distance(bundle.center,entry.center)>1)throw Error('Invalid saved walking-network snapshot.');return put(cache,key,bundle,6);
+ }
+ function load(center,options={}){if(!core.valid(center))return Promise.reject(Error('Invalid analysis location.'));const key=center.join(',')+':'+Boolean(options.refresh);if(inflight.has(key))return inflight.get(key);const pending=read(center,options).finally(()=>inflight.delete(key));inflight.set(key,pending);return pending;}
+ async function sidewalks(center){if(center[0]<-84.351||center[0]>-84.027||center[1]<33.625||center[1]>33.972)return{features:[],outside:true,truncated:false};const key=center.map(v=>v.toFixed(4)).join(',');if(inventoryCache.has(key))return inventoryCache.get(key);const features=[];let truncated=false;for(let offset=0;offset<5000;offset+=1000){const j=await json(county+'/query?'+new URLSearchParams({f:'geojson',where:'1=1',outFields:'OBJECTID,PlanimetricType',geometry:center.join(','),geometryType:'esriGeometryPoint',inSR:'4326',distance:'1300',units:'esriSRUnit_Meter',spatialRel:'esriSpatialRelIntersects',outSR:'4326',orderByFields:'OBJECTID ASC',resultOffset:String(offset),resultRecordCount:'1000',returnGeometry:'true'}));if(!Array.isArray(j.features))throw Error('Sidewalk inventory did not return features.');features.push(...j.features);if(!j.exceededTransferLimit&&j.features.length<1000)break;if(offset===4000)truncated=true;}return put(inventoryCache,key,{features,truncated,outside:false,retrieved_at:new Date(now()).toISOString(),source_url:county},4);}
+ return{load,sidewalks,list,get cacheSize(){return cache.size;}};
+}
+return{create,county};
+});

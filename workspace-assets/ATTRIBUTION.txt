@@ -1,0 +1,1 @@
+Icons: Phosphor Icons core 2.1.1 (MIT). https://github.com/phosphor-icons/core

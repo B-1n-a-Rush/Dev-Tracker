@@ -1,0 +1,1599 @@
+{
+  "schema_version": 1,
+  "license": "ODbL 1.0",
+  "attribution": "© OpenStreetMap contributors",
+  "source_url": "https://www.openstreetmap.org/copyright",
+  "snapshots": [
+    {
+      "id": "north-avenue",
+      "name": "North Avenue",
+      "center": [
+        -84.3871,
+        33.7719
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/north-avenue.json",
+      "retrieved_at": "2026-10-28T21:42:00.762Z",
+      "sha256": "a5939b996cde336f79d43fc9a332a2834e646cc6aef877bbc9393ef899ab2b30"
+    },
+    {
+      "id": "chamblee",
+      "name": "Chamblee",
+      "center": [
+        -84.306,
+        33.887
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/chamblee.json",
+      "retrieved_at": "2026-10-28T21:42:04.467Z",
+      "sha256": "eb1f685f400c0f8299dc44165f77a50c20660133e17a7bd9c951ccada2236cb9"
+    },
+    {
+      "id": "oakland-city",
+      "name": "Oakland City",
+      "center": [
+        -84.4253,
+        33.717
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/oakland-city.json",
+      "retrieved_at": "2026-10-28T21:42:08.787Z",
+      "sha256": "8b95e587d5de5786386d920ad4e8d9a487e05faefcc36ffe53cee3c071067340"
+    },
+    {
+      "id": "area-4f68e1b41034b2",
+      "name": "North Springs Station",
+      "center": [
+        -84.356,
+        33.9449
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-4f68e1b41034b2.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "b72bf945de6c183e945473fb14887ab6a26165138b4f5968779d38354911a5d5",
+      "source_way_count": 171,
+      "data_status": "available"
+    },
+    {
+      "id": "area-a7a4612b8601de",
+      "name": "Sandy Springs Station",
+      "center": [
+        -84.3509,
+        33.9315
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-a7a4612b8601de.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "9cbfd55d47319ebb1d178582465a064d07bad3c0f5b8a5175f6a9d3ba85ccec2",
+      "source_way_count": 991,
+      "data_status": "available"
+    },
+    {
+      "id": "area-b25bf8d6a77a99",
+      "name": "Dunwoody Station",
+      "center": [
+        -84.3442,
+        33.9214
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-b25bf8d6a77a99.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "53501feb0e89e3f6c1c5b11fea4791a2f8c0f5460f1f286cb42c8dbe1401779f",
+      "source_way_count": 1386,
+      "data_status": "available"
+    },
+    {
+      "id": "area-9e112d364a1eb1",
+      "name": "Medical Center Station",
+      "center": [
+        -84.3504,
+        33.9096
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-9e112d364a1eb1.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "3a030cd1b614a6835c3a0eca0dae0fdf789f97eeca6f5c5738e4e9953bc736be",
+      "source_way_count": 1129,
+      "data_status": "available"
+    },
+    {
+      "id": "area-9d88aed26bb7fd",
+      "name": "Buckhead Station",
+      "center": [
+        -84.3678,
+        33.8474
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-9d88aed26bb7fd.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "f8762e412903cb773d72df58029245a312170a23b75ea02688a03a07d04fc272",
+      "source_way_count": 1607,
+      "data_status": "available"
+    },
+    {
+      "id": "area-6f82725ee5cde1",
+      "name": "Doraville Station",
+      "center": [
+        -84.28,
+        33.902
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-6f82725ee5cde1.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "7fb4c305252644099b71a0a8a0f8558f6842bf92640b480327103a7970108157",
+      "source_way_count": 1080,
+      "data_status": "available"
+    },
+    {
+      "id": "area-4850fc9c533a75",
+      "name": "Brookhaven/Oglethorpe Station",
+      "center": [
+        -84.34,
+        33.86
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-4850fc9c533a75.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "8e213b2ba7ac06921aac52b3fe2fcb867225529226eb24a53922fe515075e41b",
+      "source_way_count": 1272,
+      "data_status": "available"
+    },
+    {
+      "id": "area-370b4d7a899c4e",
+      "name": "Lenox Station",
+      "center": [
+        -84.365,
+        33.843
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-370b4d7a899c4e.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "0c62b9634bec4126e57cfc8c809645e48c1c44af4025adc16a3a80cbfa5b5962",
+      "source_way_count": 1469,
+      "data_status": "available"
+    },
+    {
+      "id": "area-be81ce030f54a0",
+      "name": "Lindbergh Center Station",
+      "center": [
+        -84.369,
+        33.8232
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-be81ce030f54a0.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "88754eccf37f7806f85c341082f28b8269863862f5757f6d345ddbed73f0cfc4",
+      "source_way_count": 1150,
+      "data_status": "available"
+    },
+    {
+      "id": "area-9fa5364ccee61b",
+      "name": "Arts Center Station",
+      "center": [
+        -84.3879,
+        33.7898
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-9fa5364ccee61b.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "97f7993f9c74eb99c5b2f535a031b1c67c60d7f62399440c8d4103f34f9bd712",
+      "source_way_count": 3500,
+      "data_status": "available"
+    },
+    {
+      "id": "area-2ff8d10fd4722e",
+      "name": "Midtown Station",
+      "center": [
+        -84.3866,
+        33.781
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-2ff8d10fd4722e.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "54eb2e80f06fa75f308374af7eeb4cba40975ed76d7a528826baa2b5241cbee2",
+      "source_way_count": 4956,
+      "data_status": "available"
+    },
+    {
+      "id": "area-cc5c25c5ec86de",
+      "name": "Civic Center Station",
+      "center": [
+        -84.3877,
+        33.7662
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-cc5c25c5ec86de.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "0d41ab03835f85e55743b16588cfd66f4bdac34e991ea5d1dc8f014555307de6",
+      "source_way_count": 4942,
+      "data_status": "available"
+    },
+    {
+      "id": "area-90b6ba30ca7ecf",
+      "name": "Peachtree Center Station",
+      "center": [
+        -84.3875,
+        33.7592
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-90b6ba30ca7ecf.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "6ebc55debd8f5a2d71fbb458c0645ac0aec9f1e80ca59b995146ca6895acc569",
+      "source_way_count": 4567,
+      "data_status": "available"
+    },
+    {
+      "id": "area-1d1e9531f8d977",
+      "name": "Five Points Station",
+      "center": [
+        -84.3915,
+        33.7535
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-1d1e9531f8d977.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "2005a1c0725ec39104b880dbf1dc8d7d94b6bd0256a1358a3be46fb1ed4cf9c1",
+      "source_way_count": 4293,
+      "data_status": "available"
+    },
+    {
+      "id": "area-ba2d0d9ed180ad",
+      "name": "Garnett Station",
+      "center": [
+        -84.3955,
+        33.7487
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-ba2d0d9ed180ad.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "edb53e77f615caa8f82e4dae9cfaf8879a82058552afba19106609554fcf2ec6",
+      "source_way_count": 4083,
+      "data_status": "available"
+    },
+    {
+      "id": "area-201cc54b988fe9",
+      "name": "West End Station",
+      "center": [
+        -84.4129,
+        33.7354
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-201cc54b988fe9.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "dc9aaf7bc83e079dc4882900ac22f046693fac8d35102f3eebc6e24ba29dd1b3",
+      "source_way_count": 2373,
+      "data_status": "available"
+    },
+    {
+      "id": "area-9c09ab7c4cdf5f",
+      "name": "Lakewood/Ft. McPherson Station",
+      "center": [
+        -84.4293,
+        33.7005
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-9c09ab7c4cdf5f.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "d0efb6c721cb044f7864d65421082d2ccf065e37c5e07a9c1a64286a9eda965a",
+      "source_way_count": 504,
+      "data_status": "available"
+    },
+    {
+      "id": "area-901f77f5e40065",
+      "name": "East Point Station",
+      "center": [
+        -84.44,
+        33.6776
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-901f77f5e40065.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "bf44dcd4e4e18fe20b2434cac83f78089e709c4bd33f6e40c232a27301385995",
+      "source_way_count": 420,
+      "data_status": "available"
+    },
+    {
+      "id": "area-99877bc50742e4",
+      "name": "College Park Station",
+      "center": [
+        -84.449,
+        33.651
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-99877bc50742e4.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "b667ca596f39fe9226532eb8da02f33a38892e6fab69e7fbd74ede3ce1685a99",
+      "source_way_count": 478,
+      "data_status": "available"
+    },
+    {
+      "id": "area-a6b6f356fd8aa1",
+      "name": "Airport Station",
+      "center": [
+        -84.446,
+        33.6401
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-a6b6f356fd8aa1.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "20782f619261fd492a8b43284b87f310228d84879a3735ab6622272b4b9a0496",
+      "source_way_count": 288,
+      "data_status": "available"
+    },
+    {
+      "id": "area-af660a4091690a",
+      "name": "Hamilton E. Holmes Station",
+      "center": [
+        -84.469,
+        33.7546
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-af660a4091690a.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "15c824c79dbc6dbdd4d17f74d6e4b6015d6d6761f92dfdbd83ad57535eab6a3d",
+      "source_way_count": 95,
+      "data_status": "available"
+    },
+    {
+      "id": "area-a64fb9ac8ef8fb",
+      "name": "West Lake Station",
+      "center": [
+        -84.445,
+        33.753
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-a64fb9ac8ef8fb.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "0b305304a1ab98c6448f6dcb39247ef47f60767316dd7f80aa61ddcbec672875",
+      "source_way_count": 236,
+      "data_status": "available"
+    },
+    {
+      "id": "area-aedb8f5e15b954",
+      "name": "Ashby Station",
+      "center": [
+        -84.417,
+        33.756
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-aedb8f5e15b954.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "6361292239a3cc87b60025e3b4b801b1c7c64bedf60cebaee829061fa05afb1c",
+      "source_way_count": 2315,
+      "data_status": "available"
+    },
+    {
+      "id": "area-02eee449596e8d",
+      "name": "Vine City Station",
+      "center": [
+        -84.404,
+        33.756
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-02eee449596e8d.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "35a532b4c8289e3d2598e19720d4a669c73147dc103c9b0dfd0f7afdd19e9e83",
+      "source_way_count": 3971,
+      "data_status": "available"
+    },
+    {
+      "id": "area-db0a5db6006933",
+      "name": "GWCC/CNN Center Station",
+      "center": [
+        -84.397,
+        33.756
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-db0a5db6006933.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "bb57a3d95b7057a5ed9719fb42e984a42dbfa1749f54104b0798bbed08fa002f",
+      "source_way_count": 4534,
+      "data_status": "available"
+    },
+    {
+      "id": "area-d53559af1bc476",
+      "name": "Georgia State Station",
+      "center": [
+        -84.385,
+        33.75
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-d53559af1bc476.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "309547e8db246e0310d16eadbadf7ed4ba7b3e31bb608aa4057cdb7d6b0b4dc6",
+      "source_way_count": 4064,
+      "data_status": "available"
+    },
+    {
+      "id": "area-3601e732b2003c",
+      "name": "King Memorial Station",
+      "center": [
+        -84.376,
+        33.749
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-3601e732b2003c.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "4013501901946f5bf7ee3a581287d6c9c5c84eb93b6457f77960770143855849",
+      "source_way_count": 3537,
+      "data_status": "available"
+    },
+    {
+      "id": "area-630e2b647c41b7",
+      "name": "Inman Park/Reynoldstown Station",
+      "center": [
+        -84.353,
+        33.757
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-630e2b647c41b7.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "d13d7b6fe891708b65b0f2bbfbe0900f1266198b2ce81c11bf1bccf8adb1f8ea",
+      "source_way_count": 2432,
+      "data_status": "available"
+    },
+    {
+      "id": "area-aedd1e80e80d87",
+      "name": "Edgewood/Candler Park Station",
+      "center": [
+        -84.34,
+        33.761
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-aedd1e80e80d87.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "8648eccdfa842d6843d341ea6d50cd738c0da28b2812d0bef72a79505e67053b",
+      "source_way_count": 1828,
+      "data_status": "available"
+    },
+    {
+      "id": "area-5c86a8cd0de990",
+      "name": "East Lake Station",
+      "center": [
+        -84.3122,
+        33.7651
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-5c86a8cd0de990.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "a6e526da6f6a159aed4a14f83bd4bb4ddf1cd72d29eb31a2f5829744e690919a",
+      "source_way_count": 1566,
+      "data_status": "available"
+    },
+    {
+      "id": "area-33ca12cf3673c8",
+      "name": "Decatur Station",
+      "center": [
+        -84.296,
+        33.775
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-33ca12cf3673c8.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "fe20289c6176ce229c3f0ccd8493a470c3379a3e0f643d93710e6c3c07110b48",
+      "source_way_count": 1702,
+      "data_status": "available"
+    },
+    {
+      "id": "area-49a32e13d8bc3c",
+      "name": "Avondale Station",
+      "center": [
+        -84.2813,
+        33.775
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-49a32e13d8bc3c.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "3050220d2e7400a6e25e54beadd575accfbbf39d67fccc16c0d2f8c8fffe8460",
+      "source_way_count": 1075,
+      "data_status": "available"
+    },
+    {
+      "id": "area-98a991acce6a9e",
+      "name": "Kensington Station",
+      "center": [
+        -84.252,
+        33.772
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-98a991acce6a9e.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "3042c45d17bb0354052a8ac0ce2edfad5acebfcdaedafe3002a17f1ab6182328",
+      "source_way_count": 353,
+      "data_status": "available"
+    },
+    {
+      "id": "area-cb0db3901c2f9a",
+      "name": "Indian Creek Station",
+      "center": [
+        -84.229,
+        33.769
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-cb0db3901c2f9a.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "0eea17b0d63057cddfb4934f5588f0b3a178d952a3d7b30c75f42859009a2649",
+      "source_way_count": 187,
+      "data_status": "available"
+    },
+    {
+      "id": "area-9212ed81c695e2",
+      "name": "Bankhead Station",
+      "center": [
+        -84.4281,
+        33.7728
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-9212ed81c695e2.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "3633a201fa06c4a6e4d98e8d5bb279fa1825d08ced560f844d61111b9ccc30c6",
+      "source_way_count": 716,
+      "data_status": "available"
+    },
+    {
+      "id": "area-c4cd85a621e2e0",
+      "name": "MARTA Rapid Campbellton · Greenbriar Mall",
+      "center": [
+        -84.493312,
+        33.687783
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-c4cd85a621e2e0.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "61a62e7d7046253c0b1e6bf0321a363412307a7c4ee407bfb4f87243b4ddac5a",
+      "source_way_count": 30,
+      "data_status": "available"
+    },
+    {
+      "id": "area-99c3bc43b1b4f4",
+      "name": "MARTA Rapid B-Line (Southlake) · West Fayetteville Road",
+      "center": [
+        -84.438427,
+        33.617608
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-99c3bc43b1b4f4.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "ec21ca5cf12c53453946149fc63b4ef9f240278dbcf7a1f88ce4483aa177bf89",
+      "source_way_count": 126,
+      "data_status": "available"
+    },
+    {
+      "id": "area-e8a47ab6cb537a",
+      "name": "MARTA Rapid B-Line (Southlake) · Riverwalk Lane",
+      "center": [
+        -84.43606,
+        33.608606
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-e8a47ab6cb537a.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "5db188bdd9a0428a7b51136bd44145958129666d8b41a8bbed9031148c34f021",
+      "source_way_count": 105,
+      "data_status": "available"
+    },
+    {
+      "id": "area-4f84f029554ed7",
+      "name": "MARTA Rapid B-Line (Southlake) · Flat Shoals Road",
+      "center": [
+        -84.429047,
+        33.600409
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-4f84f029554ed7.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "b5f37782a3270f3b1d1af9834d3a06e7be59f0bd00e2b4b15cd83670f35cb6a5",
+      "source_way_count": 53,
+      "data_status": "available"
+    },
+    {
+      "id": "area-308ff66bc423c6",
+      "name": "MARTA Rapid B-Line (Southlake) · Garden Ridge Drive",
+      "center": [
+        -84.425005,
+        33.590946
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-308ff66bc423c6.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "dd0cadf7aeebd6a90cbb2480b17fbb5d073d7a256d97da56fcc89283a0bd949a",
+      "source_way_count": 52,
+      "data_status": "available"
+    },
+    {
+      "id": "area-7d80b9080afb7e",
+      "name": "MARTA Rapid B-Line (Southlake) · Adams Drive",
+      "center": [
+        -84.414911,
+        33.581413
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-7d80b9080afb7e.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "81d3999b92fc48bd362163cf401dcfb81eb811a67133a89558bfece772043044",
+      "source_way_count": 68,
+      "data_status": "available"
+    },
+    {
+      "id": "area-ab8032ba055652",
+      "name": "MARTA Rapid B-Line (Southlake) · Shops of Riverdale",
+      "center": [
+        -84.411067,
+        33.562584
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-ab8032ba055652.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "a43166d3956a2a06752bff60dc5e2fe0870f139a8084b430e205beab9c01299a",
+      "source_way_count": 163,
+      "data_status": "available"
+    },
+    {
+      "id": "area-1fa173bab20379",
+      "name": "MARTA Rapid B-Line (Southlake) · Riverdale Mobility Center",
+      "center": [
+        -84.405006,
+        33.567251
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-1fa173bab20379.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "3a7113cb9259543e74077a7132ade208eebd1825c8fc1571d3026db3d1ee4f6e",
+      "source_way_count": 162,
+      "data_status": "available"
+    },
+    {
+      "id": "area-ac8fc64f9167c6",
+      "name": "MARTA Rapid B-Line (Southlake) · Southern Regional Medical Center",
+      "center": [
+        -84.389766,
+        33.579656
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-ac8fc64f9167c6.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "cd83e2eb2e2e872e653a84ff651899b1b7fd908664606b9c897d10695e07eb00",
+      "source_way_count": 120,
+      "data_status": "available"
+    },
+    {
+      "id": "area-43bd49d9e3cbcf",
+      "name": "MARTA Rapid B-Line (Southlake) · Mount Zion Road",
+      "center": [
+        -84.349301,
+        33.571341
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-43bd49d9e3cbcf.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "08fb1c26c205eb75deff2f3a96e20f8fd864c3e0367c5e06be50fc9ce5a1e6cf",
+      "source_way_count": 278,
+      "data_status": "available"
+    },
+    {
+      "id": "area-1d3dd371156402",
+      "name": "MARTA Rapid B-Line (Southlake) · Southlake Mall",
+      "center": [
+        -84.34818,
+        33.57587
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-1d3dd371156402.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "72082a18a6bde92cc7f6a3f711d44f569931ee174706b8944ed692010d704ce9",
+      "source_way_count": 306,
+      "data_status": "available"
+    },
+    {
+      "id": "area-77d392a708154f",
+      "name": "North Ave BRT · BOULEVARD NE @ NORTH AVE NE",
+      "center": [
+        -84.371665,
+        33.771077
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-77d392a708154f.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "6147ea759accaa9e69b49f50803b0955b9ea8c767eea93c88ac73737b19de80e",
+      "source_way_count": 2926,
+      "data_status": "available"
+    },
+    {
+      "id": "area-7737324eb39d5e",
+      "name": "North Ave BRT · DONALD L HOLLOWELL PKWY @ FINLEY AVE",
+      "center": [
+        -84.422165,
+        33.773122
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-7737324eb39d5e.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "6eaf78cc51d6f3f8f6eafaa1681acf85312f1e2d0fd375098badd1938397c454",
+      "source_way_count": 1282,
+      "data_status": "available"
+    },
+    {
+      "id": "area-d17ec660a0b4f0",
+      "name": "North Ave BRT · DONALD L HOLLOWELL PKWY @ LINDSAY ST",
+      "center": [
+        -84.416565,
+        33.77301
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-d17ec660a0b4f0.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "f59473b5b386af84dd2bcd47473abc2467d00843012b0a0fc50219cb40f4a8bf",
+      "source_way_count": 2097,
+      "data_status": "available"
+    },
+    {
+      "id": "area-80c54c69c83b91",
+      "name": "North Ave BRT · DONALD L HOLLOWELL PKWY @ MARIETTA BLVD",
+      "center": [
+        -84.425263,
+        33.772544
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-80c54c69c83b91.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "02b1803002a9e18a0d867cce23ec7a32a37a450e34c788186e5d5b4117480c9f",
+      "source_way_count": 1024,
+      "data_status": "available"
+    },
+    {
+      "id": "area-b3bac6f11d1ea2",
+      "name": "North Ave BRT · DONALD L HOLLOWELL PKWY @ PAINES AVE",
+      "center": [
+        -84.414368,
+        33.773057
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-b3bac6f11d1ea2.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "28208467ca9c9adbe63a30fc90d2b9f22aabcf59424e44ced98f4292d49cff9a",
+      "source_way_count": 2355,
+      "data_status": "available"
+    },
+    {
+      "id": "area-4666352e5ca89e",
+      "name": "North Ave BRT · DONALD L HOLLOWELL PKWY @ SIMMONS ST",
+      "center": [
+        -84.420229,
+        33.773151
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-4666352e5ca89e.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "8b4806d6a1d1e4e96714946fb7e4c56cd314b62244d0f05c7137ffce3ae9e83f",
+      "source_way_count": 1541,
+      "data_status": "available"
+    },
+    {
+      "id": "area-6648e307c16558",
+      "name": "North Ave BRT · DONALD L HOLLOWELL PKWY @ STIFF ST",
+      "center": [
+        -84.427103,
+        33.771792
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-6648e307c16558.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "ef6f878412654100bb1c3f51460a6cc45c875168afcda50c7c17dd3e7130e8d5",
+      "source_way_count": 861,
+      "data_status": "available"
+    },
+    {
+      "id": "area-ba499c01ee91df",
+      "name": "North Ave BRT · NORTH AVE @ HUNT ST",
+      "center": [
+        -84.374886,
+        33.771116
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-ba499c01ee91df.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "a1c125e9616d17d414f0e9541ecc0f8a9dc9fb397c1e9916ea5aeee5d6900e96",
+      "source_way_count": 3575,
+      "data_status": "available"
+    },
+    {
+      "id": "area-667f8857649c23",
+      "name": "North Ave BRT · NORTH AVE NE @ PARKWAY DR NE",
+      "center": [
+        -84.373315,
+        33.771041
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-667f8857649c23.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "1d66818c9f625cdc290b9a5c9a0971c2f848ba4f8933479cc22086bedf60731a",
+      "source_way_count": 3373,
+      "data_status": "available"
+    },
+    {
+      "id": "area-36795977e7cec8",
+      "name": "North Ave BRT · NORTH AVE NW @ CENTENNIAL OLYMPIC PARK DR",
+      "center": [
+        -84.392554,
+        33.771246
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-36795977e7cec8.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "8294fc9c144ef587d275facd81d4f29bf89abc75021791950b41beef46ffdd4a",
+      "source_way_count": 5253,
+      "data_status": "available"
+    },
+    {
+      "id": "area-f5e6927cca69b0",
+      "name": "North Ave BRT · NORTH AVE NW @ FOWLER ST",
+      "center": [
+        -84.394047,
+        33.771275
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-f5e6927cca69b0.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "71a8386360aefbf243f5002d3d0f3822a820a3efa5ee9d453c9527ed08891b5c",
+      "source_way_count": 5273,
+      "data_status": "available"
+    },
+    {
+      "id": "area-b6d1419caf39ba",
+      "name": "North Ave BRT · NORTH AVE NW @ LUCKIE ST NW",
+      "center": [
+        -84.39643,
+        33.771311
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-b6d1419caf39ba.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "b67275c70ee7198763032f985caa6150a0edfb0e36be11ec81ef6a9aee52bc5e",
+      "source_way_count": 5329,
+      "data_status": "available"
+    },
+    {
+      "id": "area-0596110f7b0306",
+      "name": "North Ave BRT · NORTH AVE NW @ NORTH YARDS DR NW",
+      "center": [
+        -84.402861,
+        33.770031
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-0596110f7b0306.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "5728c7b9cf03ed4534db668910cfedd9beb8fac6c2a2720b07b1171564735a04",
+      "source_way_count": 4552,
+      "data_status": "available"
+    },
+    {
+      "id": "area-8178f0e932af13",
+      "name": "North Ave BRT · NORTH AVE NW @ STATE ST NW",
+      "center": [
+        -84.39898,
+        33.77117
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-8178f0e932af13.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "98a60137cee54e2084f36254b0454919922cda872173016601bb39efbc0f6805",
+      "source_way_count": 5293,
+      "data_status": "available"
+    },
+    {
+      "id": "area-9de2cc0fb80f6b",
+      "name": "North Ave BRT · NORTH AVE @ PENN AVE",
+      "center": [
+        -84.378814,
+        33.771157
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-9de2cc0fb80f6b.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "6a1542331c59ab3504a6899df0fcf57a2156fd73d0181a12d2b933afcce06635",
+      "source_way_count": 4180,
+      "data_status": "available"
+    },
+    {
+      "id": "area-558f3fc0da1246",
+      "name": "North Ave BRT · NORTHSIDE DR @ 610",
+      "center": [
+        -84.406946,
+        33.771629
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-558f3fc0da1246.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "fab9f851bf262f49d251db10753a519895d38f19965562ab39bd4946a2897c90",
+      "source_way_count": 3834,
+      "data_status": "available"
+    },
+    {
+      "id": "area-832785b0cde356",
+      "name": "North Ave BRT · NORTHSIDE DR @ ECHO ST NW",
+      "center": [
+        -84.41033,
+        33.77303
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-832785b0cde356.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "37881a56e530bbafaa66cef1627bbeb9380bd4ef2deef536bf679643f3ab3b11",
+      "source_way_count": 3158,
+      "data_status": "available"
+    },
+    {
+      "id": "area-1b87151d4bb862",
+      "name": "Metropolitan ART · METROPOLITAN PK @ FAIR DR",
+      "center": [
+        -84.408148,
+        33.703547
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-1b87151d4bb862.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "914c683095d4fd9b80f9edb19fc006d5273ff3e6b25b66e7a4bdc5c8432c32c6",
+      "source_way_count": 722,
+      "data_status": "available"
+    },
+    {
+      "id": "area-d574a699b2a622",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ 1577",
+      "center": [
+        -84.408019,
+        33.71201
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-d574a699b2a622.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "367eaa45589553900589dda874c62e1e7b2bec1fa31fedb9d57bdd8a3d89a1b6",
+      "source_way_count": 1183,
+      "data_status": "available"
+    },
+    {
+      "id": "area-fa52a9a98d7829",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ BROOKLINE ST SW",
+      "center": [
+        -84.408112,
+        33.727154
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-fa52a9a98d7829.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "65823011633b5a877c72afd699fb961d6e7fb160f3d98b7db8ce649efd6d195c",
+      "source_way_count": 2349,
+      "data_status": "available"
+    },
+    {
+      "id": "area-e94536510e61d1",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ CASPLAN ST SW",
+      "center": [
+        -84.408134,
+        33.707402
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-e94536510e61d1.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "9141ee99ea31a88be9fe6c02c237f210ca001a96b3ab8e8870aed9d038905716",
+      "source_way_count": 968,
+      "data_status": "available"
+    },
+    {
+      "id": "area-7107aefbea19b3",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ CHRISTMAN ST SW",
+      "center": [
+        -84.408287,
+        33.736042
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-7107aefbea19b3.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "654c5471536f067b95c1ae1c7a215354d14ff0e145aa829e2dace76f68671ad0",
+      "source_way_count": 2764,
+      "data_status": "available"
+    },
+    {
+      "id": "area-7d431eae9a3ed3",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ CLEVELAND AVE S",
+      "center": [
+        -84.407747,
+        33.681481
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-7d431eae9a3ed3.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "e0f09a45bc231e1dff791f2f7b0da7862efc5cb807e19c4593e578fd814c374c",
+      "source_way_count": 305,
+      "data_status": "available"
+    },
+    {
+      "id": "area-65d638996d26c4",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ CONNELL AVE SW",
+      "center": [
+        -84.407912,
+        33.683387
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-65d638996d26c4.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "81f4516c752a978418eae52fd774d6afa26fdef1e85c8e2384af71a2d39d5bf3",
+      "source_way_count": 317,
+      "data_status": "available"
+    },
+    {
+      "id": "area-ca81dd6245e0a2",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ DECKNER AVE SW",
+      "center": [
+        -84.407975,
+        33.71452
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-ca81dd6245e0a2.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "ed7c384e13949409e4a3ff7b71c8f88710da2410963a72369bc6fab4cc9b4e12",
+      "source_way_count": 1368,
+      "data_status": "available"
+    },
+    {
+      "id": "area-742edf802a6593",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ DILL AVE SW",
+      "center": [
+        -84.40798,
+        33.71851
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-742edf802a6593.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "13710ebbf836c329841eec84f7dc14baa6081cea693b648eaff6563b9b93ffec",
+      "source_way_count": 1704,
+      "data_status": "available"
+    },
+    {
+      "id": "area-4353569d27bbc1",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ ELBERT ST",
+      "center": [
+        -84.40807,
+        33.728767
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-4353569d27bbc1.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "f42ceac3c53ac4faacb07516a52b1e56147378618e3eabe9b15c380491acb230",
+      "source_way_count": 2431,
+      "data_status": "available"
+    },
+    {
+      "id": "area-217f61b7836ef5",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ ERIN AVE SW",
+      "center": [
+        -84.408035,
+        33.719791
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-217f61b7836ef5.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "b16ab917a83e4271bbe6daef265ad2ba62e7b7b5801d5b02b509eea28af59bf5",
+      "source_way_count": 1845,
+      "data_status": "available"
+    },
+    {
+      "id": "area-cb7f179eead96b",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ FLETCHER ST SW",
+      "center": [
+        -84.408073,
+        33.725582
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-cb7f179eead96b.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "6be17040a0f62ae63fc5aae5a158f01b7de5476d13ca88449ce38751a0e9d1e5",
+      "source_way_count": 2285,
+      "data_status": "available"
+    },
+    {
+      "id": "area-f52f23fbf8c00e",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ GENESSEE AVE SW",
+      "center": [
+        -84.408058,
+        33.716171
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-f52f23fbf8c00e.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "4dae66a083e745eeb526bbe3487624fbb86759e3fd9b3895bd447f0121ffec88",
+      "source_way_count": 1507,
+      "data_status": "available"
+    },
+    {
+      "id": "area-d4f848427394cb",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ LAKEWOOD AVE SW",
+      "center": [
+        -84.408155,
+        33.697298
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-d4f848427394cb.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "38fb31e52f4185afee070af9fe3506118b4fa1b396a5d431b1692d416c169670",
+      "source_way_count": 541,
+      "data_status": "available"
+    },
+    {
+      "id": "area-bb015547d628a1",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ LANGSTON DR SW",
+      "center": [
+        -84.408244,
+        33.694884
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-bb015547d628a1.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "1db594d85c7bc3b892804f7212770d9d5bd9c31330764c728cdb93abd738e2bf",
+      "source_way_count": 481,
+      "data_status": "available"
+    },
+    {
+      "id": "area-6bf7aa07d1a7c4",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ PEGG RD SW",
+      "center": [
+        -84.408332,
+        33.689282
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-6bf7aa07d1a7c4.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "6020f7156d01602b85b8f360d143b5a33f7f23c9b322e8b9f1ff680ffdbdb1da",
+      "source_way_count": 515,
+      "data_status": "available"
+    },
+    {
+      "id": "area-920128d81284cd",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ ROCKWELL ST SW",
+      "center": [
+        -84.408166,
+        33.7313
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-920128d81284cd.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "a9a5931e2f8e7e657570d4ef1b0ee92e39fee8cc27613683e892fccfad097f2d",
+      "source_way_count": 2460,
+      "data_status": "available"
+    },
+    {
+      "id": "area-e60f0f1cbc2384",
+      "name": "Metropolitan ART · METROPOLITAN PKWY SW @ UNIVERSITY AVE",
+      "center": [
+        -84.407948,
+        33.722337
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-e60f0f1cbc2384.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "7ff8f931f68e15fcda11b71119b515b445c934d507d93f983f11b342603b2968",
+      "source_way_count": 1939,
+      "data_status": "available"
+    },
+    {
+      "id": "area-4fd857567c3730",
+      "name": "Metropolitan ART · RALPH D ABERNATHY BLVD @ METROPOLITAN PKWY SW",
+      "center": [
+        -84.40843,
+        33.738157
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-4fd857567c3730.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "bda705c35c75d3db645e9618c77fd99228a32ea84f2dc563419a90d1785f4a4f",
+      "source_way_count": 2876,
+      "data_status": "available"
+    },
+    {
+      "id": "area-f433bb360b73af",
+      "name": "Metropolitan ART · RALPH D ABERNATHY BLVD @ MURPHY AVE",
+      "center": [
+        -84.411731,
+        33.738204
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-f433bb360b73af.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "37f1e7920e459c8dcda94c882d830500493380c58f55e942ff01b804756c262a",
+      "source_way_count": 2619,
+      "data_status": "available"
+    },
+    {
+      "id": "area-b43b2d16ff7b68",
+      "name": "Metropolitan ART · RALPH D ABERNATHY BLVD @ W WHITEHALL ST",
+      "center": [
+        -84.413155,
+        33.738185
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-b43b2d16ff7b68.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "d275511555ced5712b27006ef2032ba8947ef6991db234e839d3589c3be2a074",
+      "source_way_count": 2475,
+      "data_status": "available"
+    },
+    {
+      "id": "area-98d22acd2a03c5",
+      "name": "Cleveland Ave ART · CLEVELAND AVE @ BAYARD ST",
+      "center": [
+        -84.431085,
+        33.679537
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-98d22acd2a03c5.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "7672e6f008ce54f88a9b51768551777d4170c3de762abfad1cff45cce9112975",
+      "source_way_count": 487,
+      "data_status": "available"
+    },
+    {
+      "id": "area-52b2e831d0b526",
+      "name": "Cleveland Ave ART · CLEVELAND AVE @ BLOUNT ST",
+      "center": [
+        -84.423712,
+        33.681334
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-52b2e831d0b526.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "cd5cb3859407ed3bdc6900c9b7f2d558ca1cc3fe5cf280ec06cb75b66e4721dd",
+      "source_way_count": 425,
+      "data_status": "available"
+    },
+    {
+      "id": "area-29b620ca9551d8",
+      "name": "Cleveland Ave ART · CLEVELAND AVE @ ELSINORE ST",
+      "center": [
+        -84.419981,
+        33.681276
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-29b620ca9551d8.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "b166b09950e60f6657ac84b013594ad617683c3c874f36e5c3ed1488f47bb86d",
+      "source_way_count": 388,
+      "data_status": "available"
+    },
+    {
+      "id": "area-3630aed9eba1c5",
+      "name": "Cleveland Ave ART · CLEVELAND AVE @ FORREST HILLS DR",
+      "center": [
+        -84.400882,
+        33.681082
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-3630aed9eba1c5.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "9e872853ce8d857bdb3f5a9a1dc7c7ec7e48065470037378b9e1b2d588528d83",
+      "source_way_count": 264,
+      "data_status": "available"
+    },
+    {
+      "id": "area-918c2a8c7e473d",
+      "name": "Cleveland Ave ART · CLEVELAND AVE @ JEFFERSON TER",
+      "center": [
+        -84.427067,
+        33.681283
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-918c2a8c7e473d.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "4e1438f246ffa3a89c8a01c74ee4df27f053189943bf11c8e22e5eefae348bc5",
+      "source_way_count": 495,
+      "data_status": "available"
+    },
+    {
+      "id": "area-eaf3af1a9acbc5",
+      "name": "Cleveland Ave ART · CLEVELAND AVE @ RANDALL ST",
+      "center": [
+        -84.433529,
+        33.679436
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-eaf3af1a9acbc5.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "0fef22c795fb91d2354effd88cee35bd0a7473f0bdde4b9d81e135a44f8359f3",
+      "source_way_count": 454,
+      "data_status": "available"
+    },
+    {
+      "id": "area-f5e263f77a0db9",
+      "name": "Cleveland Ave ART · CLEVELAND AVE SE @ 84",
+      "center": [
+        -84.385872,
+        33.681029
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-f5e263f77a0db9.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "dadfc66452a99ad2ed0fef94154d2d47c02c27085d294af452ef4553f5244ed2",
+      "source_way_count": 233,
+      "data_status": "available"
+    },
+    {
+      "id": "area-2a2185b73408ea",
+      "name": "Cleveland Ave ART · CLEVELAND AVE @ SPRINGDALE RD",
+      "center": [
+        -84.416139,
+        33.681203
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-2a2185b73408ea.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "9658064d220a87b2aab0f92aeb8a7d418c9d3db2083e3440f149255530841c12",
+      "source_way_count": 306,
+      "data_status": "available"
+    },
+    {
+      "id": "area-487824375bb8d8",
+      "name": "Cleveland Ave ART · CLEVELAND AVE SW @ 3RD AVE SW",
+      "center": [
+        -84.402881,
+        33.68118
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-487824375bb8d8.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "c111cc86aa6bd42922f82d896b6224855998c76d3c4d17195ec4fe74759eb24e",
+      "source_way_count": 298,
+      "data_status": "available"
+    },
+    {
+      "id": "area-c8d4bbba263040",
+      "name": "Cleveland Ave ART · CLEVELAND AVE SW @ 786",
+      "center": [
+        -84.413628,
+        33.681167
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-c8d4bbba263040.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "d9ab527ba72ece2183edc86ef233c7e92bd3a12e8afab459eb2dc8a0f6879993",
+      "source_way_count": 290,
+      "data_status": "available"
+    },
+    {
+      "id": "area-ff36bc6bd2e90e",
+      "name": "Cleveland Ave ART · CLEVELAND AVE SW @ DEARWOOD DR SW",
+      "center": [
+        -84.405075,
+        33.681232
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-ff36bc6bd2e90e.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "7ea71621152600f0b87f3455434cf2b6b44abdf5f855e974fb72c41245daa5ba",
+      "source_way_count": 317,
+      "data_status": "available"
+    },
+    {
+      "id": "area-7e83ecc2a94dd2",
+      "name": "Cleveland Ave ART · CLEVELAND AVE SW @ MACON DR SW",
+      "center": [
+        -84.389141,
+        33.681027
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-7e83ecc2a94dd2.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "fe2735e3ae8c08003d347e9a7e3dea0f1c03b3b19086eab4353d5a3bfed9aff0",
+      "source_way_count": 228,
+      "data_status": "available"
+    },
+    {
+      "id": "area-75468709da6621",
+      "name": "Cleveland Ave ART · CLEVELAND AVE SW @ OLD HAPEVILLE RD SW",
+      "center": [
+        -84.39401,
+        33.68103
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-75468709da6621.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "982c98833142b89b97286677d531c764f294e3efe6beddf63ad82c5a15634507",
+      "source_way_count": 241,
+      "data_status": "available"
+    },
+    {
+      "id": "area-e74960562e7300",
+      "name": "Cleveland Ave ART · CLEVELAND AVE SW @ STEELE AVE SW",
+      "center": [
+        -84.396581,
+        33.681058
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-e74960562e7300.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "8f4f3b159213e0fe258c91e17a84e2899259d686859448f61fa738051c6f3b8e",
+      "source_way_count": 246,
+      "data_status": "available"
+    },
+    {
+      "id": "area-d3de43b47e7157",
+      "name": "Cleveland Ave ART · CLEVELAND AVE @ SYLVAN RD",
+      "center": [
+        -84.41763,
+        33.68124
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-d3de43b47e7157.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "5b4ff3d096610808317df5e67006d51503444b9b00ecfac385236767f5a9ee11",
+      "source_way_count": 342,
+      "data_status": "available"
+    },
+    {
+      "id": "area-e123e911aec1c9",
+      "name": "Cleveland Ave ART · CLEVELAND AVE @ WINBURN TER",
+      "center": [
+        -84.429099,
+        33.680514
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-e123e911aec1c9.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "5f50be79be29d4ba7fc2d4c8c49d2e737cfdb7aec6aed4a62c31e833804c3bdf",
+      "source_way_count": 508,
+      "data_status": "available"
+    },
+    {
+      "id": "area-a982ad614d6d09",
+      "name": "Cleveland Ave ART · IRENE KIDD PKWY @ CENTRAL AVE",
+      "center": [
+        -84.440224,
+        33.675473
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-a982ad614d6d09.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "d73ac7ab808e9de952446d860dd86b0d0d8849c67b0e52c50e2b3167d43b71fb",
+      "source_way_count": 418,
+      "data_status": "available"
+    },
+    {
+      "id": "area-d78398f04f59fd",
+      "name": "Cleveland Ave ART · IRENE KIDD PKWY @ GUS THORNHILL JR DR",
+      "center": [
+        -84.436937,
+        33.677598
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-d78398f04f59fd.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "aa32f0505331a20498527a43b00ef6b0824cfe6981d49e93a0a80e955ad244b4",
+      "source_way_count": 423,
+      "data_status": "available"
+    },
+    {
+      "id": "area-8a4dad9148dfdd",
+      "name": "Cleveland Ave ART · IRENE KIDD PKWY @ HARRIS ST",
+      "center": [
+        -84.435614,
+        33.679362
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/area-8a4dad9148dfdd.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "8ca0b6bd4551ced05f6fbb4cb1043c0d3a44c8d36c4aeea5ee126c288a3e56ea",
+      "source_way_count": 435,
+      "data_status": "available"
+    }
+  ],
+  "source_extract": {
+    "url": "https://download.geofabrik.de/north-america/us/georgia-latest.osm.pbf",
+    "retrieved_at": "2026-10-28T22:15:47.943Z",
+    "last_modified": "Wed, 28 Oct 2026 00:28:35 GMT",
+    "sha256": "5c98a4c2bafdbd82c59042f7e92218d2e7b563f5ab8e7212ba2e30864e9c2519",
+    "bytes": 358122789,
+    "osm_timestamp": "2026-10-27T21:23:59Z"
+  },
+  "listed_origin_count": 114,
+  "prepared_at": "2026-10-28T22:20:56.379537+00:00"
+}
