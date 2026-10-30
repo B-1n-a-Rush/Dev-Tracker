@@ -36,4 +36,4 @@ Network-version changes and mode changes invalidate the index. Metadata-only cha
 
 This pass changes client loading and rendering, not project records, route source geometry, screening distances, or analytical calculations. No Supabase schema or public records were changed. The initial network load and remote source requests still take time. The file:// version continues to use the existing chunked main-thread screening fallback; HTTP/HTTPS versions use the existing background worker.
 
-Published runtime files live at the repository root for GitHub Pages. The same Supabase project supplies shared route data and administrative reviews.
+The current local outputs/index.html is updated. GitHub publication is a separate step.

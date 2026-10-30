@@ -1,0 +1,39 @@
+# In-app change digest
+
+Implemented October 29, 2026. Uses existing published Supabase records and official infrastructure services. No schema/auth changes, paid services, scheduled tasks, emails, or public-record edits were introduced.
+
+## Use
+
+Open the standalone **Following → Updates** tool. **Following → Saved projects** holds bookmarks; **Manage watches** contains watch settings and backup controls. Station, route, project and study-area profiles also have a **Watch** button. The local bus workspace has **Watch this bus route**.
+
+Choose a station, a high-capacity/rail route, a verified-mode local bus route, selected/saved projects, or the currently drawn study buffer/polygon. Give it a name and choose a proximity radius. Stations/routes default to half a mile; contextual station watches retain the current station radius. Study shapes are saved independently of later map filters. Custom project-selection watches preserve their chosen IDs. **Save & follow** also maintains a separate automatic Saved projects group: adding a bookmark establishes only its first baseline, retaining older unread changes for other saved projects. **Unsave** removes that bookmark from the automatic group; custom watches remain intact. Failed initial checks leave bookmarks saved with an updates-pending label and a retry control.
+
+The first successful check establishes a baseline. Existing inventory is not presented as newly added. Reopen the digest to check published values, or choose **Check live sources** to force infrastructure retrieval. When infrastructure was retrieved within five minutes, an ordinary opening reuses that existing source data and displays its retrieval time. Imported service geometry is immutable per fingerprint and downloaded only when a local bus watch needs it.
+
+Changes include status, source wording/links, unit counts and reported floor areas, published construction timing, SR2T improvements and linked plans/stops. Cards compare **Previously seen** with **Current published** values. Existing records first entering a watch are labeled **New in this watch**; **New published record** requires a creation timestamp after the baseline. Source retrieval is not a verification of every project.
+
+Use the record-type filter and **Open record** / **Source** links. **Mark this reviewed** handles one card; **Mark all available updates reviewed** replaces the available baselines. Opening, filtering and refreshing do not mark changes reviewed. Failed/capped sources retain their previous baselines. A source first becoming available needs its first baseline, rather than flooding the digest with pre-existing records.
+
+**Potential simultaneous windows** compare complete construction-phase windows within the coming five years. Projects on different parts of one route are included. Missing endpoints, project-context schedules, long-range plans and possible duplicates are excluded from overlap calculation. Available sources can still produce potential overlaps during a partial outage; baseline comparisons involving unavailable sources are preserved. No overlap means neither confirmed coordination nor absence of operational issues. Physical overlap, detours, closures, operating hours and service interruptions are not inferred.
+
+A changed route geometry pauses comparison until **Use updated coverage & start baseline** is explicitly chosen. Bus choices reuse the existing GTFS code/name mode reference and mode overrides, excluding rail/streetcar. The source network's **unverified** operational status is shown. Bus routes receive no artificial construction dates.
+
+## Storage and portability
+
+Watches, reviewed values and read state stay in this browser **at this exact tracker address**, including for signed-in admins. They do not synchronize through an account. Use **Export watches** to download a JSON backup, then **Import watches** on another computer/address (such as GitHub Pages). Import validates the file, restores scopes/baselines, skips scopes already being watched, and requires a fresh check before treating imported records as current. An exported automatic Saved projects group is restored as a custom project-selection watch, preserving its baseline without changing bookmarks at the destination; normal custom-watch limits apply. No private staff notes, actor identities, unapproved proposals, credentials or administrative history are included. Scope shapes and public-record snapshots are included, so share an exported file intentionally.
+
+Limits: 12 custom watches plus one reserved automatic Saved projects group, 500 selected projects per saved-project watch, 500 vertices per study polygon, 3.5 MB backup/storage payload. Source retrieval is paginated and bounded. Storage quota errors retain previous data. Corrupt saved state is not silently replaced. Import remains available for recovery: after validating a backup and confirming replacement, the unreadable state is downloaded as a text copy before restoring the backup.
+
+This is a **net change between snapshots** digest. It does not replay every intermediate administrative edit or supply an exact change time when a source does not provide one. If a value changes and returns to its original value between checks, no net change appears. Only mapped records can be assigned to a geographic watch. Unpublished/absent records are not labeled complete or cancelled.
+
+## Verification
+
+- `node work/test-digest.cjs`: 17 checks for baseline behavior, exact before/after comparisons, explicit review, creation labels, failed-source preservation, route-wide overlaps, unknown/context/nonoverlapping dates, point confidence, polygon/geodesic screening, changed alignments, saved IDs, private-field exclusion, stale SR2T references, storage safety, backup restoration, partial-source overlap handling and yielding during large comparisons.
+- `node work/test-digest-api.cjs`: 3 public/admin API boundary checks. Explicit published filters, pagination, restricted schedule IDs, read-only calls, no private history/notes endpoints; invalid route IDs rejected before a request.
+- `node work/test-digest-worker.cjs`: 2 checks of the actual worker entry point and its success/error protocol. Geographic comparisons run in a background worker where supported, with chunked fallback. At startup, existing bookmarks are reconciled with the automatic group. Only bookmarks missing their first baseline trigger a published-project read. Geographic comparisons and other source downloads remain on demand.
+- Browser, isolated synthetic source fixture: first baseline, project/source/date/SR2T changes, individual review, source outage/recovery, changed route geometry, bus-only choice, worker execution without errors, JSON export and restore with retained baselines. Fixtures are not installed/published and use isolated memory instead of real browser storage or database writes.
+- Browser, real app: published Overlook at Garson project baseline and a Lindbergh Center station baseline with 14 records (one development, two transit schedules, 11 infrastructure records). Source coverage/retrieval times rendered correctly. These two starter watches were retained in the local preview at `http://127.0.0.1:4195/`.
+- Phone layout: actual module tested in a 390 × 844 iframe content viewport; the form, eight change cards and four before/after tables fit without horizontal overflow.
+- Pre-install comparison checks preserve the existing HTML, auth/admin APIs, SR2T and workspace outside the new module/API/launcher hooks. Rollback backup and copy hashes recorded by the installer.
+
+GitHub publication is not part of this change. A future release must include the four new `trackside-digest*` runtime files along with the updated index, data API and workspace files. Existing SR2T runtime files must also remain included.

@@ -68,6 +68,6 @@ All shared network writes and private review access require an existing, valid a
 - The test network still needs operational confirmation. Service days/hours, vehicle trips, stop accessibility and elevation conflicts were not supplied.
 - Source coverage and published geometry/date quality limit screening. Unmapped construction cannot be screened until location information is available.
 - Refreshes should retain source `map_id`, `line_id` and infrastructure IDs. If those identities change, old notes remain with the old version; a deliberate crosswalk is needed before associating them with different IDs.
-- The database migrations are already applied. GitHub Pages serves the runtime files from the repository root and reads the shared network from Supabase.
+- The changed local files and database migrations are installed. GitHub Pages publication is a separate action; this task does not publish a new website version.
 
 See `LOCAL_BUS_VERIFICATION.md` for the completed checks and test commands.

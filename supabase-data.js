@@ -823,6 +823,70 @@
     }, true);
   }
 
+  async function listSR2TSites(includeDrafts = false, includeRemoved = false) {
+    if(includeRemoved&&!includeDrafts)throw new Error('Removed sites are available only in the administrator inventory.');
+    const rows=[];
+    for(let offset=0;offset<=5000;offset+=500){
+      const page=await dataRequest('sr2t_sites?select=site_id,profile,is_published,version,updated_at,removed_at'+(includeDrafts?'':'&is_published=eq.true')+(includeRemoved?'':'&removed_at=is.null')+'&order=site_id&limit=500&offset='+offset,{},includeDrafts);
+      rows.push(...(page||[]));
+      if(rows.length>5000)throw new Error('SR2T inventory exceeds this workspace limit. Narrow the server query before continuing.');
+      if(!page||page.length<500)return rows;
+    }
+    throw new Error('SR2T inventory is too large to display completely.');
+  }
+  async function saveSR2TSite(record, notes = null) {
+    return dataRequest('rpc/save_sr2t_site',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_site_id:record.site_id,p_profile:record.profile,p_is_published:record.is_published,p_baseline_version:record.version??null,p_notes:notes})},true);
+  }
+  async function setSR2TSiteRemoved(siteId,version,removed){
+    if(!/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(siteId)||!Number.isInteger(version)||version<1||typeof removed!=='boolean')throw new Error('Invalid SR2T site action.');
+    return dataRequest('rpc/set_sr2t_site_removed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_site_id:siteId,p_baseline_version:version,p_removed:removed})},true);
+  }
+  const sr2tPlanBucket='sr2t-site-plans';
+  function sr2tPlanPath(path){if(typeof path!=='string'||!window.TracksideSR2TCore?.planPath.test(path))throw new Error('Invalid SR2T plan path.');return path.split('/').map(encodeURIComponent).join('/');}
+  async function sr2tStorage(path,options={},requireAuth=false){const session=await getSession();if(requireAuth&&!session?.access_token)throw new Error('Admin sign-in required.');const headers={apikey:config.publishableKey,...options.headers};if(session?.access_token)headers.Authorization=`Bearer ${session.access_token}`;return request(`${config.url}/storage/v1/${path}`,{...options,headers});}
+  async function uploadSR2TPlan(siteId,file){
+    if(!/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(siteId))throw new Error('Enter a valid site ID before saving plans.');
+    await window.TracksideSR2TCore.validatePlan(file);const session=await getSession();if(!session?.user?.id||!session.access_token)throw new Error('Admin sign-in required.');
+    const storage_path=session.user.id+'/'+siteId+'/'+crypto.randomUUID()+'.pdf';
+    await sr2tStorage('object/'+sr2tPlanBucket+'/'+sr2tPlanPath(storage_path),{method:'POST',headers:{'Content-Type':'application/pdf','x-upsert':'false','Cache-Control':'no-cache'},body:file},true);
+    return{kind:'Document',title:file.name.slice(0,250),filename:file.name.slice(0,250),storage_path,size:file.size,content_type:'application/pdf',is_public:false};
+  }
+  async function getSR2TPlanUrl(path){
+    const result=await sr2tStorage('object/sign/'+sr2tPlanBucket+'/'+sr2tPlanPath(path),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiresIn:300})});
+    const value=result?.signedURL||result?.signedUrl;if(!value)throw new Error('No download link was returned.');const base=config.url+'/storage/v1',url=new URL(value.startsWith('/')&&!value.startsWith('/storage/v1/')?base+value:value,config.url);
+    if(url.origin!==new URL(config.url).origin||!url.pathname.startsWith('/storage/v1/object/sign/'+sr2tPlanBucket+'/'))throw new Error('Invalid plan download link.');return url.href;
+  }
+  async function getSR2TNotes(siteId) {
+    const rows=await dataRequest('sr2t_site_notes?select=notes&site_id=eq.'+encodeURIComponent(siteId),{},true);return rows?.[0]?.notes||{};
+  }
+  async function listSR2THistory(siteId) {
+    return dataRequest('sr2t_site_history?select=changed_at,changed_by,before_record,after_record&site_id=eq.'+encodeURIComponent(siteId)+'&order=changed_at.desc&limit=30',{},true);
+  }
+
+  // Keep the existing administrative paginator's authentication unchanged.
+  async function listDigestRows(path) {
+    const result=[];
+    for(let offset=0;offset<10000;offset+=500){
+      const rows=await dataRequest(path+'&limit=500&offset='+offset);
+      if(!Array.isArray(rows))throw new Error('Invalid digest source response.');
+      result.push(...rows);
+      if(rows.length<500)return result;
+    }
+    throw new Error('Digest source exceeds the safe retrieval limit; its baseline was retained.');
+  }
+  // The digest always uses published canonical rows, even for signed-in administrators.
+  async function listDigestProjects() {
+    return listDigestRows('projects?select=id,name,status,source_status,project_type,subtypes,residential_units,latitude,longitude,source_url,metadata,created_at,updated_at&is_published=eq.true&order=id.asc');
+  }
+  async function listDigestRoutes() {
+    return listDigestRows('transit_routes?select=id,name,slug,mode,geometry,color,updated_at&is_published=eq.true&order=id.asc');
+  }
+  async function listDigestSchedules(routeIds) {
+    if(!Array.isArray(routeIds)||routeIds.length>200||routeIds.some(id=>!/^\d+$/.test(String(id))))throw new Error('Invalid published route selection.');
+    if(!routeIds.length)return [];
+    return listDigestRows('route_construction_schedules?select=route_id,construction_start,construction_finish,phase,source_url,checked_at,updated_at&route_id=in.('+routeIds.join(',')+')&order=route_id.asc');
+  }
+
   async function listSavedIds() {
     const session = await getSession();
     const userId = session?.user?.id;
@@ -917,6 +981,16 @@
     getProjectNewsStatus,
     listNewsReviewQueue,
     reviewProjectNewsArticle,
+    listSR2TSites,
+    saveSR2TSite,
+    setSR2TSiteRemoved,
+    uploadSR2TPlan,
+    getSR2TPlanUrl,
+    getSR2TNotes,
+    listSR2THistory,
+    listDigestProjects,
+    listDigestRoutes,
+    listDigestSchedules,
     listSavedIds,
     setSaved
   });
