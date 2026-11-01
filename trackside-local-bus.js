@@ -207,5 +207,6 @@ window.addEventListener('focus',async()=>{
   if(dialog.open&&!dirty&&!screening&&!metadataDraft()&&(old!==networkSignature()||Date.now()-lastScanAt>300000))await scan(false);
 });
 const priorAdmin=updateAdminUi;updateAdminUi=function(...args){const value=priorAdmin(...args);adminEntry.hidden=!admin();$('busNetworkManagement').hidden=!admin();if(!admin()){reviews.clear();reviewReady=false;dirty=false;statusChoice.value=decisionChoice.value='';renderDetail();renderSaved();}renderManagement();if(dialog.open){if(admin())loadReviews().then(render);else render();}return value;};
-window.TracksideLocalBus={open,refresh:()=>scan(true),get network(){return network;},get findings(){return baseFindings;},get visibleFindings(){return visible;}};
+async function applyMapView(view){mainSearch.value=view.search||'';mainToggle.checked=!!view.enabled||!!view.stops;mainStopToggle.checked=!!view.stops;if(mainToggle.checked&&!await loadNetwork())throw Error('Local-bus routes could not load.');paintMain();paintMainStops();updateMapLayersCount();}
+window.TracksideLocalBus={open,applyMapView,refresh:()=>scan(true),get network(){return network;},get findings(){return baseFindings;},get visibleFindings(){return visible;}};
 })();

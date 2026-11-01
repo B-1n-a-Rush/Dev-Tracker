@@ -20,7 +20,7 @@
   const count=value=>Number(value||0).toLocaleString('en-US');
   function dataProjects(){return (typeof projects==='undefined'?[]:projects).map(p=>({...p,residentialUnits:typeof residentialUnitsFor==='function'?residentialUnitsFor(p):p.residentialUnits,projectType:typeof projectType==='function'?projectType(p):p.projectType}));}
   function dataRoutes(){
-    return [...(typeof railLines==='undefined'?[]:railLines).map(route=>({route,kind:'rail',mode:'Rail'})),...(typeof brtArtRoutes==='undefined'?[]:brtArtRoutes).map(route=>({route,kind:'rapid',mode:route.mode||(/\bART\b/i.test(route.name)?'ART':'BRT')}))].filter(r=>r.route.published!==false).map(r=>({...r,id:r.kind+':'+r.route.name,name:r.route.name,geometry:{type:'MultiLineString',coordinates:routePointParts(r.route).map(line=>line.map(p=>[p[1],p[0]]))}})).filter(r=>r.geometry.coordinates.length);
+    return [...(typeof railLines==='undefined'?[]:railLines).map(route=>({route,kind:'rail',mode:'Rail'})),...(typeof brtArtRoutes==='undefined'?[]:brtArtRoutes).map(route=>({route,kind:isExistingTransitRoute(route)?'service':'rapid',mode:transitDisplayMode(route)}))].filter(r=>r.route.published!==false).map(r=>({...r,id:r.kind+':'+r.route.name,name:r.route.name,geometry:{type:'MultiLineString',coordinates:routePointParts(r.route).map(line=>line.map(p=>[p[1],p[0]]))}})).filter(r=>r.geometry.coordinates.length);
   }
   function dataStations(){return (typeof railStations==='undefined'?[]:railStations).map(raw=>({raw,name:raw[0],lat:raw[1],lng:raw[2],lines:raw[3]}));}
   function cancelPick(){if(!picking)return;picking=false;map.off('click',pickPoint);map.getContainer().classList.remove('here-picking');$('herePick').textContent='Choose another point';$('herePick').setAttribute('aria-pressed','false');}
@@ -85,7 +85,7 @@
     return card;
   }
   function routeCard({record:r,distance:d}){
-    const card=n('article','here-card');card.append(action(r.name,()=>{if(typeof showCorridorHighlight==='function')showCorridorHighlight(r);showCorridorOverview(r);},'land-project-name'),note(r.mode+' · '+distance(d)+' from alignment'),note(r.kind==='rapid'?'Trackside route shapefile':'MARTA rail service geometry in Trackside'));return card;
+    const card=n('article','here-card');card.append(action(r.name,()=>{if(typeof showCorridorHighlight==='function')showCorridorHighlight(r);showCorridorOverview(r);},'land-project-name'),note(r.mode+' · '+distance(d)+' from alignment'),note(r.kind==='rapid'?'Trackside project alignment':r.kind==='service'?'Existing streetcar service · saved route geometry':'MARTA rail service geometry in Trackside'));return card;
   }
   function stationCard({record:r,distance:d}){
     const card=n('article','here-card');card.append(action(r.name+' Station',()=>showStationOverview(r.raw),'land-project-name'),note(r.lines+' · '+distance(d)+' straight-line distance'));return card;

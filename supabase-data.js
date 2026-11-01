@@ -408,6 +408,11 @@
     return (rows || []).map(fromRow);
   }
 
+  async function listPublishedProjects() {
+    const rows = await dataRequest('projects?select=*&is_published=eq.true&order=sort_order.asc,name.asc');
+    return (rows || []).map(fromRow);
+  }
+
   async function listRouteSchedules() {
     return dataRequest('route_construction_schedules?select=*&order=route_id.asc');
   }
@@ -863,6 +868,15 @@
     return dataRequest('sr2t_site_history?select=changed_at,changed_by,before_record,after_record&site_id=eq.'+encodeURIComponent(siteId)+'&order=changed_at.desc&limit=30',{},true);
   }
 
+
+  function fieldSite(id){if(!window.TracksideFieldCore?.siteId.test(id))throw new Error('Invalid SR2T site.');return encodeURIComponent(id);}
+  function fieldPhotoPath(value){if(typeof value!=='string'||!window.TracksideFieldCore?.photoPath.test(value))throw new Error('Invalid field photo path.');return value.split('/').map(encodeURIComponent).join('/');}
+  async function listSR2TFieldVisits(siteId,offset=0){if(!Number.isInteger(offset)||offset<0)throw new Error('Invalid visit page.');return dataRequest('sr2t_field_visits?select=visit_id,site_id,data,version,created_by,updated_by,created_at,updated_at&site_id=eq.'+fieldSite(siteId)+'&order=data->>visited_on.desc,visit_id&limit=50&offset='+offset,{},true);}
+  async function saveSR2TFieldVisit(record){const data=window.TracksideFieldCore.normalize(record.data,record.site_id,record.visit_id);return dataRequest('rpc/save_sr2t_field_visit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_visit_id:record.visit_id,p_site_id:record.site_id,p_data:data,p_baseline_version:record.version??null})},true);}
+  async function uploadSR2TFieldPhoto(siteId,visitId,file){fieldSite(siteId);if(!window.TracksideFieldCore.uuid.test(visitId))throw new Error('Invalid field visit.');await window.TracksideFieldCore.validatePhoto(file);const session=await getSession();if(!session?.user?.id||!session.access_token)throw new Error('Admin sign-in required.');const storage_path=session.user.id+'/'+siteId+'/'+visitId+'/'+crypto.randomUUID()+'.jpg';await sr2tStorage('object/sr2t-field-photos/'+fieldPhotoPath(storage_path),{method:'POST',headers:{'Content-Type':'image/jpeg','x-upsert':'false','Cache-Control':'no-cache'},body:file},true);return{storage_path,size:file.size,content_type:'image/jpeg'};}
+  async function getSR2TFieldPhotoUrl(path){const result=await sr2tStorage('object/sign/sr2t-field-photos/'+fieldPhotoPath(path),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiresIn:300})},true);const value=result?.signedURL||result?.signedUrl;if(!value)throw new Error('No photo link was returned.');const url=new URL(value.startsWith('/')&&!value.startsWith('/storage/v1/')?config.url+'/storage/v1'+value:value,config.url);if(url.origin!==new URL(config.url).origin||!url.pathname.startsWith('/storage/v1/object/sign/sr2t-field-photos/'))throw new Error('Invalid photo download link.');return url.href;}
+  async function listSR2TFieldHistory(visitId){if(!window.TracksideFieldCore?.uuid.test(visitId))throw new Error('Invalid field visit.');return dataRequest('sr2t_field_history?select=changed_at,changed_by,before_record,after_record&visit_id=eq.'+encodeURIComponent(visitId)+'&order=changed_at.desc,id.desc&limit=20',{},true);}
+
   // Keep the existing administrative paginator's authentication unchanged.
   async function listDigestRows(path) {
     const result=[];
@@ -943,6 +957,7 @@
     inviteAdmin,
     revokeAdmin,
     listProjects,
+    listPublishedProjects,
     listTransitRoutes,
     listRouteSchedules,
     listRouteScheduleHistory,
@@ -981,6 +996,11 @@
     getProjectNewsStatus,
     listNewsReviewQueue,
     reviewProjectNewsArticle,
+    listSR2TFieldVisits,
+    saveSR2TFieldVisit,
+    uploadSR2TFieldPhoto,
+    getSR2TFieldPhotoUrl,
+    listSR2TFieldHistory,
     listSR2TSites,
     saveSR2TSite,
     setSR2TSiteRemoved,

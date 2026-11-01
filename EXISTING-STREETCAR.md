@@ -1,0 +1,17 @@
+# Atlanta Streetcar and focused reliability pass
+
+The local tracker groups Atlanta Streetcar with existing transit services. Its own map toggle, original saved color, ID and full geometry remain available; its line is solid. Atlanta Streetcar East Ext. remains a dashed LRT project. The existing service is excluded from calculated BRT/ART/LRT **project** access and construction schedule-completeness/hotspot dashboards, while remaining available in corridor profiles, study areas, nearby-location summaries, Following and scenario comparisons.
+
+The database source mode for route 18 remains LRT. A shared display/analysis classifier identifies that exact existing-service record (including after a rename); the separate extension is not matched by a broad “streetcar” text search. Existing `rapid:18` coordination/watch identifiers are retained for compatibility. No route, development, review, authentication, or schema records are edited by this installation.
+
+In the coordination watchlist, nearby infrastructure is reviewable without inventing construction dates for the Streetcar. Bars show infrastructure windows only; incomplete timing stays incomplete. Automated matches say “Potential impact—review needed,” and do not assert closures, detours, operating hours or service interruptions. An optional temporary study period remains a session-only comparison. Private notes retain the same existing access and save path.
+
+Layers → Export map data (.shp) has a separate **Atlanta Streetcar — existing service** choice. The BRT/ART/LRT export contains project alignments, including the East Extension. The service export retains its original geometry and color, has `mode=Streetcar`, `source_mode=LRT`, and no invented construction window.
+
+Repeated high-capacity project-access calculations now cache exact distance results by route object/geometry and project location. New coordinates, replaced geometry or refreshed route objects invalidate the result. This avoids repeated geometry scans on ordinary rendering without simplifying screening geometry. In a controlled 143-project × 17-route × 20-render fixture, 48,620 requests needed 2,431 calculations. This is an operation count, not a measured application-wide speed percentage; remote source loading and initial bus-network loading remain dependent on the data sources.
+
+Verification covers classification versus the extension, original route identity/color/geometry, automatic/manual access, cache invalidation, ongoing-service screening, incomplete/invalid dates, normal study-window overlap behavior, service-only comparison baseline and separate shapefile collection. Existing coordination UI, local-bus performance/refresh, SR2T editing/export and Following/digest regression checks pass. Saves and competing edits are tested with isolated fixtures; no test edits were made to production records.
+
+Live browser checks found 10 Streetcar-adjacent infrastructure projects at the existing 250-foot distance, including eight published work windows and two incomplete schedules. These counts reflect the loaded feeds at verification time, not confirmed operating impacts. LRT “All” leaves the Streetcar toggle alone, its own visibility persists through reload, and the profile retains its half-mile development overview. A real downloaded ZIP was independently read with Python: one MultiLineString record, three parts and 55 vertices, matching the saved database geometry counts, with the original #136647 color.
+
+This update is installed locally. GitHub publication remains a separate action.

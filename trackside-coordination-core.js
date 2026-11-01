@@ -1,7 +1,7 @@
 /* Geometry/schedule screening only: potential coordination, never a confirmed conflict. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./trackside-land-core.js'));else root.TracksideCoordinationCore=factory(root.TracksideLandCore);})(typeof globalThis!=='undefined'?globalThis:this,function(C){
 'use strict';
-const labels={overlap:'Potential schedule overlap',unknown:'Infrastructure schedule incomplete','reference-needed':'Route schedule incomplete',invalid:'Dates need review',outside:'Outside comparison window'};
+const labels={'service-work':'Potential impact—review needed',overlap:'Potential schedule overlap',unknown:'Infrastructure schedule incomplete','reference-needed':'Route schedule incomplete',invalid:'Dates need review',outside:'Outside comparison window'};
 const statuses={unreviewed:'Not reviewed','needs-contact':'Needs contact','in-discussion':'In discussion',coordinated:'Coordinated','no-action':'No action needed'};
 const boundsCache=new WeakMap(),distanceCache=new WeakMap();
 function bounds(g){if(boundsCache.has(g))return boundsCache.get(g);let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;function walk(c){if(!Array.isArray(c))return;if(typeof c[0]==='number'){if(c.slice(0,2).every(Number.isFinite)){x0=Math.min(x0,c[0]);x1=Math.max(x1,c[0]);y0=Math.min(y0,c[1]);y1=Math.max(y1,c[1]);}}else c.forEach(walk);}if(g.type==='GeometryCollection')for(const part of g.geometries||[]){const b=bounds(part);x0=Math.min(x0,b[0]);y0=Math.min(y0,b[1]);x1=Math.max(x1,b[2]);y1=Math.max(y1,b[3]);}else walk(g.coordinates);const b=[x0,y0,x1,y1];boundsCache.set(g,b);return b;}
@@ -30,7 +30,7 @@ function screen(opts){
   if(!row.geometry){unmapped++;continue;}
   const distance=nearDistance(row.geometry,geometry,threshold);if(!Number.isFinite(distance)||distance>threshold)continue;
   if(row.possibleMatches?.length&&!includePossible){duplicates++;continue;}
-  const state=comparison(start,finish,row.start,row.finish),warnings=[];
+  const work=constructionWindow(row.start,row.finish),state=opts.existingService?(work.kind==='invalid'?'invalid':work.kind==='complete'?'service-work':'unknown'):comparison(start,finish,row.start,row.finish),warnings=[];if(opts.existingService)warnings.push('Proximity to an existing service requires review; no closure, detour, or service-hours overlap is established.');
   if(/Representative/i.test(row.geometryBasis||''))warnings.push('Distance uses a representative point, not the construction alignment.');
   if(row.source?.kind==='arc'||/ARC/i.test(row.geometryBasis||''))warnings.push('ARC geometry is a planning area; construction dates are not supplied by ARC.');
   if(row.possibleMatches?.length)warnings.push('Possible duplicate included; related scopes may overlap.');
@@ -38,7 +38,7 @@ function screen(opts){
   const end=C.dateRange(row.finish);if(!row.complete&&end&&end.last<Date.now())warnings.push('Published finish has passed; confirm the current schedule.');
   result.push({row,distance,state,warnings});
  }
- const rank={overlap:0,unknown:1,'reference-needed':1,invalid:2,outside:3};result.sort((a,b)=>rank[a.state]-rank[b.state]||a.distance-b.distance||a.row.name.localeCompare(b.row.name));
+ const rank={'service-work':0,overlap:0,unknown:1,'reference-needed':1,invalid:2,outside:3};result.sort((a,b)=>rank[a.state]-rank[b.state]||a.distance-b.distance||a.row.name.localeCompare(b.row.name));
  return {rows:result,unmapped,duplicates,overlaps:result.filter(r=>r.state==='overlap').length,unknown:result.filter(r=>r.state==='unknown'||r.state==='reference-needed'||r.state==='invalid').length};
 }
 function csv(rows){const cell=v=>{let s=String(v??'');if(/^[\s]*[=+@-]|^[\t\r]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';};return '\ufeff'+rows.map(r=>r.map(cell).join(',')).join('\r\n');}

@@ -18,7 +18,7 @@ let items=[],reviews=[],live=true,loading=false,token=0,historyToken=0,lastFocus
 function sourceLink(label,url){const safe=L.http(url);if(!safe)return P('Source link not available');const a=N('a','land-link',label);a.href=safe;a.target='_blank';a.rel='noopener noreferrer';return a;}
 function close(){token++;historyToken++;dialog.close();lastFocus?.focus?.();}
 dialog.addEventListener('cancel',e=>{e.preventDefault();close();});dialog.addEventListener('click',e=>{if(e.target===dialog)close();});
-function routes(){return brtArtRoutes.filter(r=>r.isPublished!==false).map(r=>({...r,kind:'rapid'}));}
+function routes(){return brtArtRoutes.filter(r=>r.isPublished!==false&&!isExistingTransitRoute(r)).map(r=>({...r,kind:'rapid'}));}
 function countRechecks(item){return live?reviews.filter(r=>String(r.route_id)===String(item.route.remoteId)&&C.needsRecheck(r,item.schedule)).length:0;}
 function render(){
  const privileged=admin();if(!privileged&&filter.value==='recheck')filter.value='all';for(const o of filter.options)if(o.value==='recheck')o.disabled=!privileged||!live||!!privateError;

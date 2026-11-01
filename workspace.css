@@ -111,3 +111,18 @@ body.workspace-preview{height:100dvh;overflow:hidden;background:#fffefa;font-fam
 @media(max-width:380px){.workspace-preview .brand{font-size:17px;gap:7px}.workspace-preview .brand em{display:none!important}.workspace-preview .header-right{gap:5px}.workspace-preview .header-right button{padding:6px;font-size:9px}.workspace-preview .shell>header{padding-left:9px;padding-right:9px;gap:6px}.workspace-preview .sidebar h1{font-size:20px}.workspace-preview .ws-nav{font-size:9px}}
 }
 }
+
+/* Admin entry stays at the bottom-left, including before sign-in. */
+@media screen{
+.workspace-preview #adminButton{display:none!important}
+.workspace-preview .ws-rail{min-height:0}
+.workspace-preview .ws-rail-main{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.workspace-preview .ws-rail-main>.ws-nav,.workspace-preview .ws-rail-extra,.workspace-preview .ws-rail-bottom{flex-shrink:0}
+.workspace-preview #workspaceAdmin{color:#577162}
+.workspace-preview #workspaceAdmin .ws-icon{width:23px;height:23px}
+@media(max-width:740px){
+.workspace-preview .ws-rail-bottom{order:-1;width:54px;margin:0 4px 0 0}
+.workspace-preview .ws-rail-main{overflow:visible}
+.workspace-preview .ws-rail-bottom #workspaceAdmin{width:54px;min-height:56px;font-size:9px}
+}
+}
