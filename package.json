@@ -1,0 +1,28 @@
+{
+  "name": "trackside-atl-interface",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Incremental React interfaces for the existing static Trackside ATL tracker",
+  "scripts": {
+    "check:react": "tsc --project tsconfig.react.json --noEmit",
+    "build:react": "vite build --config vite.react.config.mts && node scripts/react-postbuild.cjs",
+    "test:react": "node tests/test-shape-state.cjs && node tests/test-shape-bridge.cjs && node tests/test-sr2t-workspace.cjs && node tests/test-project-profile.cjs && node tests/test-bus-view-state.cjs && node tests/test-bus-workspace.cjs",
+    "prepare:release": "node scripts/prepare-static-release.cjs",
+    "test:loading": "node tests/test-loading-cache.cjs && node tests/test-network-cache-api.cjs",
+    "test:bus-ui": "node tests/test-bus-view-state.cjs && node tests/test-bus-workspace.cjs"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
+  },
+  "packageManager": "pnpm@11.25.0"
+}

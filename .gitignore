@@ -1,0 +1,9 @@
+supabase/functions/.env
+.env
+.env.*
+!.env.example
+
+# Frontend build dependencies and local package store
+node_modules/
+.pnpm-store/
+work/pnpm-store/

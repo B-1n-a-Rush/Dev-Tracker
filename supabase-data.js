@@ -450,13 +450,15 @@
     return saveCoordinationRecord('infrastructure_coordination_reviews',clean,baseline,['route_key','infrastructure_id']);
   }
 
+  const networkMetadata=new Map();
   async function listLocalBusNetworks() {
-    return dataRequest('local_bus_network_versions?select=fingerprint,network_key,map_name,source_filename,archive_sha256,imported_at,effective_date,verification_status,verification_note,counts,is_active,updated_at,mode_overrides&order=imported_at.desc&limit=100');
+    const rows=await dataRequest('local_bus_network_versions?select=fingerprint,network_key,map_name,source_filename,archive_sha256,imported_at,effective_date,verification_status,verification_note,counts,is_active,updated_at,mode_overrides&order=imported_at.desc&limit=100');networkMetadata.clear();for(const row of rows)networkMetadata.set(row.fingerprint,row);return rows;
   }
   async function getLocalBusNetwork(fingerprint) {
     if(!/^[0-9a-f]{64}$/.test(fingerprint))throw new Error('Invalid network version.');
-    const rows=await dataRequest('local_bus_network_versions?select=*&fingerprint=eq.'+fingerprint);
-    if(rows?.length!==1)throw new Error('Network version is unavailable.');return rows[0];
+    if(!networkMetadata.has(fingerprint))await listLocalBusNetworks();const metadata=networkMetadata.get(fingerprint);if(!metadata)throw new Error('Network version is unavailable.');
+    const fetchData=async()=>{const rows=await dataRequest('local_bus_network_versions?select=fingerprint,data&fingerprint=eq.'+fingerprint);if(rows?.length!==1)throw new Error('Network version is unavailable.');return rows[0].data;};
+    const cache=window.TracksideGeometryCache?.shared;const data=cache?await cache.get(config.url,fingerprint,fetchData):await fetchData();return {...metadata,data};
   }
   async function importLocalBusNetwork(bundle,onProgress) {
     const rpc=(name,body)=>dataRequest('rpc/'+name,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)},true);

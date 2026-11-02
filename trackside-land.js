@@ -178,7 +178,7 @@
     }
   }
   async function loadInfrastructure(force=false){
-    if(infrastructureLoad)return infrastructureLoad;if(loadedAt&&!force){screenInfrastructure();return;}
+    if(infrastructureLoad)return infrastructureLoad;if(loadedAt&&!force)return;
     if(force)for(const source of infrastructureSources)metadataCache.delete(source.url);
     layerHelp.textContent='Loading official infrastructure sources…';$('infraMessage').textContent='Loading official infrastructure sources…';
     $('infraRefresh').disabled=true;
