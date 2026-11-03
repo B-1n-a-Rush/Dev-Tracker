@@ -5,7 +5,7 @@ if(window.TracksideControlsGuide)return;
 const $=id=>document.getElementById(id),make=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
 const topics={
  projects:{label:'Find projects',title:'Find and inspect development',intro:'Start in Explore to search the development inventory and open a project profile.',items:[
- ['Search or select a project','Use the search box for a project name, address or station context. Select a list item or map point to open its profile.'],
+ ['Search or select a project','Use the project search at the top of Explore to filter tracked development by name, stored address or station context. Use the address and place search at the top of the map to find a real location in the Atlanta region, then press Find or Enter and select a result. The temporary pin does not create a project or change your project filters. Its popup can open What’s happening here?'],
  ['Narrow the results','Open Filters on the map. All chosen filters work together. Remove an individual filter chip or use Clear all filters to reset your selection.'],
  ['Read the counts in context','The project list reflects active filters. Entire tracker totals cover the full development inventory. Station, corridor and study-area profiles distinguish all nearby projects from those matching your filters.'],
  ['Save something for later','Use Save & follow in a project profile, then open Following to revisit saved projects and review recorded changes.']]},

@@ -1,0 +1,39 @@
+/* Project search belongs to Explore; address/place search belongs to the map. */
+@media screen{
+.workspace-preview .sidebar .ts-project-search{display:block;position:relative;flex:none;width:100%;min-width:0;max-width:none;margin:0 0 14px}
+.workspace-preview .sidebar .ts-project-search input{width:100%;min-width:0;height:42px;font-size:13px}
+.ts-place-search{position:absolute;z-index:450;top:12px;left:60px;right:128px;max-width:420px;min-width:0;color:#173e31}
+.ts-place-search-row{display:flex;align-items:center;width:100%;gap:5px;min-width:0;padding:4px;background:rgba(255,254,250,.80);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);border:1px solid #cfdbcd;border-radius:9px;box-shadow:0 2px 9px #14251e1c}
+.workspace-preview .ts-place-search .search,.ts-place-search .search{display:block;position:relative;flex:1;min-width:0;width:auto;max-width:none;margin:0}
+.ts-place-search .search input{width:100%;min-width:0;height:36px;padding-left:32px;padding-right:5px;font:400 13px 'DM Sans',sans-serif;background:transparent;border:0;box-shadow:none}
+.ts-place-search .search svg{left:9px;top:9px;width:16px;height:16px}
+.ts-place-search [hidden]{display:none!important}
+.ts-place-submit{height:36px;min-height:36px;border:1px solid #136647;border-radius:6px;font:600 12px 'DM Sans',sans-serif;color:#fffefa;background:#136647;padding:0 10px;flex-shrink:0;cursor:pointer}
+.ts-place-submit:disabled{opacity:.6;cursor:wait}
+.ts-place-panel{position:absolute;top:calc(100% + 7px);left:0;right:0;min-width:0;z-index:1000;background:#fffefa;border:1px solid #cfdbcd;border-radius:12px;box-shadow:0 14px 40px #14251e29;max-height:min(65dvh,560px);overflow:auto;color:#14251e;text-align:left}
+.ts-place-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 0;gap:10px;font-size:14px}
+.ts-place-close{border:0;background:transparent;color:#466455;font-size:24px;width:34px;height:34px;cursor:pointer;flex-shrink:0}
+.ts-place-help,.ts-place-status{font:400 12px/1.5 'DM Sans',sans-serif;margin:5px 14px 10px;color:#5e7064}.ts-place-status{color:#285842}.ts-place-status.error{color:#a73630}
+.ts-place-results{list-style:none;padding:0;margin:0}.ts-place-result{display:grid;gap:4px;width:100%;text-align:left;border:0;border-top:1px solid #e2e8dc;padding:13px 14px;min-height:50px;background:transparent;color:#173e31;cursor:pointer;font-family:'DM Sans',sans-serif}
+.ts-place-result:hover,.ts-place-result:focus-visible{background:#edf5e7}.ts-place-result strong{font-size:14px;font-weight:600}.ts-place-result span{font-size:12px;line-height:1.4;color:#64736c;overflow-wrap:anywhere}
+.ts-place-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:11px 14px;border-top:1px solid #e2e8dc;font:400 10px/1.4 'DM Sans',sans-serif;color:#64736c}.ts-place-foot a{color:#136647}.ts-place-clear{border:1px solid #cfdaca;border-radius:6px;padding:7px 9px;background:#f4f8ee;color:#285842;font:500 11px 'DM Sans',sans-serif;cursor:pointer}
+.ts-place-marker{background:transparent;border:0}.ts-place-marker span{display:block;width:25px;height:25px;border:3px solid #fffefa;border-radius:50% 50% 50% 0;background:#136647;box-shadow:0 2px 6px #14251e66;transform:rotate(-45deg);position:relative}.ts-place-marker span:after{content:'';width:7px;height:7px;border-radius:50%;background:#fffefa;position:absolute;top:6px;left:6px}
+.ts-place-popup{font:400 12px/1.45 'DM Sans',sans-serif;max-width:270px}.ts-place-popup strong{display:block;font-size:15px;color:#173e31}.ts-place-popup p{margin:5px 0}.ts-place-popup small{display:block;color:#64736c;margin:7px 0}.ts-place-popup button{display:block;width:100%;text-align:center;margin-top:7px;padding:8px 10px;border:1px solid #cfdbcd;border-radius:6px;background:#f4f8ee;color:#136647;font:600 12px 'DM Sans',sans-serif;cursor:pointer}
+.ts-place-search :is(button,select,input):focus-visible{outline:3px solid #13664788;outline-offset:2px}
+
+.workspace-preview .shell.ws-panel-collapsed .ws-show-tools{top:68px}
+@media(max-width:740px){
+ .workspace-preview{--ws-header:60px}
+ .workspace-preview .shell,.workspace-preview .shell:not(.list-mode):not(.news-mode):not(.saved-mode){grid-template-rows:60px minmax(0,1fr) 62px!important}
+ .workspace-preview .shell>header{height:60px!important;grid-template-rows:1fr;padding:5px 12px;gap:8px}
+ .ts-place-search{left:54px;right:128px;top:10px;max-width:none}
+ .ts-place-search .search input{font-size:12px;padding-left:27px}
+ .ts-place-search .search svg{left:6px}
+ .ts-place-submit{padding:0 7px;font-size:11px}
+ .ts-place-panel{left:-42px;right:auto;width:calc(100vw - 24px);max-height:min(55dvh,420px)}
+ .workspace-preview .sidebar .ts-project-search{margin-bottom:7px}
+ .workspace-preview .sidebar .ts-project-search input{height:38px;font-size:12px}
+ .workspace-preview .sidebar .intro{margin-bottom:8px}
+}
+}
+@media print{.ts-place-search,.ts-project-search{display:none!important}}
