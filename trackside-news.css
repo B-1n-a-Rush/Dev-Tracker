@@ -1,0 +1,15 @@
+/* Use existing tracker colors and typography; keep coverage secondary to facts. */
+.coverage-filter-status{font-size:11px;line-height:1.5;color:var(--muted,#68746d);max-width:260px}
+.coverage-note{font-size:11px;line-height:1.6;color:var(--muted,#68746d);margin:4px 0 12px}
+.news-item{display:block;padding:12px 0;text-decoration:none;border-bottom:1px solid #dce3dc}
+.news-item .news-title{display:block;line-height:1.5;margin-bottom:5px;color:var(--ink,#193f31)}
+.news-meta{display:block!important;font-size:11px!important;line-height:1.65!important;color:var(--muted,#68746d);margin:4px 0 10px;overflow-wrap:anywhere}
+.coverage-history{margin-top:10px}
+.coverage-groups{margin:18px 0;padding:14px;border:1px solid #d8e1d9;border-radius:10px;background:#fafbf6}
+.coverage-groups summary{cursor:pointer;font-weight:600;line-height:1.6}
+.coverage-project{padding:14px 0;border-top:1px solid #d8e1d9}
+.coverage-project h4{margin:0 0 8px;font-size:15px}
+.coverage-project>.land-button{margin-bottom:10px}
+.coverage-article{display:block!important;line-height:1.5;overflow-wrap:anywhere;margin-top:10px}
+.coverage-project details{margin-top:8px}
+@media print{.coverage-history{display:none}}

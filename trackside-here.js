@@ -70,7 +70,7 @@
     const card=n('article','here-card');card.append(action(p.name,()=>show(p.id),'land-project-name'),note([p.projectType,H.status(p.status),distance(d)+' away'].filter(Boolean).join(' · ')));
     const quantities=[['residentialUnits','residential units'],['hotelUnits','hotel rooms'],['retailSpaceSqFt','sq ft retail'],['commercialSpaceSqFt','sq ft commercial'],['medicalSpaceSqFt','sq ft medical']].filter(([key])=>H.quantity(p[key])>0).map(([key,label])=>count(p[key])+' '+label);
     if(quantities.length)card.append(note(quantities.join(' · ')));
-    const verified=p.lastVerifiedAt||p.metadata?.last_verified_at,updated=p.updatedAt||p.metadata?.updated_at;
+    const verified=p.metadata?.last_verified_at,updated=p.updatedAt||p.metadata?.updated_at;
     card.append(note(verified?'Last verified '+C.dateLabel(verified):updated?'Project record updated '+C.dateLabel(updated):'Verification date not recorded'));
     if(C.http(p.sourceUrl))card.append(link('Project source ↗',p.sourceUrl));else card.append(note('Source not yet linked'));
     return card;
@@ -119,11 +119,12 @@
     root.append(quantities,listSection('Development projects',result.projects,projectCard,'No tracked, located development projects were found within this radius.','projects'),listSection('Nearby infrastructure',result.infrastructure,infrastructureCard,loading.infrastructure?'Loading connected infrastructure sources…':'No mapped infrastructure matches were found within the connected sources and these overview settings.','infrastructure'),listSection('Nearby transit alignments',result.routes,routeCard,'No loaded transit alignment falls within this radius.','routes'),listSection('Rail stations',result.stations,stationCard,'No tracked rail station falls within this radius.','stations'));
     renderParcels(root,parcels,loading.parcels);
     const coverage=n('details','here-section');coverage.append(n('summary','','Sources, coverage & limitations'));
-    for(const source of A.sourceResults){const row=n('div','here-source');row.append(link(source.source.name+' ↗',source.source.viewer),note(source.ok?'Connected · dataset update '+C.dateLabel(source.sourceUpdated):'Unavailable · '+source.error));coverage.append(row);}
-    if(A.loadedAt)coverage.append(note('Infrastructure retrieved '+A.loadedAt.toLocaleString()+'. Retrieval is not project verification.'));
+    for(const source of A.sourceResults){const row=n('div','here-source');row.append(link(source.source.name+' ↗',source.source.viewer),note(source.ok?'Connected · dataset update '+C.dateLabel(source.sourceUpdated):source.cached?'Refresh unsuccessful · showing previous records':'Source unavailable on latest attempt'));coverage.append(row);}
+    if(A.loadedAt)coverage.append(note('Latest successful infrastructure feed retrieval '+A.loadedAt.toLocaleString()+'. Retrieval is not project verification.'));
     if(result.unlocatedInfrastructure)coverage.append(note(result.unlocatedInfrastructure+' eligible infrastructure records have no usable location and are excluded from proximity counts. Area-wide work may still require coordination.'));
     if(result.unlocatedProjects)coverage.append(note(result.unlocatedProjects+' tracked development records have no usable coordinates and could not be screened.'));
     coverage.append(note('Possible infrastructure duplicates and imported ART/BRT/LRT alignments are excluded. Uploaded route shapefiles supply rapid-transit geometry. Long-range and completed infrastructure follow the overview settings above.'),note('These feeds do not cover every agency or program. Fulton and Clayton utility capital-project feeds are not connected. Proximity is not proof of a shared construction footprint, conflict, or walking access.'));
+    if(window.TracksideDataStatusUI){const info=action('About these sources',()=>window.TracksideDataStatusUI.open('infra:arc-mtp'));coverage.append(info);}
     root.append(coverage);
   }
   function draw(result,fit){

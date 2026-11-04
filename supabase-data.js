@@ -796,6 +796,18 @@
     return rows || [];
   }
 
+  async function listNewsHistory(projectId = null) {
+    const items = [], pageSize = 100;
+    for (let offset = 0; offset < 10000; offset += pageSize) {
+      const project = projectId === null ? '' : `&project_id=eq.${encodeURIComponent(projectId)}`;
+      const rows = await dataRequest(`project_news_articles?select=id,project_id,title,url,publisher,published_at,reviewed_at&review_status=eq.approved${project}&order=id.asc&limit=${pageSize}&offset=${offset}`);
+      if (!Array.isArray(rows)) throw Error('Approved coverage returned an invalid response.');
+      items.push(...rows);
+      if (rows.length < pageSize) return items;
+    }
+    throw Error('Approved coverage exceeds the current paging limit; no partial result was used.');
+  }
+
   async function getProjectNewsStatus(projectId) {
     const rows = await dataRequest(
       `project_news_monitoring_status?select=project_id,last_checked_at&project_id=eq.${encodeURIComponent(projectId)}&limit=1`
@@ -995,6 +1007,8 @@
     reviewProjectSubmission,
     listProjectNews,
     listApprovedNews,
+    listApprovedNewsHistory: () => listNewsHistory(),
+    listProjectNewsHistory: projectId => listNewsHistory(projectId),
     getProjectNewsStatus,
     listNewsReviewQueue,
     reviewProjectNewsArticle,

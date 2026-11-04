@@ -29,6 +29,12 @@
   const oldClear=clearDetailPanel;clearDetailPanel=function(...args){dismissProfiles();return oldClear(...args);};
   async function fetchJson(url,signal){const response=await fetch(url,{signal:signal||AbortSignal.timeout(25000)});if(!response.ok)throw new Error('HTTP '+response.status);const j=await response.json();if(j.error)throw new Error(j.error.message||'GIS service unavailable');return j;}
   async function queryFeatures(url,extra={},maximum=6000){
+    const source=[...parcelConfig,atlantaParcels].find(s=>s.url===url.replace(/\/query$/,''));
+    if(!source||!window.TracksideDataStatus)return queryFeaturesRaw(url,extra,maximum);
+    const id='parcels:'+(source===atlantaParcels?'atlanta':source.name.split(' ')[0].toLowerCase());
+    return window.TracksideDataStatus.observe(id,()=>queryFeaturesRaw(url,extra,maximum),r=>({count:r.features.length,partial:r.truncated}));
+  }
+  async function queryFeaturesRaw(url,extra={},maximum=6000){
     const all=[];let offset=0;
     while(all.length<maximum){
       const params=new URLSearchParams({f:'geojson',where:'1=1',outFields:'*',outSR:'4326',returnGeometry:'true',orderByFields:'OBJECTID ASC',resultRecordCount:String(Math.min(1000,maximum-all.length)),resultOffset:String(offset),...extra});
@@ -124,6 +130,7 @@
   ];
   infrastructureSources.push({id:'arc-mtp',group:'arc-mtp',kind:'arc',jurisdiction:'ARC four-jurisdiction coverage',agency:'Atlanta Regional Commission / project sponsors',name:'ARC MTP / TIP · MARTA jurisdictions',url:'https://services1.arcgis.com/Ug5xGQbHsD8zuZzM/arcgis/rest/services/ARC_MTP/FeatureServer/2',where:"UPPER(COUNTY) LIKE '%FULTON%' OR UPPER(COUNTY) LIKE '%DEKALB%' OR UPPER(COUNTY) LIKE '%CLAYTON%' OR UPPER(CITY) LIKE '%ATLANTA%'",viewer:'https://experience.arcgis.com/experience/0e308ec9423e4a52bd527f7b83acdf85/',coverage:'Only Atlanta, Fulton, DeKalb and Clayton matches, including cross-county projects touching these jurisdictions. ARC polygons are planning/project areas. Programmed is not proof that construction has started. Long Range and Completed are optional; construction dates must be verified separately.'});
   let infrastructureRows=[],infrastructureLoad=null,loadedAt=null,lastScreened=[],lastUnlocated=[],lastPotential=[],sourceResults=[],reconciliation={matchedArcCount:0,possibleArcCount:0,newArcCount:0};
+  const sourceSnapshots=new Map();
   const distanceCache=new Map();let routeGeometrySignature='';
   const layerSection=node('section','map-layer-section');
   layerSection.innerHTML='<div class="map-layer-section-title">Infrastructure</div><label class="map-layer-option"><span class="map-layer-copy"><strong>Public infrastructure projects</strong><small id="infrastructureLayerHelp">Four-jurisdiction coverage · roads, paths, sidewalks and utilities</small></span><input id="layerInfrastructure" type="checkbox" /></label><button type="button" class="land-button land-wide" id="browseInfrastructure">Browse & coordinate</button>';
@@ -180,22 +187,24 @@
   async function loadInfrastructure(force=false){
     if(infrastructureLoad)return infrastructureLoad;if(loadedAt&&!force)return;
     if(force)for(const source of infrastructureSources)metadataCache.delete(source.url);
-    layerHelp.textContent='Loading official infrastructure sources…';$('infraMessage').textContent='Loading official infrastructure sources…';
-    $('infraRefresh').disabled=true;
+    layerHelp.textContent='Loading official infrastructure sources…';$('infraMessage').textContent='Loading official infrastructure sources…';$('infraRefresh').disabled=true;
+    const health=window.TracksideDataStatus,tickets=infrastructureSources.map(s=>health?.begin('infra:'+s.id));
     infrastructureLoad=(async()=>{
-      const results=await Promise.allSettled(infrastructureSources.map(readInfrastructureSource));
-      sourceResults=results.map((r,i)=>({source:infrastructureSources[i],ok:r.status==='fulfilled',count:r.status==='fulfilled'?r.value.features.length:0,truncated:r.status==='fulfilled'&&r.value.truncated,error:r.status==='rejected'?r.reason.message:'',sourceUpdated:r.status==='fulfilled'?r.value.sourceUpdated:null,geometryUpdated:r.status==='fulfilled'?r.value.geometryUpdated:null,notes:r.status==='fulfilled'?r.value.notes:[]}));
-      const rows=[];
-      results.forEach((r,i)=>{if(r.status!=='fulfilled')return;const source=infrastructureSources[i];for(const feature of r.value.features){const row=C.infrastructure(feature,source);if(!row.geometry&&source.kind!=='fulton')continue;if(source.kind==='splost'&&!/resurfac|transportation|beautification|patch|greenway|trail|sidewalk|bikeway|bridge|drainage|intersection|pedestrian|safety|streetscape|utilities/i.test(row.kind))continue;rows.push(row);}});
-      reconciliation=C.reconcileInfrastructure(mergeInfrastructure(rows));infrastructureRows=reconciliation.rows;for(const result of sourceResults)result.excludedRapidTransitCount=reconciliation.excludedRapidTransitRows.filter(r=>r.source.id===result.source.id).length;distanceCache.clear();loadedAt=new Date();refreshInventoryChoices();renderCoverage();screenInfrastructure();if(typeof window.dispatchEvent==='function'&&typeof window.CustomEvent==='function')window.dispatchEvent(new window.CustomEvent('trackside:infrastructure-loaded'));
-    })().catch(e=>{$('infraMessage').textContent='Infrastructure could not load: '+e.message;layerHelp.textContent='Sources unavailable · use Browse & coordinate to retry';}).finally(()=>{infrastructureLoad=null;$('infraRefresh').disabled=false;});
+      const results=await Promise.allSettled(infrastructureSources.map(readInfrastructureSource)),at=new Date().toISOString();
+      const states=window.TracksideDataStatusCore.retainSources(infrastructureSources,results,sourceSnapshots,at);
+      sourceResults=states.map((r,i)=>{const v=r.value;if(r.ok)health?.success(tickets[i],{count:v.features.length,partial:v.truncated,sourceUpdated:v.sourceUpdated,geometryUpdated:v.geometryUpdated});else health?.failure(tickets[i],{retained:r.cached});return{source:r.source,ok:r.ok,cached:r.cached,lastSuccess:r.lastSuccess,count:v?.features.length||0,truncated:!!v?.truncated,error:r.error||'',sourceUpdated:v?.sourceUpdated||null,geometryUpdated:v?.geometryUpdated||null,notes:v?.notes||[]};});
+      const rows=[];for(const result of states){if(!result.value)continue;const source=result.source;for(const feature of result.value.features){const row=C.infrastructure(feature,source);if(!row.geometry&&source.kind!=='fulton')continue;if(source.kind==='splost'&&!/resurfac|transportation|beautification|patch|greenway|trail|sidewalk|bikeway|bridge|drainage|intersection|pedestrian|safety|streetscape|utilities/i.test(row.kind))continue;rows.push(row);}}
+      reconciliation=C.reconcileInfrastructure(mergeInfrastructure(rows));infrastructureRows=reconciliation.rows;for(const result of sourceResults)result.excludedRapidTransitCount=reconciliation.excludedRapidTransitRows.filter(r=>r.source.id===result.source.id).length;
+      const times=sourceResults.map(r=>Date.parse(r.lastSuccess)).filter(Number.isFinite);loadedAt=times.length?new Date(Math.max(...times)):null;
+      distanceCache.clear();refreshInventoryChoices();renderCoverage();screenInfrastructure();if(typeof window.dispatchEvent==='function'&&typeof window.CustomEvent==='function')window.dispatchEvent(new window.CustomEvent('trackside:infrastructure-loaded'));
+    })().catch(e=>{for(const ticket of tickets)if(ticket)health?.failure(ticket);$('infraMessage').textContent='Infrastructure could not load. Previously displayed data may remain; retry the sources.';layerHelp.textContent='Sources unavailable · use Browse & coordinate to retry';}).finally(()=>{infrastructureLoad=null;$('infraRefresh').disabled=false;});
     return infrastructureLoad;
   }
   function renderCoverage(){
     const root=$('infraCoverage');root.replaceChildren();
     for(const r of sourceResults){
-      const item=node('div','land-source');item.append(link(r.source.name+' ↗',r.source.viewer),note(r.ok?String(r.count.toLocaleString())+' source records retrieved'+(r.truncated?' · capped; coverage incomplete':''):'Unavailable: '+r.error));
-      if(r.source.coverage)item.append(note(r.source.coverage));
+      const item=node('div','land-source');item.append(link(r.source.name+' ↗',r.source.viewer),note(r.ok?String(r.count.toLocaleString())+' source records retrieved'+(r.truncated?' · capped; coverage incomplete':''):r.cached?'Refresh unsuccessful · showing previously retrieved records':'Source unavailable on latest attempt'));
+      if(r.lastSuccess)item.append(note('Last successful source retrieval '+new Date(r.lastSuccess).toLocaleString()+'.'));if(r.source.coverage)item.append(note(r.source.coverage));
       if(r.excludedRapidTransitCount)item.append(note(r.excludedRapidTransitCount+' imported ART/BRT/LRT alignment records excluded. These routes are shown only from Trackside route shapefiles.'));
       if(r.sourceUpdated)item.append(note('Dataset updated '+C.dateLabel(r.sourceUpdated)+'. This does not verify every project.'));
       if(r.geometryUpdated)item.append(note('Location dataset updated '+C.dateLabel(r.geometryUpdated)+'. Project details and locations can have different vintages.'));
@@ -204,7 +213,7 @@
       for(const message of r.notes||[])item.append(note(message));
       root.append(item);
     }
-    root.append(note('Connected programs are not a complete inventory of every jurisdiction. Fulton and Clayton utility capital-project feeds are not connected. Plans and phases may have changed; confirm with the publishing agency.'),note('Retrieved '+loadedAt.toLocaleString()+'. Retrieval time is not a source verification date.'));
+    root.append(note('Connected programs are not a complete inventory of every jurisdiction. Fulton and Clayton utility capital-project feeds are not connected. Plans and phases may have changed; confirm with the publishing agency.'),note(loadedAt?'Latest successful feed retrieval '+loadedAt.toLocaleString()+'. Individual feeds can be older; retrieval is not source verification.':'No infrastructure feed has loaded successfully in this session.'));
   }
   function recordUrl(row){
     if(row.source.kind==='fulton'){const url=new URL(row.source.url);const where=C.text(row.raw.project_id)?"project_id='"+C.text(row.raw.project_id).replaceAll("'","''")+"'":/^\d+$/.test(String(row.raw.id))?'id='+row.raw.id:'1=0';url.search=new URLSearchParams({'$where':where});return url.href;}
@@ -242,7 +251,7 @@
     lastScreened.sort((a,b)=>(a.distance??0)-(b.distance??0)||a.name.localeCompare(b.name));
     const unknown=counted.filter(r=>!C.dateRange(r.start)||!C.dateRange(r.finish)).length,overlap=counted.filter(r=>r.screen==='overlap').length;
     $('infraStats').replaceChildren();for(const [n,label] of [[counted.length,reference?'near alignment':'mapped projects'],[overlap,'possible overlaps'],[unknown,'unknown schedules']]){const s=node('div');s.append(node('strong','',String(n)),node('span','',label));$('infraStats').append(s);}
-    const failed=sourceResults.filter(r=>!r.ok).length;let message=loadedAt?String(lastScreened.length)+' mapped shown · '+lastUnlocated.length+' unmapped / area-wide · '+lastPotential.length+' possible duplicates'+(failed?' · '+failed+' source(s) unavailable':'')+' · retrieved '+loadedAt.toLocaleTimeString():'Enable the layer to load public sources.';
+    const failed=sourceResults.filter(r=>!r.ok).length;let message=loadedAt?String(lastScreened.length)+' mapped shown · '+lastUnlocated.length+' unmapped / area-wide · '+lastPotential.length+' possible duplicates'+(failed?' · '+failed+' source(s) unavailable':'')+' · latest successful feed '+loadedAt.toLocaleTimeString():sourceResults.length?failed+' source(s) unavailable · no successful source data loaded. Retry the sources.':'Enable the layer to load public sources.';
     if((start&&!finish)||(!start&&finish))message+=' · Set both comparison dates.';
     if(start&&finish&&C.schedule(null,null,start,finish)==='invalid-reference')message='Finish must be on or after start. No overlap results are available.';
     $('infraMessage').textContent=message;$('infraExport').disabled=!loadedAt||!lastScreened.length;
