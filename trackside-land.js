@@ -158,7 +158,22 @@
     }
     return {records,truncated:true};
   }
+  async function readReviewedAtlanta(){
+    if(!window.TracksideAtlantaReviewed)await new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      script.src=new URL('trackside-atlanta-reviewed.js',document.baseURI).href;
+      script.onload=()=>{script.remove();resolve();};
+      script.onerror=()=>{script.remove();reject(new Error('Reviewed Atlanta snapshot could not load.'));};
+      document.head.append(script);
+    });
+    const snapshot=window.TracksideAtlantaReviewed;
+    if(!Array.isArray(snapshot?.features)||!snapshot.features.length)throw new Error('Reviewed Atlanta snapshot is unavailable.');
+    return {features:snapshot.features,truncated:false,sourceUpdated:snapshot.sourceUpdated,notes:[
+      'Reviewed snapshot · '+new Date(snapshot.reviewedAt||snapshot.checkedAt).toLocaleDateString()+'. Incoming changes are checked separately. Reload Trackside after applying a reviewed update.'
+    ]};
+  }
   async function readInfrastructureSource(source){
+    if(source.kind==='atlanta')return readReviewedAtlanta();
     if(source.kind!=='fulton'){
       const [result,meta]=await Promise.all([queryFeatures(source.url,source.where?{where:source.where}:{},6000),sourceMetadata(source)]);
       const features=source.kind==='arc'?result.features.filter(f=>C.arcJurisdictions(f.properties||{}).length):result.features;
@@ -281,7 +296,7 @@
     for(const row of lastPotential.slice(0,80)){const card=node('article','land-project');card.append(button(row.name,()=>focusInfrastructure(row),'land-project-name'),note(row.sourceStatus+' · '+row.jurisdiction),note('May match: '+row.possibleMatches.map(r=>r.name).join('; ')),node('span','land-badge',$('infraIncludePossible').checked?'Included by your selection — counts may overlap':'Excluded from map totals'));duplicates.append(card);}
     if(lastPotential.length>80)duplicates.append(note('First 80 candidates shown; export includes all matching candidates.'));
   }
-  function renderInfrastructureMap(){
+  function renderInfrastructureMap(){window.TracksideMapLegend?.refresh();
     infraLayer.clearLayers();if(!layerInput.checked)return;
     for(const row of lastScreened){
       const color=colors[row.category]||colors.Other,planning=row.source.kind==='arc'||row.geometryBasis.startsWith('ARC');
@@ -340,6 +355,6 @@
   $('infraExportUnlocated').addEventListener('click',()=>exportInfrastructure('unmapped'));
   $('infraExportDuplicates').addEventListener('click',()=>exportInfrastructure('duplicates'));
   // Public diagnostics support end-to-end verification without changing source records.
-  window.TracksideLand={async applyMapView(view){setInfrastructureVisible(!!view.enabled);if(view.enabled||view.load){await loadInfrastructure();if(!loadedAt||!sourceResults.some(r=>r.ok))throw Error('Public infrastructure feeds could not load.');if(sourceResults.some(r=>!r.ok||r.truncated))throw Error('Public infrastructure coverage is partial; some feeds are unavailable or capped.');}},get selectedInfrastructureId(){return selectedInfrastructureId;},version:'20261024-here',openContextProfile(panel){profileGeneration++;parcelHighlight.clearLayers();infraHighlight.clearLayers();openProfile(panel);},focusInfrastructure,get parcelFeatures(){return parcelExportFeatures;},get loadedAt(){return loadedAt;},showInfrastructure,showParcel,parcelConfig,atlantaParcels,infrastructureSources,queryFeatures,readInfrastructureSource,loadInfrastructure,get infrastructureRows(){return infrastructureRows;},get sourceResults(){return sourceResults;},get screenedRows(){return lastScreened;},get unlocatedRows(){return lastUnlocated;},get possibleRows(){return lastPotential;},get excludedRapidTransitRows(){return reconciliation.excludedRapidTransitRows||[];},get reconciliation(){return {matchedArcCount:reconciliation.matchedArcCount,possibleArcCount:reconciliation.possibleArcCount,newArcCount:reconciliation.newArcCount};}};
+  window.TracksideLand={get legendState(){return {enabled:layerInput.checked,categories:[...new Set(lastScreened.map(r=>r.category))]};},async applyMapView(view){setInfrastructureVisible(!!view.enabled);if(view.enabled||view.load){await loadInfrastructure();if(!loadedAt||!sourceResults.some(r=>r.ok))throw Error('Public infrastructure feeds could not load.');if(sourceResults.some(r=>!r.ok||r.truncated))throw Error('Public infrastructure coverage is partial; some feeds are unavailable or capped.');}},get selectedInfrastructureId(){return selectedInfrastructureId;},version:'20261024-here',openContextProfile(panel){profileGeneration++;parcelHighlight.clearLayers();infraHighlight.clearLayers();openProfile(panel);},focusInfrastructure,get parcelFeatures(){return parcelExportFeatures;},get loadedAt(){return loadedAt;},showInfrastructure,showParcel,parcelConfig,atlantaParcels,infrastructureSources,queryFeatures,readInfrastructureSource,loadInfrastructure,get infrastructureRows(){return infrastructureRows;},get sourceResults(){return sourceResults;},get screenedRows(){return lastScreened;},get unlocatedRows(){return lastUnlocated;},get possibleRows(){return lastPotential;},get excludedRapidTransitRows(){return reconciliation.excludedRapidTransitRows||[];},get reconciliation(){return {matchedArcCount:reconciliation.matchedArcCount,possibleArcCount:reconciliation.possibleArcCount,newArcCount:reconciliation.newArcCount};}};
   if(parcelsEnabled)loadParcels();
 })();

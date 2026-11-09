@@ -106,7 +106,7 @@ function relevantDirections(){return network?.data.directions.filter(d=>d.line_i
 function selectedRoute(){return routeRows.find(r=>r.line_id===routeChoice.value);}
 function initMap(){if(busMap)return;busMap=L.map('busImpactMap',{preferCanvas:true}).setView([33.76,-84.39],10);renderer=L.canvas({padding:.5});L.tileLayer(cartoBasemapUrl,{maxZoom:20,attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).on('tileerror',()=>{$('busMapMessage').textContent='Some basemap tiles could not load; route and project geometry remain available.';}).addTo(busMap);mapRoutes=L.featureGroup().addTo(busMap);mapStops=L.featureGroup().addTo(busMap);mapImpacts=L.featureGroup().addTo(busMap);mapProjects=L.featureGroup().addTo(busMap);mapWorkArea=L.featureGroup().addTo(busMap);busMap.on('moveend zoomend',oncePerFrame(paintDetailStops));}
 function fitRoute(){initMap();const dirs=relevantDirections();if(!dirs.length)return;const group=L.geoJSON({type:'FeatureCollection',features:dirs.map(d=>({type:'Feature',properties:{},geometry:d.geometry}))}),bounds=group.getBounds();if(bounds.isValid())busMap.fitBounds(bounds,{padding:[22,22],maxZoom:14});}
-function paintMain(){
+function paintMain(){window.TracksideMapLegend?.refresh();
   const signature=networkSignature();
   if(signature!==mainGeometryKey){mainRoutes.clearLayers();mainRouteLayers.clear();mainActiveDirections.clear();mainGeometryKey=signature;mainStopsKey='';}
   if(!network||!mainToggle.checked){map.removeLayer(mainRoutes);mainStops.clearLayers();mainStopsKey='';map.removeLayer(mainStops);return;}
@@ -134,7 +134,7 @@ function paintMainStops(){
   $('localBusStopHelp').textContent=count+' stops in this view · all stops used for screening.';
 }
 function scopedAlignments(f){return f.alignments.filter(d=>(!directionChoice.value||d.dir_name===directionChoice.value)&&(!patternChoice.value||d.pattern===patternChoice.value));}
-function paintDetail(){
+function paintDetail(){window.TracksideMapLegend?.refresh();
   initMap();
   const r=selectedRoute();if(!r)return;
   const routeKey=networkSignature()+'|'+routeChoice.value+'|'+directionChoice.value+'|'+patternChoice.value;
@@ -164,7 +164,7 @@ function paintDetail(){
   }
   paintDetailStops();
 }
-function paintDetailStops(){
+function paintDetailStops(){window.TracksideMapLegend?.refresh();
   if(!busMap||!network||!dialog.open)return;
   const bounds=busMap.getBounds().pad(.1),showAll=$('busShowStops').checked&&busMap.getZoom()>=14;
   const key=detailImpactKey+'|'+busMap.getZoom()+'|'+showAll+'|'+boundsKey(bounds);
@@ -222,5 +222,5 @@ window.addEventListener('focus',async()=>{
 });
 const priorAdmin=updateAdminUi;updateAdminUi=function(...args){const value=priorAdmin(...args);ui.set({staff:!!admin()});adminEntry.hidden=!admin();$('busNetworkManagement').hidden=!admin();if(!admin()){reviews.clear();reviewReady=false;dirty=false;statusChoice.value=decisionChoice.value='';renderDetail();renderSaved();}renderManagement();if(dialog.open){if(admin())loadReviews().then(render);else render();}return value;};
 async function applyMapView(view){mainSearch.value=view.search||'';mainToggle.checked=!!view.enabled||!!view.stops;mainStopToggle.checked=!!view.stops;if(mainToggle.checked&&!await loadNetwork())throw Error('Local-bus routes could not load.');paintMain();paintMainStops();updateMapLayersCount();}
-window.TracksideLocalBus={open,applyMapView,refresh:()=>scan(true),get network(){return network;},get findings(){return baseFindings;},get visibleFindings(){return visible;}};
+window.TracksideLocalBus={get legendState(){const q=mainSearch.value.trim().toLowerCase(),routes=routeRows.filter(r=>r.mode==="local_bus"&&r.line_name.toLowerCase().includes(q)).map(r=>({line_name:r.line_name,line_color:r.line_color}));return {main:{enabled:mainToggle.checked,loaded:!!network,verified:network?.verification_status==="confirmed",routes,stops:mainStopToggle.checked,zoom:map.getZoom()},detail:{loaded:!!network,verified:network?.verification_status==="confirmed",route:selectedRoute()?{line_name:selectedRoute().line_name,line_color:selectedRoute().line_color}:null,potential:visible.length>0,stops:!!busMap&&$("busShowStops").checked&&busMap.getZoom()>=14}};},open,applyMapView,refresh:()=>scan(true),get network(){return network;},get findings(){return baseFindings;},get visibleFindings(){return visible;}};
 })();

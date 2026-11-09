@@ -17,6 +17,7 @@ function create(opts){
  // Frame the alignment, since a nearby agency record may contain citywide geometry.
  const rows=opts.rows||[],model=plan([opts.route.geometry])||plan(rows.map(i=>i.row.geometry)),figure=N('figure','coord-briefing-map'),frame=N('div','coord-briefing-map-frame'),status=N('p','land-note');status.setAttribute('role','status');figure.append(frame,status);
  const credit=N('figcaption','coord-map-credit');credit.append(N('span','','© OpenStreetMap contributors · '));for(const [label,href]of [['openstreetmap.org/copyright','https://www.openstreetmap.org/copyright'],['© CARTO · carto.com/attribution','https://carto.com/attribution/']]){const a=N('a','',label);a.href=href;a.target='_blank';a.rel='noopener noreferrer';credit.append(a,N('span','',' '));}credit.append(N('span','','OpenStreetMap data under ODbL.'));figure.append(credit);
+ const key=typeof window!=='undefined'?window.TracksideMapLegend?.elementFor('briefing',{route:opts.route,rows}):null;if(key)figure.insertBefore(key,credit);
  let canceled=false,generation=0,jobs=[];const images=[];
  if(!model){status.textContent='No usable geometry is available for the briefing map.';return {element:figure,ready:Promise.resolve({loaded:0,total:0,failed:0}),retry:()=>Promise.resolve({loaded:0,total:0,failed:0}),cancel(){}};}
  frame.style.aspectRatio=model.width+' / '+model.height;frame.setAttribute('role','img');frame.setAttribute('aria-label','Street basemap with the selected MARTA route and filtered infrastructure projects');

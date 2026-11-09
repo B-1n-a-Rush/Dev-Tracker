@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-  <link rel="stylesheet" href="./trackside-land.css?v=20261024-here">
+  <link rel="stylesheet" href="./trackside-land.css?v=20261108-infrastructure-tab-1">
   <link rel="stylesheet" href="./trackside-here.css?v=20261024-here">
   <style>
     :root{--ink:#14251e;--muted:#64736c;--cream:#f7f5ee;--paper:#fffefa;--line:#dce2d9;--green:#136647;--lime:#c9ee6e;--orange:#f4a261;--purple:#7b61c7;--blue:#3d9bd1;--red:#df5650;--shadow:0 14px 38px rgba(22,44,34,.10)}
@@ -403,6 +403,7 @@
           <div class="data-health-list" id="dataHealthList"><p class="data-health-empty">Loading data-health findings…</p></div>
         </div>
       </section>
+      <section class="data-health-dashboard infra-review" id="adminInfrastructureReview" aria-label="Infrastructure Review" hidden><div id="adminInfrastructureReviewHost"></div></section>
       <section class="report-review-queue" id="adminReports" hidden aria-live="polite"><div class="report-review-heading"><div><h3>Public submission review</h3><p>Review corrections and new-project suggestions. Status changes never edit the public map automatically.</p></div><button type="button" class="history-refresh" id="refreshAdminReports">Refresh</button></div><div class="report-review-controls"><select id="adminReportStatus" aria-label="Filter public submissions"><option value="pending">Pending review</option><option value="in_review">In review</option><option value="all">All submissions</option><option value="resolved">Resolved</option><option value="dismissed">Dismissed</option></select></div><div class="report-review-list" id="adminReportList"><p class="history-details">Loading public submissions…</p></div></section>
       <section class="news-review-queue" id="adminNewsReview" hidden aria-live="polite"><div class="news-review-heading"><div><h3>Project news review</h3><p>Approve strong article matches for the public News page, or reject questionable coverage. Public project facts never change here.</p></div></div><div class="news-review-controls"><select id="adminNewsStatus" aria-label="Filter project news review status"><option value="pending">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="all">All matches</option></select><button type="button" class="history-refresh" id="refreshAdminNews">Refresh</button></div><div class="news-review-list" id="adminNewsList"><p class="history-details">Loading project news matches…</p></div></section>
       <section class="proposal-queue" id="adminProposals" hidden aria-live="polite"><div class="proposal-heading"><div><h3>Suggested project changes</h3><p>Review each field independently. Nothing reaches the public map until an administrator publishes it.</p></div><button type="button" class="history-refresh" id="refreshAdminProposals">Refresh</button></div><div class="proposal-bulk-bar"><label class="proposal-select-safe"><input type="checkbox" id="proposalSelectAllSafe" /> Select all eligible high-confidence suggestions</label><button type="button" class="proposal-bulk-approve" id="approveSelectedProposals" disabled>Approve selected</button></div><div class="proposal-list" id="adminProposalList"><p class="history-details">Loading suggestions…</p></div></section>
@@ -511,7 +512,7 @@ const adminNewsReview=document.getElementById('adminNewsReview'),adminNewsList=d
 function setQualityTab(tab){activeQualityTab=['overview','monitoring','issues'].includes(tab)?tab:'overview';document.querySelectorAll('[data-quality-tab]').forEach(button=>{const active=button.dataset.qualityTab===activeQualityTab;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1});document.querySelectorAll('[data-quality-panel]').forEach(panel=>{panel.hidden=panel.dataset.qualityPanel!==activeQualityTab})}
 async function loadQualityWorkspace(){if(!supabaseAdmin)return;const button=document.getElementById('refreshQualityWorkspace');button.disabled=true;button.textContent='Refreshing…';try{await Promise.all([loadProjectDataHealth(),loadMonitoringDashboard()])}finally{button.disabled=false;button.textContent='Refresh all'}}
 function isTrackerOwner(){return currentAdminMembership?.role==='owner'}
-function updateAdminUi(){const activeAdmin=supabaseAdmin&&!pendingInviteActivation,credentialFields=document.getElementById('adminCredentialFields'),inviteActivation=document.getElementById('inviteActivation'),signInButton=document.getElementById('signInButton'),emailInput=document.getElementById('adminEmail'),passwordInput=document.getElementById('adminPassword'),invitePassword=document.getElementById('invitePassword'),inviteConfirm=document.getElementById('invitePasswordConfirm');adminButton.classList.toggle('is-authenticated',activeAdmin);adminButton.textContent=activeAdmin?'Admin ✓':pendingInviteActivation?'Finish setup':'Admin login';addProjectButton.textContent=activeAdmin?'+ Add a project':'Suggest a project';document.getElementById('authTitle').textContent=pendingInviteActivation?'Create your admin password':activeAdmin?'Admin control center':'Admin login';document.getElementById('authSubtitle').textContent=pendingInviteActivation?'Complete the secure invitation before managing the tracker.':activeAdmin?'Review public submissions, project news, data quality, source monitoring, route uploads, suggested changes, administrative activity, and backups.':'Sign in to manage synchronized projects and review AI suggestions.';credentialFields.hidden=activeAdmin||pendingInviteActivation;emailInput.disabled=credentialFields.hidden;passwordInput.disabled=credentialFields.hidden;inviteActivation.hidden=!pendingInviteActivation;invitePassword.disabled=!pendingInviteActivation;inviteConfirm.disabled=!pendingInviteActivation;document.getElementById('signOutButton').hidden=!currentAdminSession;signInButton.hidden=activeAdmin;signInButton.textContent=pendingInviteActivation?'Activate admin account':'Sign in';qualityWorkspace.hidden=!activeAdmin;adminReports.hidden=!activeAdmin;adminNewsReview.hidden=!activeAdmin;adminProposals.hidden=!activeAdmin;adminHistory.hidden=!activeAdmin;adminTeamAccess.hidden=!activeAdmin||!isTrackerOwner();adminRouteManager.hidden=!activeAdmin;adminExports.hidden=!activeAdmin;if(activeAdmin)setQualityTab(activeQualityTab);updateProjectDetailActions();if(pendingInviteActivation){authStatus.textContent='Invitation confirmed. Choose a password with at least 12 characters.'}else if(activeAdmin){const role=isTrackerOwner()?'owner':'administrator';authStatus.textContent=`Signed in as ${currentAdminSession?.user?.email||`an approved ${role}`} (${role}).`}}
+function updateAdminUi(){const activeAdmin=supabaseAdmin&&!pendingInviteActivation,credentialFields=document.getElementById('adminCredentialFields'),inviteActivation=document.getElementById('inviteActivation'),signInButton=document.getElementById('signInButton'),emailInput=document.getElementById('adminEmail'),passwordInput=document.getElementById('adminPassword'),invitePassword=document.getElementById('invitePassword'),inviteConfirm=document.getElementById('invitePasswordConfirm');adminButton.classList.toggle('is-authenticated',activeAdmin);adminButton.textContent=activeAdmin?'Admin ✓':pendingInviteActivation?'Finish setup':'Admin login';addProjectButton.textContent=activeAdmin?'+ Add a project':'Suggest a project';document.getElementById('authTitle').textContent=pendingInviteActivation?'Create your admin password':activeAdmin?'Admin control center':'Admin login';document.getElementById('authSubtitle').textContent=pendingInviteActivation?'Complete the secure invitation before managing the tracker.':activeAdmin?'Review public submissions, project news, data quality, source monitoring, route uploads, suggested changes, administrative activity, and backups.':'Sign in to manage synchronized projects and review AI suggestions.';credentialFields.hidden=activeAdmin||pendingInviteActivation;emailInput.disabled=credentialFields.hidden;passwordInput.disabled=credentialFields.hidden;inviteActivation.hidden=!pendingInviteActivation;invitePassword.disabled=!pendingInviteActivation;inviteConfirm.disabled=!pendingInviteActivation;document.getElementById('signOutButton').hidden=!currentAdminSession;signInButton.hidden=activeAdmin;signInButton.textContent=pendingInviteActivation?'Activate admin account':'Sign in';qualityWorkspace.hidden=!activeAdmin;window.TracksideInfrastructureReview?.sync(activeAdmin);adminReports.hidden=!activeAdmin;adminNewsReview.hidden=!activeAdmin;adminProposals.hidden=!activeAdmin;adminHistory.hidden=!activeAdmin;adminTeamAccess.hidden=!activeAdmin||!isTrackerOwner();adminRouteManager.hidden=!activeAdmin;adminExports.hidden=!activeAdmin;if(activeAdmin)setQualityTab(activeQualityTab);updateProjectDetailActions();if(pendingInviteActivation){authStatus.textContent='Invitation confirmed. Choose a password with at least 12 characters.'}else if(activeAdmin){const role=isTrackerOwner()?'owner':'administrator';authStatus.textContent=`Signed in as ${currentAdminSession?.user?.email||`an approved ${role}`} (${role}).`}}
 function openAuthModal(){authStatus.className='auth-status';if(pendingInviteActivation)authStatus.textContent='Invitation confirmed. Choose a password with at least 12 characters.';else authStatus.textContent=supabaseAdmin?`Signed in as ${currentAdminSession?.user?.email||'an approved administrator'} (${isTrackerOwner()?'owner':'administrator'}).`:'Enter the credentials for your approved Supabase admin account.';authModal.classList.add('open');authModal.setAttribute('aria-hidden','false');if(supabaseAdmin&&!pendingInviteActivation){loadQualityWorkspace();loadAdminReports();loadAdminNewsReview();loadAdminProposals();loadAdminHistory();loadAdminRouteManager();if(isTrackerOwner())loadAdminTeam()}setTimeout(()=>document.getElementById(pendingInviteActivation?'invitePassword':supabaseAdmin?'signOutButton':'adminEmail').focus(),0)}
 function closeAuthModal(){authModal.classList.remove('open');authModal.setAttribute('aria-hidden','true');document.getElementById('adminPassword').value='';document.getElementById('invitePassword').value='';document.getElementById('invitePasswordConfirm').value=''}
 function requireAdmin(){if(!supabaseApi?.enabled||(supabaseAdmin&&!pendingInviteActivation))return true;openAuthModal();return false}
@@ -1549,7 +1550,7 @@ document.getElementById('clear').addEventListener('click',clearAllFilters);
 document.getElementById('search').addEventListener('input',render);document.getElementById('status').addEventListener('change',render);stationSelect.addEventListener('change',handleStationSelection);projectTypeSelect.addEventListener('change',render);document.getElementById('clear').addEventListener('click',()=>{document.getElementById('search').value='';document.getElementById('status').value='all';stationSelect.value='all';projectTypeSelect.value='all';handleStationSelection()});document.querySelectorAll('nav button[data-page]').forEach(button=>button.addEventListener('click',()=>setPage(button.dataset.page)));document.getElementById('brandHome').addEventListener('click',event=>{event.preventDefault();setPage('explore')});document.querySelectorAll('.view-switch button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.view-switch button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelector('.shell').classList.toggle('list-mode',b.dataset.view==='list');if(b.dataset.view==='map')setTimeout(()=>map.invalidateSize(),80)});addProjectButton.addEventListener('click',()=>supabaseAdmin&&!pendingInviteActivation?openProjectModal():openNewProjectSuggestion());document.getElementById('closeModal').addEventListener('click',closeProjectModal);document.getElementById('placePoint').addEventListener('click',startPinPlacement);document.getElementById('selectParcels').addEventListener('click',startParcelSelection);document.getElementById('finishParcels').addEventListener('click',finishParcelSelection);document.getElementById('deleteProject').addEventListener('click',deleteProject);document.getElementById('saveProjectToggle').addEventListener('click',toggleSavedProject);editProjectButton.addEventListener('click',()=>{if(selected)openEditProject(selected)});reportProjectButton.addEventListener('click',openReportModal);document.getElementById('closeReportModal').addEventListener('click',closeReportModal);document.getElementById('cancelReport').addEventListener('click',closeReportModal);reportForm.addEventListener('submit',submitInformationReport);reportModal.addEventListener('click',event=>{if(event.target===reportModal)closeReportModal()});form.addEventListener('submit',saveProject);modal.addEventListener('click',e=>{if(e.target===modal)closeProjectModal()});adminButton.addEventListener('click',openAuthModal);document.getElementById('closeAuthModal').addEventListener('click',closeAuthModal);document.getElementById('signOutButton').addEventListener('click',handleAdminSignOut);document.getElementById('refreshAdminProposals').addEventListener('click',loadAdminProposals);document.getElementById('refreshAdminHistory').addEventListener('click',loadAdminHistory);authForm.addEventListener('submit',handleAdminSignIn);authModal.addEventListener('click',event=>{if(event.target===authModal)closeAuthModal()});if(normalizeProjectDescriptions())persistProjects();async function startTrackerApp(){updateAdminUi();render();await initializeAuthRedirect();await hydrateRegionalProjects();await initializeSupabaseSync();if(pendingInviteActivation)openAuthModal()}window.tracksideAppReady=startTrackerApp();
 </script>
 <script src="./trackside-land-core.js?v=20261024-here"></script>
-<script src="./trackside-land.js?v=20261103-confidence-1"></script>
+<script src="./trackside-land.js?v=20261108-infrastructure-1"></script>
 <script src="./trackside-here-core.js?v=20261024-here"></script>
 <script src="./trackside-here.js?v=20261103-confidence-1"></script>
 <link rel="stylesheet" href="./trackside-coordination.css?v=20261025-briefing">
@@ -1558,46 +1559,47 @@ document.getElementById('search').addEventListener('input',render);document.getE
 <script src="./trackside-coordination-timeline.js?v=20261031-streetcar-1"></script>
 <script src="./trackside-coordination-views-core.js?v=20261025-views"></script>
 <script src="./trackside-coordination-views.js?v=20261025-views"></script>
-<script src="./trackside-briefing-map.js?v=20261025-briefing"></script>
+<script src="./trackside-briefing-map.js?v=20261104-legend-1"></script>
 <script src="./trackside-coordination-briefing.js?v=20261025-briefing"></script>
 <script src="./trackside-schedule-coverage-core.js?v=20261025-coverage"></script>
-<script src="./trackside-coordination.js?v=20261031-streetcar-1"></script>
+<script src="./trackside-coordination.js?v=20261104-legend-1"></script>
 <link rel="stylesheet" href="./trackside-schedule-coverage.css?v=20261025-coverage">
 <script src="./trackside-schedule-coverage.js?v=20261031-streetcar-1"></script>
 <link rel="stylesheet" href="./trackside-coordination-hotspots.css?v=20261025-hotspots">
 <script src="./trackside-coordination-hotspots-core.js?v=20261025-hotspots"></script>
-<script src="./trackside-coordination-hotspots.js?v=20261101-loading-1"></script>
+<script src="./trackside-coordination-hotspots.js?v=20261104-legend-1"></script>
 <link rel="stylesheet" href="./trackside-local-bus.css?v=20261101-react-1">
 <script src="./trackside-bus-mode-reference.js?v=20261026"></script>
 <script src="./trackside-bus-import.js?v=20261026"></script>
 <script src="./trackside-bus-core.js?v=20261026"></script>
 <script src="./trackside-bus-view-state.js?v=20261101-1"></script>
-<script src="./trackside-local-bus.js?v=20261101-react-1"></script>
+<script src="./trackside-local-bus.js?v=20261104-legend-1"></script>
 <link rel="stylesheet" href="./trackside-walk.css?v=20261028-time-bands">
 <script src="./trackside-walk-core.js?v=20261028-time-bands"></script>
 <script src="./trackside-walk-data.js?v=20261028-saved-coverage"></script>
-<script src="./trackside-walk.js?v=20261028-time-bands"></script>
+<script src="./trackside-walk.js?v=20261104-legend-1"></script>
 <link rel="stylesheet" href="./trackside-sr2t.css?v=20261101-workspace-1">
 <script src="./trackside-sr2t-core.js?v=20261029-stop-markers-1"></script>
 <link rel="stylesheet" href="./trackside-field-visits.css?v=20261101-1">
-<script src="./trackside-editor-react.js?v=20261103-confidence-1"></script>
+<script src="./trackside-editor-react.js?v=20261108-infrastructure-tab-1"></script>
+<script src="./trackside-infrastructure-review.js?v=20261108-infrastructure-tab-1"></script>
 <script src="./trackside-project-state.js?v=20261101-1"></script>
 <script src="./trackside-news-core.js?v=20261103-1"></script>
 <script src="./trackside-project-details.js?v=20261103-confidence-1"></script>
 <script src="./trackside-field-visits.js?v=20261101-react-1"></script>
 <script src="./trackside-sr2t-state.js?v=20261101-1"></script>
-<script src="./trackside-sr2t.js?v=20261101-workspace-1"></script>
+<script src="./trackside-sr2t.js?v=20261104-legend-1"></script>
 <link rel="stylesheet" href="./trackside-digest.css?v=20261029-following-1">
 <script src="./trackside-digest-core.js?v=20261103-news-1"></script>
 <link rel="stylesheet" href="./trackside-news.css?v=20261103-1">
 <script src="./trackside-news.js?v=20261103-1"></script>
 <script src="./trackside-digest.js?v=20261103-confidence-1"></script>
-<script src="./workspace.js?v=20261103-news-1"></script>
+<script src="./workspace.js?v=20261108-infrastructure-tab-1"></script>
 <link rel="stylesheet" href="trackside-shape-export.css?v=20261101-react-1">
 <script src="trackside-shapefile.js?v=20261030-1"></script>
 <script src="trackside-shape-data.js?v=20261030-1"></script>
 <script src="./trackside-shape-state.js?v=20261101-react-1"></script>
-<script src="trackside-shape-export.js?v=20261103-confidence-1"></script>
+<script src="trackside-shape-export.js?v=20261108-infrastructure-tab-1"></script>
 <link rel="stylesheet" href="./trackside-controls-guide.css?v=20261031-1">
 <script src="./trackside-controls-guide.js?v=20261103-parcels-1"></script>
 <link rel="stylesheet" href="./trackside-map-view.css?v=20261031-2">
@@ -1609,4 +1611,7 @@ document.getElementById('search').addEventListener('input',render);document.getE
 <script src="./trackside-place-search.js?v=20261103-parcels-1"></script>
 <link rel="stylesheet" href="./trackside-data-status.css?v=20261103-1">
 <script src="./trackside-data-status-ui.js?v=20261103-parcels-1"></script>
+<link rel="stylesheet" href="./trackside-map-legend.css?v=20261104-1">
+<script src="./trackside-legend-core.js?v=20261104-1"></script>
+<script src="./trackside-map-legend.js?v=20261104-1"></script>
 </body></html>

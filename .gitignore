@@ -7,3 +7,7 @@ supabase/functions/.env
 node_modules/
 .pnpm-store/
 work/pnpm-store/
+
+# Local infrastructure source reports and review backups
+/work/infrastructure-refresh/
+/work/before-infrastructure-review-*/

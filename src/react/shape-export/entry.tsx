@@ -30,3 +30,5 @@ export {fields,photos,improvements,dispose} from '../editors/Fields';
 export {workspace} from '../sr2t/Workspace';
 export {project} from '../projects/ProjectProfile';
 export {bus} from '../bus/Workspace';
+
+export {infrastructureReview} from '../infrastructure/Review';

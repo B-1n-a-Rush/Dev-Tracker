@@ -79,7 +79,7 @@ function stopMarker(site,stop,view){const body=N('span','sr2t-stop-icon');body.i
  if(view==='main')marker.bindPopup(()=>stopPopup(entry),{sr2tSiteId:site.site_id,maxWidth:270});
  marker.on('click',()=>{activeSite=entry.site.site_id;hoveredSite='';highlightSite();});return entry;
 }
-function drawMain(){
+function drawMain(){window.TracksideMapLegend?.refresh();
  map.getContainer().classList.toggle('sr2t-compact-map',map.getZoom()<13);
  if(!mainToggle.checked){mainLayer.clearLayers();mainEntries.clear();if(map.hasLayer(mainLayer))map.removeLayer(mainLayer);highlightSite();return;}
  if(!map.hasLayer(mainLayer))mainLayer.addTo(map);const wanted=new Set();for(const site of filtered().filter(s=>s.is_published&&!s.removed_at))for(const stop of C.mappedStops(site,networkMeta?.fingerprint)){const key=JSON.stringify([site.site_id,stop.stop_id||stop.number]);wanted.add(key);let entry=mainEntries.get(key);if(!entry){entry=stopMarker(site,stop,'main');mainEntries.set(key,entry);entry.marker.addTo(mainLayer);}else{const changed=entry.site.version!==site.version||entry.stop.stop_name!==stop.stop_name;entry.site=site;entry.stop=stop;entry.marker.setLatLng(stop.latlng);if(changed){entry.marker.setTooltipContent(()=>stopTooltip(entry));if(entry.marker.isPopupOpen())entry.marker.setPopupContent(stopPopup(entry));}updateStopMarker(entry);}}
@@ -166,7 +166,7 @@ function syncRole(){const next=admin();adminSection.hidden=!next;$('sr2tAdminAct
 const priorAdmin=updateAdminUi;updateAdminUi=function(...args){const v=priorAdmin(...args);syncRole();return v;};window.addEventListener('trackside:session-expired',syncRole);
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
 async function applyMapView(view){if(edit||window.TracksideSR2TField?.isEditing)throw Error('Close the SR2T editor or field visit before opening a shared view.');filters={search:view.search||'',status:view.status||'',jurisdiction:view.jurisdiction||''};mainToggle.checked=!!view.enabled;if(view.enabled||view.selected){await load();if(failed)throw Error('SR2T sites could not load: '+failed);}activeSite='';if(view.selected){const site=sites.find(s=>s.site_id===view.selected&&s.is_published&&!s.removed_at);if(!site)throw Error('The shared SR2T site is no longer publicly available.');if(!visiblePositions(site).length)throw Error('The shared SR2T site has no current matched stop geometry.');activeSite=site.site_id;}render();drawMain();highlightSite();}
-window.TracksideSR2T={open,applyMapView,get mapView(){return {search:filters.search,status:filters.status,jurisdiction:filters.jurisdiction,selected:filtered().some(s=>s.site_id===activeSite&&s.is_published&&!s.removed_at)?activeSite:''};},refresh:()=>load(true),get sites(){return sites.slice();}};
+window.TracksideSR2T={get legendState(){return {enabled:mainToggle.checked,statuses:[...new Set([...mainEntries.values()].map(e=>e.site.profile.status))],count:mainEntries.size};},open,applyMapView,get mapView(){return {search:filters.search,status:filters.status,jurisdiction:filters.jurisdiction,selected:filtered().some(s=>s.site_id===activeSite&&s.is_published&&!s.removed_at)?activeSite:''};},refresh:()=>load(true),get sites(){return sites.slice();}};
 const sharedId=new URL(location.href).searchParams.get('sr2t');if(sharedId)(window.tracksideAppReady||Promise.resolve()).then(()=>open(false,sharedId));
 })();
 
