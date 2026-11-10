@@ -26,9 +26,9 @@ function render(root,opts){
  const labelStep=opts.print?Math.max(1,Math.ceil(axis.ticks.length/8)):1;
  for(const [index,tick]of axis.ticks.entries()){const cell=N('span','coord-time-tick',index%labelStep?'':tick.label);cell.style.left=pct(tick.left);cell.style.width=pct(tick.width);axisTrack.append(cell);}axisRow.append(axisLabel,axisTrack);canvas.append(axisRow);
  const reference=C.timelineMark(model.route,model),today=Date.now(),todayPosition=100*(today-model.first)/(model.end-model.first),hasToday=today>=model.first&&today<model.end;
- function row({name,start,finish,window,state,id,route=false,subtitle=''}){
+ function row({name,start,finish,window,state,id,route=false,subtitle='',sharedWindow=''}){
   const labelText='Start: '+(start||'Not published')+' · Finish: '+(finish||'Not published');
-  const rowLabel=name+'. '+labelText+'. '+(route?(opts.study?'Temporary study window.':'Published route construction window.'):(C.labels[state]||''));
+  const rowLabel=name+'. '+labelText+'. '+(route?(opts.study?'Temporary study window.':'Published route construction window.'):(C.labels[state]||'')+(sharedWindow?'. '+sharedWindow:''));
   const rowId=(opts.print?'coordPrintTimelineProject-':'coordTimelineProject-')+id;
   const el=route?N('div','coord-time-row coord-time-route'):opts.print?N('div'):button('',()=>{opts.onSelect(id);document.getElementById(rowId)?.focus({preventScroll:true});});
   if(!route)el.id=rowId;
@@ -36,6 +36,7 @@ function render(root,opts){
   el.title=rowLabel;
   const label=N('span','coord-time-label');label.append(N('strong','',name),N('small','',subtitle),N('small','',labelText));
   if(!route)label.append(N('span','coord-time-state '+state,C.labels[state]));
+  if(sharedWindow)label.append(N('small','',sharedWindow));
   const track=N('span','coord-time-track');track.setAttribute('aria-hidden','true');
   for(const tick of axis.ticks){const line=N('i','coord-time-gridline');line.style.left=pct(tick.left);track.append(line);}
   if(!route&&reference.kind==='complete'){const band=N('i','coord-time-reference');band.style.left=pct(reference.left);band.style.width=pct(reference.width);track.append(band);}
@@ -52,7 +53,7 @@ function render(root,opts){
  }
  const startLabel=opts.study?L.dateLabel(opts.start):opts.routeStartLabel||L.dateLabel(opts.start),finishLabel=opts.study?L.dateLabel(opts.finish):opts.routeFinishLabel||L.dateLabel(opts.finish);
  if(!opts.existingService)canvas.append(row({name:opts.route.name,start:startLabel,finish:finishLabel,window:model.route,route:true,subtitle:opts.study?'Temporary study window':'MARTA construction schedule'}));
- for(const entry of model.items.slice(first,last)){const item=entry.item,r=item.row;canvas.append(row({name:r.name,start:L.dateLabel(r.start),finish:L.dateLabel(r.finish),window:entry.window,state:item.state,id:r.id,subtitle:r.scheduleType||'Published project schedule'}));}
+ for(const entry of model.items.slice(first,last)){const item=entry.item,r=item.row;canvas.append(row({name:r.name,start:L.dateLabel(r.start),finish:L.dateLabel(r.finish),window:entry.window,state:item.state,id:r.id,subtitle:r.scheduleType||'Published project schedule',sharedWindow:item.overlap?'Potential shared window · '+C.overlapLabel(item.overlap):''}));}
  if(!count)canvas.append(N('p','land-note coord-time-no-results','No loaded, mapped projects match these filters. This is not evidence that no nearby work exists.'));
  scroll.append(canvas);root.append(scroll);
  const legend=N('div','coord-time-legend');for(const [cls,text]of [['route','MARTA route'],['overlap','Potential overlap'],['other','Other published window'],['endpoint','Known endpoint only'],['hatch','Month/year uncertainty'],['today','Today']]){if(opts.existingService&&cls==='route')continue;const item=N('span'),swatch=N('i',cls);if(cls==='route'&&/^#[0-9a-f]{6}$/i.test(opts.route.color))swatch.style.backgroundColor=opts.route.color;item.append(swatch,N('span','',text));legend.append(item);}root.append(legend);

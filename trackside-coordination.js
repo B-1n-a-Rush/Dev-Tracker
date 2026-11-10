@@ -118,7 +118,7 @@ function screen(){
 }
 function renderList(){
  const root=$('coordList');root.replaceChildren();const slice=filtered.slice(page*20,(page+1)*20);
- for(const item of slice){const r=item.row,card=B('',()=>selectCoordinationItem(r.id),'coord-row'+(selection===r.id?' selected':''));card.append(N('strong','',r.name),N('small','',[r.jurisdiction,r.category,r.agency].filter(Boolean).join(' · ')),N('span','land-badge '+item.state,C.labels[item.state]),N('small','',Math.round(item.distance/.3048).toLocaleString()+' ft · '+LCore.dateLabel(r.start)+' → '+LCore.dateLabel(r.finish)));if(admin()){card.append(N('span','coord-review-state',C.statuses[reviews.get(r.id)?.status||'unreviewed']));if(needsScheduleRecheck(reviews.get(r.id)))card.append(N('small','coord-recheck-warning','Schedule changed / review checkpoint missing'));}root.append(card);}
+ for(const item of slice){const r=item.row,card=B('',()=>selectCoordinationItem(r.id),'coord-row'+(selection===r.id?' selected':''));card.append(N('strong','',r.name),N('small','',[r.jurisdiction,r.category,r.agency].filter(Boolean).join(' · ')),N('span','land-badge '+item.state,C.labels[item.state]),N('small','',Math.round(item.distance/.3048).toLocaleString()+' ft · '+LCore.dateLabel(r.start)+' → '+LCore.dateLabel(r.finish)));if(item.overlap)card.append(N('small','','Potential shared window · '+C.overlapLabel(item.overlap)));if(admin()){card.append(N('span','coord-review-state',C.statuses[reviews.get(r.id)?.status||'unreviewed']));if(needsScheduleRecheck(reviews.get(r.id)))card.append(N('small','coord-recheck-warning','Schedule changed / review checkpoint missing'));}root.append(card);}
  if(!slice.length)root.append(P('No loaded, mapped projects match these selections. Check the source coverage and unmapped inventory before concluding there is no nearby work.'));
  const pager=$('coordPagination');pager.replaceChildren();const previous=B('← Previous',()=>{page--;renderList();renderTimeline();}),next=B('Next →',()=>{page++;renderList();renderTimeline();});previous.disabled=page===0;next.disabled=(page+1)*20>=filtered.length;pager.append(previous,P(filtered.length?'Showing '+(page*20+1)+'–'+Math.min((page+1)*20,filtered.length)+' of '+filtered.length:'0 matching results'),next);
  const extras=[...reviews.values()].filter(r=>!result.rows.some(item=>item.row.id===r.infrastructure_id));$('coordSavedExtras').hidden=!admin()||!extras.length;$('coordSavedList').replaceChildren();
@@ -127,11 +127,36 @@ function renderList(){
 function sourceRecord(r){if(r.source?.kind==='fulton'){const u=new URL(r.source.url);u.search=new URLSearchParams({'$where':"project_id='"+String(r.raw?.project_id||'').replaceAll("'","''")+"'"});return u.href;}if(r.source?.url)return r.source.url+'/query?'+new URLSearchParams({f:'pjson',objectIds:String(LCore.pick(r.raw||{},['OBJECTID','ObjectId'])),outFields:'*',returnGeometry:'false'});return '';}
 function renderCoverage(){const root=$('coordCoverage');root.replaceChildren();for(const r of A.sourceResults){root.append(link(r.source.name,r.source.viewer),P(r.ok?r.count+' records retrieved'+(r.truncated?' (capped)':''):'Unavailable: '+r.error));if(r.source.coverage)root.append(P(r.source.coverage));}if(A.loadedAt)root.append(P('Infrastructure retrieved '+A.loadedAt.toLocaleString()+'. Retrieval time does not verify individual project schedules.'));}
 function field(form,label,id,value='',type='text',maxLength=240){const wrap=N('label','land-field',label),input=N(type==='textarea'?'textarea':'input');input.id=id;if(type!=='textarea')input.type=type;input.value=value??'';input.maxLength=maxLength;wrap.append(input);form.append(wrap);return input;}
+function screeningEvidence(item){
+ const row=item.row,study=studyActive(),service=isExistingTransitRoute(currentRoute)&&!study;
+ const [start,finish]=dates(),schedule=scheduleFor();
+ const box=N('section','coord-screen-evidence');
+ box.append(N('h4','','Why was this flagged?'),P(item.reason));
+ const geometry=row.geometryBasis||'Published GIS location';
+ const distance=item.distance===0?'Mapped geometries meet or overlap':Math.max(1,Math.round(item.distance/.3048)).toLocaleString()+' ft from the mapped route';
+ const threshold=Math.round(Number($('coordDistance').value)/.3048).toLocaleString()+' ft';
+ const facts=N('dl','coord-screen-facts');
+ const values=[
+  ['Proximity',distance+' · '+threshold+' screening distance'],
+  ['Project geometry',geometry],
+  [row.scheduleType||'Project schedule',LCore.dateLabel(row.start)+' → '+LCore.dateLabel(row.finish)],
+ ];
+ if(!service){
+  const startLabel=study?LCore.dateLabel(start):schedule.start_label||LCore.dateLabel(start);
+  const finishLabel=study?LCore.dateLabel(finish):schedule.finish_label||LCore.dateLabel(finish);
+  values.push([study?'Temporary study window':currentRoute.name+' construction',startLabel+' → '+finishLabel]);
+ }
+ if(item.overlap)values.push(['Potential shared window',C.overlapLabel(item.overlap)]);
+ for(const [label,value]of values){const cell=N('div');cell.append(N('dt','',label),N('dd','',value));facts.append(cell);}
+ box.append(facts);
+ if(item.overlap?.approximate)box.append(P('Month or year values were screened using their full calendar range. The shared window is approximate.'));
+ return box;
+}
 function renderDetail(savedOnly){
  const root=$('coordDetail');root.replaceChildren();const item=result.rows.find(r=>r.row.id===selection),saved=reviews.get(selection)||savedOnly;
  const row=item?.row;if(!row&&!saved){root.append(N('h3','','Select nearby work'),P('Choose a project to inspect its source, schedule and coordination notes.'));return;}
  root.append(N('h3','',row?.name||saved.project_name));
- if(row){root.append(P(row.agency),N('span','land-badge '+item.state,C.labels[item.state]),P('Published phase: '+(row.sourceStatus||'Not published')),P((row.scheduleType||'Published schedule')+': '+LCore.dateLabel(row.start)+' → '+LCore.dateLabel(row.finish)),P('Geometry: '+(row.geometryBasis||'Published GIS location')));
+ if(row){root.append(P(row.agency),N('span','land-badge '+item.state,C.labels[item.state]),P('Published phase: '+(row.sourceStatus||'Not published')),screeningEvidence(item));
   for(const message of item.warnings)root.append(N('p','land-banner',message));
   if(row.description)root.append(P(row.description));root.append(link('Published source record ↗',sourceRecord(row)),B('View this project on the map',()=>{if(!allowNavigation())return;notesDirty=false;scheduleDirty=false;dialog.close();A.focusInfrastructure(row);}));
  }else{root.append(P('Saved coordination item outside the currently loaded/filtered results. Its absence is not evidence that work is complete.'),link('Saved source record ↗',saved.source_url));}

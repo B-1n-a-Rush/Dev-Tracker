@@ -40,3 +40,8 @@
 @media(max-width:420px){.coord-controls{grid-template-columns:1fr}.coord-dialog .coord-controls>.land-field{width:100%}.coord-manual .coord-controls{grid-template-columns:1fr}.coord-results-head>button{flex:1 1 100%}.coord-schedule-facts{grid-template-columns:1fr}.coord-schedule-facts>div:last-child{grid-column:auto}}
 @media print{body.coord-printing>*{display:none!important}body.coord-printing>.coord-print-report{display:block!important;background:white;color:#172e26;font:10pt/1.4 Arial,sans-serif;padding:0}.coord-print-report h1{font-size:21pt}.coord-print-report h2{font-size:15pt}.coord-print-report svg{display:block;width:100%;height:240px;border:1px solid #ddd}.coord-print-report table{width:100%;border-collapse:collapse;margin-top:20px}.coord-print-report th,.coord-print-report td{border:1px solid #ccc;padding:8px;vertical-align:top;text-align:left;overflow-wrap:anywhere}.coord-print-report tr{break-inside:avoid}.coord-print-report .land-note{font-size:9pt;margin:5px 0}.coord-print-report a{color:#136647;font-size:9pt}.coord-print-report thead{display:table-header-group}.coord-print-report td{max-width:230px}}
 
+.coord-screen-evidence{display:grid;gap:8px;padding:12px;margin:12px 0;border:1px solid #d4e2c9;border-radius:9px;background:#fffefa}
+.coord-screen-evidence h4,.coord-screen-evidence .land-note{margin:0}
+.coord-screen-facts{display:grid;gap:7px;margin:0}
+.coord-screen-facts dt{font-size:11px;color:var(--muted)}
+.coord-screen-facts dd{margin:2px 0 0;font-size:12px;font-weight:600}

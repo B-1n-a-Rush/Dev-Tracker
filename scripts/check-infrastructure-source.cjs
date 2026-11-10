@@ -5,9 +5,6 @@ const { createHash, randomUUID } = require('node:crypto');
 const source = 'https://services2.arcgis.com/zLeajbicrDRLQcny/arcgis/rest/services/CapitalDeliveryProjects_View_Public/FeatureServer/0';
 const prefix = 'window.TracksideAtlantaReviewed = ';
 const root = path.resolve(__dirname, '..');
-const runtime = fs.existsSync(path.join(root, 'outputs', 'index.html')) ? 'outputs' : '.';
-const baselineFile = path.join(root, runtime, 'trackside-atlanta-reviewed.js');
-const reportFile = path.join(root, 'work', 'infrastructure-refresh', 'latest.json');
 const fields = {
   FUNDING_PROJECT_NAME: 'Project name',
   PROJECT_NAME_1: 'Project description',
@@ -127,70 +124,153 @@ function atomicWrite(file, contents) {
   }
 }
 
-function readBaseline() {
-  const text = fs.readFileSync(baselineFile, 'utf8').trim();
-  if (!text.startsWith(prefix) || !text.endsWith(';')) throw new Error('The reviewed baseline file is invalid.');
-  return JSON.parse(text.slice(prefix.length, -1));
+function conflict(message) {
+  return Object.assign(new Error(message), { status: 409 });
 }
-function saveBaseline(baseline) {
-  atomicWrite(baselineFile, prefix + JSON.stringify(baseline) + ';\n');
-}
-function readReport() {
-  return fs.existsSync(reportFile) ? JSON.parse(fs.readFileSync(reportFile, 'utf8')) : null;
+
+function reviewStore(tracker = root) {
+  const runtime = fs.existsSync(path.join(tracker, 'outputs', 'index.html')) ? 'outputs' : '.';
+  const baselineFile = path.join(tracker, runtime, 'trackside-atlanta-reviewed.js');
+  const folder = path.join(tracker, 'work', 'infrastructure-refresh');
+  const reportFile = path.join(folder, 'latest.json');
+  const attemptFile = path.join(folder, 'attempt.json');
+  const lockFile = path.join(folder, 'review.lock');
+
+  const read = file => fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null;
+  const write = (file, value) => atomicWrite(file, JSON.stringify(value) + '\n');
+  function readBaseline() {
+    const text = fs.readFileSync(baselineFile, 'utf8').trim();
+    if (!text.startsWith(prefix) || !text.endsWith(';')) throw new Error('The reviewed baseline file is invalid.');
+    return JSON.parse(text.slice(prefix.length, -1));
+  }
+  function saveBaseline(baseline) {
+    atomicWrite(baselineFile, prefix + JSON.stringify(baseline) + ';\n');
+  }
+  async function locked(task) {
+    fs.mkdirSync(folder, { recursive: true });
+    let fd;
+    try {
+      fd = fs.openSync(lockFile, 'wx');
+    } catch (error) {
+      if (error.code === 'EEXIST') throw conflict('A source check or local apply is already running. Try again shortly.');
+      throw error;
+    }
+    try {
+      fs.writeFileSync(fd, String(process.pid));
+      return await task();
+    } finally {
+      fs.closeSync(fd);
+      fs.unlinkSync(lockFile);
+    }
+  }
+  function reviewReport(saved, baseline) {
+    const baselineDigest = hash(baseline);
+    if (saved.baselineDigest === baselineDigest) return saved;
+    return { ...saved, baselineDigest, reportId: hash([saved.reportId, baselineDigest]),
+      baselineAt: baseline.reviewedAt || baseline.checkedAt, changes: compare(baseline.features, saved.snapshot.features) };
+  }
+  function latest() {
+    const saved = read(reportFile);
+    const attempt = read(attemptFile);
+    const summary = saved ? reviewReport(saved, readBaseline()) : null;
+    if (summary) {
+      const { snapshot, baselineDigest, ...report } = summary;
+      return { report, attempt };
+    }
+    return { report: null, attempt };
+  }
+  function plan(review, browser) {
+    if (review?.version !== 1 || typeof review.reportId !== 'string' ||
+        !Array.isArray(review.selected) || review.selected.length < 1 || review.selected.length > 50 ||
+        review.selected.some(id => typeof id !== 'string' || !id || id.length > 200) ||
+        new Set(review.selected).size !== review.selected.length) {
+      throw Object.assign(new Error('Select between 1 and 50 eligible projects.'), { status: 400 });
+    }
+    const attempt = read(attemptFile);
+    if (browser && attempt?.status && attempt.status !== 'success') throw conflict('Wait for a successful source check before applying changes.');
+    const saved = read(reportFile), baseline = readBaseline();
+    if (!saved) throw conflict('A source check must complete before review.');
+    const report = reviewReport(saved, baseline);
+    if (review.reportId !== report.reportId) throw conflict('The report or map snapshot changed. Load the latest report and review it again.');
+    const reviewed = groups(baseline.features), current = groups(report.snapshot.features);
+    const changes = new Map(compare(baseline.features, report.snapshot.features).map(change => [change.id, change]));
+    const projects = [...review.selected].sort().map(id => {
+      const change = changes.get(id);
+      if (!change?.canApply) throw conflict('A selected project is no longer eligible. Load the latest report and review it again.');
+      return { ...change, before: reviewed.get(id) || [], after: current.get(id) };
+    });
+    const previewId = hash([report.reportId, report.baselineDigest, projects]);
+    return { baseline, reviewed, projects, previewId };
+  }
+  function preview(review) {
+    const { projects, previewId } = plan(review, true);
+    return { projects, previewId };
+  }
+  function apply(review, browser = true) {
+    return locked(() => {
+      const { baseline, reviewed, projects, previewId } = plan(review, browser);
+      if (browser && review.previewId !== previewId) throw conflict('The preview changed. Load the latest report and review it again.');
+      for (const project of projects) reviewed.set(project.id, project.after);
+      saveBaseline({ ...baseline, reviewedAt: new Date().toISOString(), features: [...reviewed.values()].flat() });
+      return { appliedLocally: projects.length, retainedMissing: true, baselineFile };
+    });
+  }
+  function check(get) {
+    return locked(async () => {
+      const startedAt = new Date().toISOString();
+      write(attemptFile, { status: 'checking', startedAt });
+      try {
+        const baseline = readBaseline(), previousReport = read(reportFile), snapshot = await capture(get);
+        const baselineDigest = hash(baseline);
+        if (hash(readBaseline()) !== baselineDigest) throw conflict('The reviewed baseline changed during the check. Retry.');
+        const changes = compare(baseline.features, snapshot.features);
+        const previouslySeen = new Set(previousReport?.changes.map(change => change.signature));
+        const newFindings = changes.filter(change => !previouslySeen.has(change.signature));
+        const currentIds = new Set(changes.map(change => change.id));
+        const sameBaseline = previousReport?.baselineDigest === baselineDigest;
+        const resolved = sameBaseline ? previousReport.changes.filter(change => !currentIds.has(change.id)) : [];
+        const sameFindings = sameBaseline && !newFindings.length && !resolved.length;
+        const report = {
+          version: 1, reportId: sameFindings ? previousReport.reportId : randomUUID(), source, baselineDigest,
+          baselineAt: baseline.reviewedAt || baseline.checkedAt,
+          sourceUpdated: snapshot.sourceUpdated, checkedAt: snapshot.checkedAt, records: snapshot.features.length,
+          changes, snapshot,
+        };
+        write(reportFile, report);
+        write(attemptFile, { status: 'success', startedAt, finishedAt: snapshot.checkedAt });
+        const summarizeFinding = ({ id, name, kind, differences }) => ({ id, name, kind, fields: differences.map(field => field.label) });
+        return { checkedAt: report.checkedAt, reportFile, queued: changes.length, newFindings: newFindings.map(summarizeFinding), reverted: resolved.map(summarizeFinding) };
+      } catch (error) {
+        const code = error.cause?.code;
+        const message = code === 'ENOTFOUND' || code === 'EAI_AGAIN' ? 'Could not reach the Atlanta DOT feed (DNS lookup failed).' :
+          error.name === 'TimeoutError' ? 'The Atlanta DOT feed did not respond in time.' :
+          /^(Atlanta DOT|A source record|The reviewed baseline)/.test(error.message) ? error.message : 'The source check could not finish.';
+        write(attemptFile, { status: 'failed', startedAt, finishedAt: new Date().toISOString(), message });
+        throw error;
+      }
+    });
+  }
+  function initialize() {
+    return locked(async () => {
+      if (fs.existsSync(baselineFile)) throw new Error('The reviewed baseline already exists.');
+      const snapshot = await capture();
+      saveBaseline(snapshot);
+      return { baseline: snapshot.checkedAt, sourceUpdated: snapshot.sourceUpdated, records: snapshot.features.length, projects: groups(snapshot.features).size };
+    });
+  }
+  return { latest, preview, apply, check, initialize };
 }
 
 async function main(args) {
-  const [mode, file] = args;
-  if (mode === '--initialize' && args.length === 1) {
-    if (fs.existsSync(baselineFile)) throw new Error('The reviewed baseline already exists.');
-    const snapshot = await capture();
-    saveBaseline(snapshot);
-    console.log(JSON.stringify({ baseline: snapshot.checkedAt, sourceUpdated: snapshot.sourceUpdated, records: snapshot.features.length, projects: groups(snapshot.features).size }));
-    return;
-  }
-  const baseline = readBaseline();
-  const previousReport = readReport();
-  if (mode === '--apply-reviewed' && file && args.length === 2) {
-    const review = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (review.version !== 1 || !previousReport || review.reportId !== previousReport.reportId ||
-        previousReport.baselineDigest !== hash(baseline) || !Array.isArray(review.selected) || !review.selected.length ||
-        new Set(review.selected).size !== review.selected.length) throw new Error('Review is stale or invalid. Generate a fresh report and review it again.');
-    const current = groups(previousReport.snapshot.features);
-    const reviewed = groups(baseline.features);
-    const changes = new Map(compare(baseline.features, previousReport.snapshot.features).map(change => [change.id, change]));
-    for (const id of review.selected) {
-      if (!changes.get(id)?.canApply) throw new Error('Project ' + id + ' is not eligible for application.');
-      reviewed.set(id, current.get(id));
-    }
-    const next = { ...baseline, reviewedAt: new Date().toISOString(), features: [...reviewed.values()].flat() };
-    saveBaseline(next);
-    console.log(JSON.stringify({ appliedLocally: review.selected.length, retainedMissing: true, baselineFile }));
-    return;
-  }
-  if (args.length) throw new Error('Use no arguments to check the feed, --initialize to seed it, or --apply-reviewed followed by the review file path.');
-  const snapshot = await capture();
-  const baselineDigest = hash(baseline);
-  // A concurrent manual application makes this report stale, even if the feed was consistent.
-  if (hash(readBaseline()) !== baselineDigest) throw new Error('The reviewed baseline changed during the check. Retry.');
-  const changes = compare(baseline.features, snapshot.features);
-  const previouslySeen = new Set(previousReport?.changes.map(change => change.signature));
-  const newFindings = changes.filter(change => !previouslySeen.has(change.signature));
-  const currentIds = new Set(changes.map(change => change.id));
-  const sameBaseline = previousReport?.baselineDigest === baselineDigest;
-  const resolved = sameBaseline ? previousReport.changes.filter(change => !currentIds.has(change.id)) : [];
-  const sameFindings = sameBaseline && !newFindings.length && !resolved.length;
-  const report = {
-    version: 1, reportId: sameFindings ? previousReport.reportId : randomUUID(), source, baselineDigest,
-    baselineAt: baseline.reviewedAt || baseline.checkedAt,
-    sourceUpdated: snapshot.sourceUpdated, checkedAt: snapshot.checkedAt, records: snapshot.features.length,
-    changes, snapshot,
-  };
-  atomicWrite(reportFile, JSON.stringify(report) + '\n');
-  const summarizeFinding = ({ id, name, kind, differences }) => ({ id, name, kind, fields: differences.map(field => field.label) });
-  console.log(JSON.stringify({ checkedAt: report.checkedAt, reportFile, queued: changes.length, newFindings: newFindings.map(summarizeFinding), reverted: resolved.map(summarizeFinding) }));
+  const [mode, file] = args, store = reviewStore();
+  let result;
+  if (mode === '--initialize' && args.length === 1) result = await store.initialize();
+  else if (mode === '--apply-reviewed' && file && args.length === 2) result = await store.apply(JSON.parse(fs.readFileSync(file, 'utf8')), false);
+  else if (!args.length) result = await store.check();
+  else throw new Error('Use no arguments to check the feed, --initialize to seed it, or --apply-reviewed followed by the review file path.');
+  console.log(JSON.stringify(result));
 }
-
-module.exports = { capture, compare };
+module.exports = { capture, compare, reviewStore };
 if (require.main === module) main(process.argv.slice(2)).catch(error => {
   console.error(error.cause?.code ? error.message + ' (' + error.cause.code + ')' : error.message);
   process.exitCode = 1;

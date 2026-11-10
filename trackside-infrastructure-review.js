@@ -24,7 +24,11 @@
         await window.TracksideEditorReact.load();
         if (ticket !== generation || section.hidden) return;
         host.replaceChildren();
-        unmount = window.TracksideShapeReact.infrastructureReview(host);
+        unmount = window.TracksideShapeReact.infrastructureReview(host, async () => {
+          if (section.hidden) return null;
+          const session = await window.tracksideSupabase?.getSession();
+          return section.hidden ? null : session?.access_token || null;
+        });
       } catch {
         if (ticket === generation) host.textContent = 'Could not open the review controls. Select the tab again to retry.';
       } finally {

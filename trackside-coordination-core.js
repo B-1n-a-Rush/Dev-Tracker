@@ -1,7 +1,7 @@
 /* Geometry/schedule screening only: potential coordination, never a confirmed conflict. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./trackside-land-core.js'));else root.TracksideCoordinationCore=factory(root.TracksideLandCore);})(typeof globalThis!=='undefined'?globalThis:this,function(C){
 'use strict';
-const labels={'service-work':'Potential impact—review needed',overlap:'Potential schedule overlap',unknown:'Infrastructure schedule incomplete','reference-needed':'Route schedule incomplete',invalid:'Dates need review',outside:'Outside comparison window'};
+const labels={'service-work':'Potential impact—review needed',overlap:'Potential schedule overlap',unknown:'Timing unknown','reference-needed':'Timing unknown',invalid:'Dates need review',outside:'Outside comparison window'};
 const statuses={unreviewed:'Not reviewed','needs-contact':'Needs contact','in-discussion':'In discussion',coordinated:'Coordinated','no-action':'No action needed'};
 const boundsCache=new WeakMap(),distanceCache=new WeakMap();
 function bounds(g){if(boundsCache.has(g))return boundsCache.get(g);let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;function walk(c){if(!Array.isArray(c))return;if(typeof c[0]==='number'){if(c.slice(0,2).every(Number.isFinite)){x0=Math.min(x0,c[0]);x1=Math.max(x1,c[0]);y0=Math.min(y0,c[1]);y1=Math.max(y1,c[1]);}}else c.forEach(walk);}if(g.type==='GeometryCollection')for(const part of g.geometries||[]){const b=bounds(part);x0=Math.min(x0,b[0]);y0=Math.min(y0,b[1]);x1=Math.max(x1,b[2]);y1=Math.max(y1,b[3]);}else walk(g.coordinates);const b=[x0,y0,x1,y1];boundsCache.set(g,b);return b;}
@@ -10,18 +10,38 @@ function slug(value){return String(value||'').normalize('NFKD').replace(/[\u0300
 function routeKey(route){return route.kind==='rail'?'rail:'+slug(route.name.replace(/\s+Lines?$/i,'')):route.remoteId?'rapid:'+String(route.remoteId):'rapid:'+slug(route.slug||route.name);}
 function routeGeometry(route){if(route.geometry)return route.geometry;const parts=route.lines||[route.points||[]];return {type:'MultiLineString',coordinates:parts.filter(p=>p.length>1).map(p=>p.map(c=>[c[1],c[0]]))};}
 function validateDate(value){return !String(value||'').trim()||!!C.dateRange(value);}
-function comparison(start,finish,a,b){
- const s=C.dateRange(start),f=C.dateRange(finish),x=C.dateRange(a),y=C.dateRange(b);
- if((start&&!s)||(finish&&!f)||(a&&!x)||(b&&!y)||(s&&f&&s.first>f.last)||(x&&y&&x.first>y.last))return 'invalid';
- // A known endpoint may rule out overlap even when another endpoint is missing.
- if((s&&y&&y.last<s.first)||(f&&x&&x.first>f.last))return 'outside';
- if(!s||!f)return 'reference-needed';if(!x||!y)return 'unknown';
- return x.first<=f.last&&y.last>=s.first?'overlap':'outside';
+function timing(reference,work,existingService){
+ const missing=window=>window.start?'finish':window.finish?'start':'start and finish';
+ const badReference=!existingService&&reference.kind==='invalid',badWork=work.kind==='invalid';
+ if(badReference||badWork){
+  const scope=badReference&&badWork?'Both sets of dates':badReference?'The comparison dates':'The project dates';
+  return {state:'invalid',reason:scope+' could not be read or are out of order.'};
+ }
+ if(existingService){
+  if(work.kind==='complete')return {state:'service-work',reason:'Nearby work has a published date range. This screen does not compare it with service hours.'};
+  return {state:'unknown',reason:'The project has no usable '+missing(work)+' date. It remains in nearby work results.'};
+ }
+ const {start,finish}=reference;
+ // A known endpoint can rule out overlap even when another endpoint is missing.
+ if(start&&work.finish&&work.finish.last<start.first)return {state:'outside',reason:'The latest project finish is before the earliest comparison start.'};
+ if(finish&&work.start&&work.start.first>finish.last)return {state:'outside',reason:'The earliest project start is after the latest comparison finish.'};
+ if(reference.kind!=='complete'||work.kind!=='complete'){
+  const gaps=[];
+  if(reference.kind!=='complete')gaps.push('the comparison '+missing(reference));
+  if(work.kind!=='complete')gaps.push('the project '+missing(work));
+  return {state:reference.kind!=='complete'?'reference-needed':'unknown',reason:'Timing is unknown because usable dates are missing for '+gaps.join(' and ')+'. The project remains visible because it is nearby.'};
+ }
+ return {state:'overlap',reason:'The construction windows intersect within the published date precision.',overlap:{
+  start:work.start.first>=start.first?work.start:start,
+  finish:work.finish.last<=finish.last?work.finish:finish,
+  approximate:reference.approximate||work.approximate,
+ }};
 }
+function comparison(start,finish,a,b){return timing(constructionWindow(start,finish),constructionWindow(a,b),false).state;}
 function screen(opts){
  const {route,rows=[],start='',finish='',jurisdiction='',category='',includeCompleted=false,includeLongRange=false,includePossible=false}=opts;
  const threshold=Number(opts.distanceMeters??76.2);if(!Number.isFinite(threshold)||threshold<0||threshold>1609.344)throw Error('Choose a screening distance up to one mile.');
- const geometry=routeGeometry(route);let unmapped=0,duplicates=0;const seen=new Set(),result=[];
+ const geometry=routeGeometry(route),reference=constructionWindow(start,finish);let unmapped=0,duplicates=0;const seen=new Set(),result=[];
  for(const row of rows){
   if(seen.has(row.id)||C.isImportedRapidTransit(row))continue;seen.add(row.id);
   if((row.complete&&!includeCompleted)||(row.longRange&&!includeLongRange))continue;
@@ -30,13 +50,13 @@ function screen(opts){
   if(!row.geometry){unmapped++;continue;}
   const distance=nearDistance(row.geometry,geometry,threshold);if(!Number.isFinite(distance)||distance>threshold)continue;
   if(row.possibleMatches?.length&&!includePossible){duplicates++;continue;}
-  const work=constructionWindow(row.start,row.finish),state=opts.existingService?(work.kind==='invalid'?'invalid':work.kind==='complete'?'service-work':'unknown'):comparison(start,finish,row.start,row.finish),warnings=[];if(opts.existingService)warnings.push('Proximity to an existing service requires review; no closure, detour, or service-hours overlap is established.');
+  const work=constructionWindow(row.start,row.finish),assessment=timing(reference,work,opts.existingService),warnings=[];if(opts.existingService)warnings.push('Proximity to an existing service requires review; no closure, detour, or service-hours overlap is established.');
   if(/Representative/i.test(row.geometryBasis||''))warnings.push('Distance uses a representative point, not the construction alignment.');
   if(row.source?.kind==='arc'||/ARC/i.test(row.geometryBasis||''))warnings.push('ARC geometry is a planning area; construction dates are not supplied by ARC.');
   if(row.possibleMatches?.length)warnings.push('Possible duplicate included; related scopes may overlap.');
   if(row.arcReferences?.some(a=>a.complete!==row.complete))warnings.push('Local and ARC status disagree.');
-  const end=C.dateRange(row.finish);if(!row.complete&&end&&end.last<Date.now())warnings.push('Published finish has passed; confirm the current schedule.');
-  result.push({row,distance,state,warnings});
+  if(!row.complete&&work.finish&&work.finish.last<Date.now())warnings.push('Published finish has passed; confirm the current schedule.');
+  result.push({row,distance,...assessment,warnings});
  }
  const rank={'service-work':0,overlap:0,unknown:1,'reference-needed':1,invalid:2,outside:3};result.sort((a,b)=>rank[a.state]-rank[b.state]||a.distance-b.distance||a.row.name.localeCompare(b.row.name));
  return {rows:result,unmapped,duplicates,overlaps:result.filter(r=>r.state==='overlap').length,unknown:result.filter(r=>r.state==='unknown'||r.state==='reference-needed'||r.state==='invalid').length};
@@ -45,8 +65,14 @@ function csv(rows){const cell=v=>{let s=String(v??'');if(/^[\s]*[=+@-]|^[\t\r]/.
 // Timeline geometry is display-only. A missing endpoint never becomes a duration.
 function constructionWindow(start,finish){
  const a=C.dateRange(start),b=C.dateRange(finish);
- const invalid=(start&&!a)||(finish&&!b)||(a&&b&&a.first>b.last);
+ const missing=value=>!String(value??'').trim()||/^(tbd|tba|unknown|not set|pending|0)$/i.test(String(value).trim());
+ const invalid=(!missing(start)&&!a)||(!missing(finish)&&!b)||(a&&b&&a.first>b.last);
  return {start:a,finish:b,kind:invalid?'invalid':a&&b?'complete':a?'start-only':b?'finish-only':'unknown',approximate:!!((a&&a.precision!=='day')||(b&&b.precision!=='day'))};
+}
+function overlapLabel(overlap){
+ if(!overlap)return '';
+ const start=C.dateLabel(overlap.start.raw),finish=C.dateLabel(overlap.finish.raw);
+ return start===finish?start:start+' – '+finish;
 }
 function timelineModel({start='',finish='',rows=[],fit='route',now=Date.now()}={}){
  const route=constructionWindow(start,finish),items=rows.map(item=>({item,window:constructionWindow(item.row.start,item.row.finish)}));
@@ -80,5 +106,5 @@ function timelineTicks(domain,scale='quarters'){
  }
  return {ticks,step,requested,cellWidth:step>=12?150:scale==='months'?68:76};
 }
-return {labels,statuses,slug,routeKey,routeGeometry,validateDate,comparison,screen,csv,constructionWindow,timelineModel,timelineMark,timelineTicks};
+return {labels,statuses,slug,routeKey,routeGeometry,validateDate,comparison,screen,csv,constructionWindow,overlapLabel,timelineModel,timelineMark,timelineTicks};
 });
