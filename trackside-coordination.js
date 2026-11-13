@@ -1,7 +1,7 @@
 /* Live coordination workspace. Uses published route geometry and official infrastructure feeds. */
 (function(){
 'use strict';
-const C=window.TracksideCoordinationCore,A=window.TracksideLand,LCore=window.TracksideLandCore,api=window.tracksideSupabase;
+const C=window.TracksideCoordinationCore,A=window.TracksideLand,LCore=window.TracksideLandCore,D=window.TracksideInfrastructureDates,api=window.tracksideSupabase;
 if(!C||!A||typeof map==='undefined')return;
 const $=id=>document.getElementById(id),N=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const B=(label,fn,cls='land-button')=>{const el=N('button',cls,label);el.type='button';el.addEventListener('click',fn);return el;};
@@ -16,6 +16,7 @@ const adminEntry=B('Open infrastructure coordination watchlist',()=>{$('closeAut
 for(const [value,label]of Object.entries(C.statuses))$('coordReviewFilter').add(new Option(label,value));
 $('coordReviewFilter').add(new Option('Schedule changed / review checkpoint missing','needs-recheck'));
 function needsScheduleRecheck(review){return !isExistingTransitRoute(currentRoute)&&!!currentRoute?.remoteId&&!!window.TracksideScheduleCoverageCore?.needsRecheck(review,scheduleFor());}
+function needsRecheck(review,row){return needsScheduleRecheck(review)||D.reviewNeeded(review,row);}
 let routes=[],currentRoute=null,result={rows:[],unmapped:0,duplicates:0,overlaps:0,unknown:0},filtered=[],selection=null,page=0,generation=0,busy=false,liveError='',reviews=new Map(),reviewsReady=false,reviewsError='',lastFocus=null;
 let studyWindows=new Map(),notesDirty=false,scheduleDirty=false;
 let resultsView='timeline',timelineScale='years',timelineFit='route',viewsPanel=null;
@@ -104,13 +105,14 @@ function screen(){
  catch(error){status(error.message);return;}
  const service=isExistingTransitRoute(currentRoute)&&!studyActive();for(const option of $('coordFilter').options)option.disabled=service&&['overlap','outside'].includes(option.value);if(service&&['overlap','outside'].includes($('coordFilter').value))$('coordFilter').value='';
   const privateAccess=admin();$('coordReviewFilterLabel').hidden=$('coordPrivateExportLabel').hidden=!privateAccess;if(!privateAccess){reviews.clear();$('coordPrivateExport').checked=false;$('coordReviewFilter').value='';}
- filtered=result.rows.filter(r=>(!$('coordFilter').value||($('coordFilter').value==='unknown'?['unknown','reference-needed','invalid'].includes(r.state):r.state===$('coordFilter').value))&&(!$('coordReviewFilter').value||($('coordReviewFilter').value==='needs-recheck'?needsScheduleRecheck(reviews.get(r.row.id)):(reviews.get(r.row.id)?.status||'unreviewed')===$('coordReviewFilter').value)));
+ filtered=result.rows.filter(r=>(!$('coordFilter').value||($('coordFilter').value==='unknown'?['unknown','reference-needed','invalid'].includes(r.state):r.state===$('coordFilter').value))&&(!$('coordReviewFilter').value||($('coordReviewFilter').value==='needs-recheck'?needsRecheck(reviews.get(r.row.id),r.row):(reviews.get(r.row.id)?.status||'unreviewed')===$('coordReviewFilter').value)));
  const failed=A.sourceResults.filter(s=>!s.ok).length,successful=A.sourceResults.filter(s=>s.ok).length,capped=A.sourceResults.some(s=>s.truncated);
  let message=busy?'Loading sources…':!successful?'Infrastructure unavailable — no proximity conclusion can be drawn.':result.rows.length+' nearby infrastructure projects · '+filtered.length+' match the watchlist filters.';
  if(failed)message+=' '+failed+' source(s) unavailable; coverage incomplete.';if(capped)message+=' Source retrieval capped; coverage incomplete.';
  message+=' '+result.unmapped+' unmapped records not proximity-screened. '+result.duplicates+' possible duplicates excluded.';
  if(studyActive())message+=' Using your temporary study window.';
  if((start&&!C.validateDate(start))||(finish&&!C.validateDate(finish))||(LCore.dateRange(start)&&LCore.dateRange(finish)&&LCore.dateRange(start).first>LCore.dateRange(finish).last))message+=' Comparison dates are invalid; overlap results are unavailable.';
+ if(A.manualDateError)message+=' '+A.manualDateError;
  if(reviewsError)message+=' '+reviewsError;status(message);
  const stats=$('coordStats');stats.replaceChildren();for(const [n,label]of [[result.rows.length,'nearby projects'],[service?result.rows.filter(r=>r.state==='service-work').length:result.overlaps,service?'published work windows':'potential overlaps'],[result.unknown,'incomplete / uncertain']]){const el=N('div');el.append(N('strong','',successful?String(n):'—'),N('span','',label));stats.append(el);}
  page=Math.min(page,Math.max(0,Math.ceil(filtered.length/20)-1));if(!filtered.some(r=>r.row.id===selection))selection=filtered[0]?.row.id||null;renderList();renderDetail();renderCoverage();renderTimeline();
@@ -118,7 +120,7 @@ function screen(){
 }
 function renderList(){
  const root=$('coordList');root.replaceChildren();const slice=filtered.slice(page*20,(page+1)*20);
- for(const item of slice){const r=item.row,card=B('',()=>selectCoordinationItem(r.id),'coord-row'+(selection===r.id?' selected':''));card.append(N('strong','',r.name),N('small','',[r.jurisdiction,r.category,r.agency].filter(Boolean).join(' · ')),N('span','land-badge '+item.state,C.labels[item.state]),N('small','',Math.round(item.distance/.3048).toLocaleString()+' ft · '+LCore.dateLabel(r.start)+' → '+LCore.dateLabel(r.finish)));if(item.overlap)card.append(N('small','','Potential shared window · '+C.overlapLabel(item.overlap)));if(admin()){card.append(N('span','coord-review-state',C.statuses[reviews.get(r.id)?.status||'unreviewed']));if(needsScheduleRecheck(reviews.get(r.id)))card.append(N('small','coord-recheck-warning','Schedule changed / review checkpoint missing'));}root.append(card);}
+ for(const item of slice){const r=item.row,card=B('',()=>selectCoordinationItem(r.id),'coord-row'+(selection===r.id?' selected':''));card.append(N('strong','',r.name),N('small','',[r.jurisdiction,r.category,r.agency].filter(Boolean).join(' · ')),N('span','land-badge '+item.state,C.timingLabel(item)),N('small','',Math.round(item.distance/.3048).toLocaleString()+' ft · '+D.endpointLabel(r,'start')+' → '+D.endpointLabel(r,'finish')));if(item.overlap)card.append(N('small','','Potential shared window · '+C.overlapLabel(item.overlap)));if(admin()){card.append(N('span','coord-review-state',C.statuses[reviews.get(r.id)?.status||'unreviewed']));if(needsRecheck(reviews.get(r.id),r))card.append(N('small','coord-recheck-warning','Schedule changed / review checkpoint missing'));}root.append(card);}
  if(!slice.length)root.append(P('No loaded, mapped projects match these selections. Check the source coverage and unmapped inventory before concluding there is no nearby work.'));
  const pager=$('coordPagination');pager.replaceChildren();const previous=B('← Previous',()=>{page--;renderList();renderTimeline();}),next=B('Next →',()=>{page++;renderList();renderTimeline();});previous.disabled=page===0;next.disabled=(page+1)*20>=filtered.length;pager.append(previous,P(filtered.length?'Showing '+(page*20+1)+'–'+Math.min((page+1)*20,filtered.length)+' of '+filtered.length:'0 matching results'),next);
  const extras=[...reviews.values()].filter(r=>!result.rows.some(item=>item.row.id===r.infrastructure_id));$('coordSavedExtras').hidden=!admin()||!extras.length;$('coordSavedList').replaceChildren();
@@ -139,16 +141,19 @@ function screeningEvidence(item){
  const values=[
   ['Proximity',distance+' · '+threshold+' screening distance'],
   ['Project geometry',geometry],
-  [row.scheduleType||'Project schedule',LCore.dateLabel(row.start)+' → '+LCore.dateLabel(row.finish)],
+  [row.scheduleType||'Project schedule',D.endpointLabel(row,'start')+' → '+D.endpointLabel(row,'finish')],
  ];
  if(!service){
   const startLabel=study?LCore.dateLabel(start):schedule.start_label||LCore.dateLabel(start);
   const finishLabel=study?LCore.dateLabel(finish):schedule.finish_label||LCore.dateLabel(finish);
   values.push([study?'Temporary study window':currentRoute.name+' construction',startLabel+' → '+finishLabel]);
  }
+ if(row.manualSchedule){values.push(['Agency dates',LCore.dateLabel(row.agencySchedule.start)+' → '+LCore.dateLabel(row.agencySchedule.finish)]);}
  if(item.overlap)values.push(['Potential shared window',C.overlapLabel(item.overlap)]);
  for(const [label,value]of values){const cell=N('div');cell.append(N('dt','',label),N('dd','',value));facts.append(cell);}
  box.append(facts);
+ if(row.manualSchedule)box.append(link('Trackside construction date source ↗',row.manualSchedule.source_url));
+ if(D.agencyChanged(row))box.append(P('Agency dates changed since the manual dates were saved. Recheck the source.'));
  if(item.overlap?.approximate)box.append(P('Month or year values were screened using their full calendar range. The shared window is approximate.'));
  return box;
 }
@@ -156,24 +161,28 @@ function renderDetail(savedOnly){
  const root=$('coordDetail');root.replaceChildren();const item=result.rows.find(r=>r.row.id===selection),saved=reviews.get(selection)||savedOnly;
  const row=item?.row;if(!row&&!saved){root.append(N('h3','','Select nearby work'),P('Choose a project to inspect its source, schedule and coordination notes.'));return;}
  root.append(N('h3','',row?.name||saved.project_name));
- if(row){root.append(P(row.agency),N('span','land-badge '+item.state,C.labels[item.state]),P('Published phase: '+(row.sourceStatus||'Not published')),screeningEvidence(item));
+ if(row){root.append(P(row.agency),N('span','land-badge '+item.state,C.timingLabel(item)),P('Published phase: '+(row.sourceStatus||'Not published')),screeningEvidence(item));
   for(const message of item.warnings)root.append(N('p','land-banner',message));
   if(row.description)root.append(P(row.description));root.append(link('Published source record ↗',sourceRecord(row)),B('View this project on the map',()=>{if(!allowNavigation())return;notesDirty=false;scheduleDirty=false;dialog.close();A.focusInfrastructure(row);}));
  }else{root.append(P('Saved coordination item outside the currently loaded/filtered results. Its absence is not evidence that work is complete.'),link('Saved source record ↗',saved.source_url));}
  if(!admin()){root.append(P('Sign in as an administrator to save contacts, notes and coordination status.'),B('Admin sign in',()=>{dialog.close();openAuthModal();}));return;}
  if(reviewsError||!reviewsReady){root.append(N('p','land-banner',reviewsError||'Loading saved coordination notes…'));return;}
  if(currentRoute.kind!=='rail'&&!currentRoute.remoteId){root.append(P('Wait for the published route library to load before saving notes.'));return;}
- if(needsScheduleRecheck(saved))root.append(N('p','coord-recheck-warning',!scheduleFor().schedule_version?'The live schedule version is unavailable. Refresh the route schedule before recording a review checkpoint.':saved.reviewed_schedule_version==null?'This saved item has no recorded schedule checkpoint. Review the current construction dates, then save the notes to record that review.':'The route construction dates changed after this item was reviewed. Check the current dates and screening before saving the follow-up again.'));
+ if(D.reviewNeeded(saved,row))root.append(N('p','coord-recheck-warning infrastructure-checkpoint','Infrastructure construction dates changed or have no saved checkpoint. Review the dates before relying on this follow-up.'));
+ if(needsScheduleRecheck(saved))root.append(N('p','coord-recheck-warning route-checkpoint',!scheduleFor().schedule_version?'The live schedule version is unavailable. Refresh the route schedule before recording a review checkpoint.':saved.reviewed_schedule_version==null?'This saved item has no recorded schedule checkpoint. Review the current construction dates, then save the notes to record that review.':'The route construction dates changed after this item was reviewed. Check the current dates and screening before saving the follow-up again.'));
  const reviewedVersion=liveSchedules.get(String(currentRoute.remoteId))?.schedule_version??null;
+ const infrastructureSnapshot=D.reviewSnapshot(row);
  const form=N('form','coord-note-form');form.append(N('h4','','Coordination follow-up'),P('Visible to tracker administrators only. Saving does not change the agency source or mark a conflict as confirmed.'));
  const statusWrap=N('label','land-field','Coordination status'),select=N('select');select.id='coordEditStatus';for(const [v,label]of Object.entries(C.statuses))select.add(new Option(label,v));select.value=saved?.status||'unreviewed';statusWrap.append(select);form.append(statusWrap);
  field(form,'Assigned to','coordAssigned',saved?.assigned_to);field(form,'Agency / contact','coordContact',saved?.contact,'text',1000);field(form,'Next action','coordNextAction',saved?.next_action,'textarea',2000);field(form,'Follow-up date','coordDue',saved?.due_date,'date');field(form,'Notes','coordNotes',saved?.notes,'textarea',10000);
  if(saved)form.append(P('Last saved '+new Date(saved.updated_at).toLocaleString()+' by '+(saved.updated_by===currentAdminSession?.user?.id?'you':'an administrator')+'.'));
  const save=B('Save coordination notes',()=>{});save.type='submit';const message=N('p','land-message');message.setAttribute('role','status');form.append(save,message);form.addEventListener('input',()=>notesDirty=true);
  const route=currentRoute,key=C.routeKey(route),infrastructureId=selection,token=generation;let baseline=saved;
- form.addEventListener('submit',async event=>{event.preventDefault();if(!admin())return;save.disabled=true;message.textContent='Saving…';try{
-  const record={route_key:key,route_id:route.remoteId?Number(route.remoteId):null,infrastructure_id:infrastructureId,project_name:row?.name||saved.project_name,source_url:row?sourceRecord(row):saved.source_url,status:select.value,assigned_to:$('coordAssigned').value.trim(),contact:$('coordContact').value.trim(),next_action:$('coordNextAction').value.trim(),due_date:$('coordDue').value||null,notes:$('coordNotes').value.trim(),reviewed_schedule_version:reviewedVersion};
-  const updated=await api.saveCoordinationReview(record,baseline);if(token!==generation||!admin())return;baseline=updated;reviews.set(infrastructureId,updated);notesDirty=false;message.textContent='Saved to the shared administrator watchlist.';if(!needsScheduleRecheck(updated))root.querySelector('.coord-recheck-warning')?.remove();renderList();window.TracksideScheduleCoverage?.refreshIfOpen();
+ form.addEventListener('submit',async event=>{event.preventDefault();if(!admin())return;const latest=A.infrastructureRows.find(project=>project.id===infrastructureId);
+ if(row&&JSON.stringify(D.reviewSnapshot(latest))!==JSON.stringify(infrastructureSnapshot)){message.textContent='Infrastructure dates changed while this form was open. Copy your notes before reopening the project to review the new dates.';return;}
+ save.disabled=true;message.textContent='Saving…';try{
+  const record={route_key:key,route_id:route.remoteId?Number(route.remoteId):null,infrastructure_id:infrastructureId,project_name:row?.name||saved.project_name,source_url:row?sourceRecord(row):saved.source_url,status:select.value,assigned_to:$('coordAssigned').value.trim(),contact:$('coordContact').value.trim(),next_action:$('coordNextAction').value.trim(),due_date:$('coordDue').value||null,notes:$('coordNotes').value.trim(),reviewed_schedule_version:reviewedVersion,reviewed_infrastructure_schedule:infrastructureSnapshot??baseline?.reviewed_infrastructure_schedule??null};
+  const updated=await api.saveCoordinationReview(record,baseline);if(token!==generation||!admin())return;baseline=updated;reviews.set(infrastructureId,updated);notesDirty=false;message.textContent='Saved to the shared administrator watchlist.';if(!needsScheduleRecheck(updated))root.querySelector('.route-checkpoint')?.remove();if(!D.reviewNeeded(updated,row))root.querySelector('.infrastructure-checkpoint')?.remove();renderList();window.TracksideScheduleCoverage?.refreshIfOpen();
  }catch(error){message.textContent='Could not save: '+error.message+' Your text is still in this form.';}finally{save.disabled=false;}});
  root.append(form);
 }
@@ -200,9 +209,9 @@ function renderScheduleEditor(root,s){
 }
 function exportRows(){
  const [start,finish]=dates(),s=scheduleFor(),privateNotes=admin()&&$('coordPrivateExport').checked;
- const fields=['MARTA route','Infrastructure ID','Project','Agency','Jurisdiction','Type','Published phase','Distance feet','Geometry basis','Schedule result','Construction start as published','Construction finish as published','Comparison basis','Comparison start','Comparison finish','Route start label','Route finish label','Route schedule source','Route source checked','Infrastructure source','Infrastructure retrieved','Screening caveats'];
+ const fields=['MARTA route','Infrastructure ID','Project','Agency','Jurisdiction','Type','Published phase','Distance feet','Geometry basis','Schedule result','Construction start used','Construction finish used','Trackside date source','Comparison basis','Comparison start','Comparison finish','Route start label','Route finish label','Route schedule source','Route source checked','Infrastructure source','Infrastructure retrieved','Screening caveats'];
  if(privateNotes)fields.push('Admin coordination status','Assigned to','Contact','Next action','Follow-up date','Admin notes','Admin notes last saved');
- return [fields,...filtered.map(item=>{const r=item.row,n=reviews.get(r.id);const row=[currentRoute.name,r.id,r.name,r.agency,r.jurisdiction,r.category,r.sourceStatus,Math.round(item.distance/.3048),r.geometryBasis,C.labels[item.state],LCore.dateLabel(r.start),LCore.dateLabel(r.finish),studyActive()?'Temporary session study window':isExistingTransitRoute(currentRoute)?'Existing service proximity; infrastructure dates only':'Published route construction schedule',start,finish,s.start_label,s.finish_label,s.source_url,s.checked_at,sourceRecord(r),A.loadedAt?.toISOString(),item.warnings.join(' | ')];if(privateNotes)row.push(C.statuses[n?.status||'unreviewed'],n?.assigned_to,n?.contact,n?.next_action,n?.due_date,n?.notes,n?.updated_at);return row;})];
+ return [fields,...filtered.map(item=>{const r=item.row,n=reviews.get(r.id);const row=[currentRoute.name,r.id,r.name,r.agency,r.jurisdiction,r.category,r.sourceStatus,Math.round(item.distance/.3048),r.geometryBasis,C.timingLabel(item),D.endpointLabel(r,'start'),D.endpointLabel(r,'finish'),r.manualSchedule?.source_url||'',studyActive()?'Temporary session study window':isExistingTransitRoute(currentRoute)?'Existing service proximity; infrastructure dates only':'Published route construction schedule',start,finish,s.start_label,s.finish_label,s.source_url,s.checked_at,sourceRecord(r),A.loadedAt?.toISOString(),item.warnings.join(' | ')];if(privateNotes)row.push(C.statuses[n?.status||'unreviewed'],n?.assigned_to,n?.contact,n?.next_action,n?.due_date,n?.notes,n?.updated_at);return row;})];
 }
 function downloadCsv(){const url=URL.createObjectURL(new Blob([C.csv(exportRows())],{type:'text/csv;charset=utf-8'})),a=N('a');a.href=url;a.download='trackside-coordination-'+C.slug(currentRoute.name)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function printBriefing(){
@@ -213,7 +222,7 @@ function printBriefing(){
  if(s.source_url)report.append(link('Route schedule source · '+(s.source_title||s.source_url),s.source_url));if(s.notes)report.append(P(s.notes));
  const timeline=N('section','coord-timeline coord-timeline-print');window.TracksideCoordinationTimeline?.render(timeline,{...timelineOptions(),print:true,scale:'years'});report.append(timeline);
  const rows=exportRows(),table=N('table'),head=N('thead'),tr=N('tr');for(const title of ['Infrastructure / agency','Schedule & screening','Source / follow-up'])tr.append(N('th','',title));head.append(tr);table.append(head);const body=N('tbody');
- for(const item of filtered){const r=item.row,row=N('tr'),first=N('td'),second=N('td'),third=N('td');first.append(N('strong','',r.name),P(r.agency+' · '+r.jurisdiction),P(r.geometryBasis||'Published GIS geometry'));second.append(P(C.labels[item.state]),P(LCore.dateLabel(r.start)+' → '+LCore.dateLabel(r.finish)),P(Math.round(item.distance/.3048)+' ft from route'));third.append(link('Published project source',sourceRecord(r)));for(const warning of item.warnings)third.append(P(warning));
+ for(const item of filtered){const r=item.row,row=N('tr'),first=N('td'),second=N('td'),third=N('td');first.append(N('strong','',r.name),P(r.agency+' · '+r.jurisdiction),P(r.geometryBasis||'Published GIS geometry'));second.append(P(C.timingLabel(item)),P(D.endpointLabel(r,'start')+' → '+D.endpointLabel(r,'finish')),P(Math.round(item.distance/.3048)+' ft from route'));third.append(link('Published project source',sourceRecord(r)));for(const warning of item.warnings)third.append(P(warning));
   if(admin()&&$('coordPrivateExport').checked){const n=reviews.get(r.id);third.append(P('ADMIN NOTES · '+C.statuses[n?.status||'unreviewed']),P([n?.assigned_to,n?.contact,n?.next_action,n?.due_date,n?.notes].filter(Boolean).join(' · ')));}row.append(first,second,third);body.append(row);}
  table.append(body);report.append(table);report.append(N('h3','','Coverage and limitations'),P($('coordCoverage').textContent));window.TracksideCoordinationBriefing.open(report,briefingMap);
 }
@@ -253,5 +262,6 @@ async function applyPublicView(input){
  remember();return {warning:warnings.join(' ')};
 }
 if(window.TracksideCoordinationViews&&window.TracksideCoordinationViewsCore)viewsPanel=window.TracksideCoordinationViews.mount({dialog,anchor:$('coordSchedule'),ready:window.tracksideAppReady,publicUrl:typeof publicTrackerUrl!=='undefined'?publicTrackerUrl:'https://b-1n-a-rush.github.io/Dev-Tracker/',getView:currentPublicView,applyView:applyPublicView,openDefault:()=>open(),copy:value=>typeof copyText==='function'?copyText(value):window.navigator.clipboard.writeText(value)});
+window.addEventListener('trackside:infrastructure-loaded',()=>{if(dialog.open&&!busy&&!notesDirty&&!scheduleDirty)screen();});
 window.TracksideCoordination={open,openSchedule,openItem,sourceRecord,close,refresh,get result(){return result;},get route(){return currentRoute;},get schedules(){return [...liveSchedules.values()];}};
 })();

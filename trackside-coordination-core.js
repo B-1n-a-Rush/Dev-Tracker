@@ -18,7 +18,7 @@ function timing(reference,work,existingService){
   return {state:'invalid',reason:scope+' could not be read or are out of order.'};
  }
  if(existingService){
-  if(work.kind==='complete')return {state:'service-work',reason:'Nearby work has a published date range. This screen does not compare it with service hours.'};
+  if(work.kind==='complete')return {state:'service-work',reason:'Nearby work has a recorded date range. This screen does not compare it with service hours.'};
   return {state:'unknown',reason:'The project has no usable '+missing(work)+' date. It remains in nearby work results.'};
  }
  const {start,finish}=reference;
@@ -31,11 +31,18 @@ function timing(reference,work,existingService){
   if(work.kind!=='complete')gaps.push('the project '+missing(work));
   return {state:reference.kind!=='complete'?'reference-needed':'unknown',reason:'Timing is unknown because usable dates are missing for '+gaps.join(' and ')+'. The project remains visible because it is nearby.'};
  }
- return {state:'overlap',reason:'The construction windows intersect within the published date precision.',overlap:{
+ return {state:'overlap',reason:'The construction windows intersect within the recorded date precision.',overlap:{
   start:work.start.first>=start.first?work.start:start,
   finish:work.finish.last<=finish.last?work.finish:finish,
   approximate:reference.approximate||work.approximate,
  }};
+}
+function timingLabel(item) {
+  if (['unknown','reference-needed'].includes(item.state)) {
+    const work = constructionWindow(item.row.start, item.row.finish);
+    if (work.kind === 'start-only' || work.kind === 'finish-only') return 'Timing incomplete';
+  }
+  return labels[item.state];
 }
 function comparison(start,finish,a,b){return timing(constructionWindow(start,finish),constructionWindow(a,b),false).state;}
 function screen(opts){
@@ -55,7 +62,7 @@ function screen(opts){
   if(row.source?.kind==='arc'||/ARC/i.test(row.geometryBasis||''))warnings.push('ARC geometry is a planning area; construction dates are not supplied by ARC.');
   if(row.possibleMatches?.length)warnings.push('Possible duplicate included; related scopes may overlap.');
   if(row.arcReferences?.some(a=>a.complete!==row.complete))warnings.push('Local and ARC status disagree.');
-  if(!row.complete&&work.finish&&work.finish.last<Date.now())warnings.push('Published finish has passed; confirm the current schedule.');
+  if(!row.complete&&work.finish&&work.finish.last<Date.now())warnings.push('Recorded finish has passed; confirm the current schedule.');
   result.push({row,distance,...assessment,warnings});
  }
  const rank={'service-work':0,overlap:0,unknown:1,'reference-needed':1,invalid:2,outside:3};result.sort((a,b)=>rank[a.state]-rank[b.state]||a.distance-b.distance||a.row.name.localeCompare(b.row.name));
@@ -106,5 +113,5 @@ function timelineTicks(domain,scale='quarters'){
  }
  return {ticks,step,requested,cellWidth:step>=12?150:scale==='months'?68:76};
 }
-return {labels,statuses,slug,routeKey,routeGeometry,validateDate,comparison,screen,csv,constructionWindow,overlapLabel,timelineModel,timelineMark,timelineTicks};
+return {labels,timingLabel,statuses,slug,routeKey,routeGeometry,validateDate,comparison,screen,csv,constructionWindow,overlapLabel,timelineModel,timelineMark,timelineTicks};
 });

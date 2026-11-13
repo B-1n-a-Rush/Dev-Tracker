@@ -422,7 +422,7 @@
   }
   async function listCoordinationScheduleCheckpoints() {
     const result=[];
-    for(let offset=0;offset<10000;offset+=500){const rows=await dataRequest('infrastructure_coordination_reviews?select=route_key,route_id,infrastructure_id,project_name,status,reviewed_schedule_version,updated_at&order=route_key.asc,infrastructure_id.asc&limit=500&offset='+offset,{},true);if(!Array.isArray(rows))throw new Error('Invalid coordination checkpoint response');result.push(...rows);if(rows.length<500)return result;}
+    for(let offset=0;offset<10000;offset+=500){const rows=await dataRequest('infrastructure_coordination_reviews?select=route_key,route_id,infrastructure_id,project_name,status,reviewed_schedule_version,reviewed_infrastructure_schedule,updated_at&order=route_key.asc,infrastructure_id.asc&limit=500&offset='+offset,{},true);if(!Array.isArray(rows))throw new Error('Invalid coordination checkpoint response');result.push(...rows);if(rows.length<500)return result;}
     throw new Error('Coordination queue exceeds the retrieval limit; its totals are unavailable.');
   }
   async function saveCoordinationRecord(table, record, baseline, keys) {
@@ -436,6 +436,33 @@
     if(!Array.isArray(rows)||rows.length!==1)throw new Error('Another administrator changed this record. Refresh the watchlist before saving again.');
     return rows[0];
   }
+  async function listInfrastructureDates() {
+    const rows = [];
+    for (let offset = 0; ; offset += 500) {
+      const page = await dataRequest('infrastructure_construction_dates?select=*&order=infrastructure_id.asc&limit=500&offset='+offset);
+      if (!Array.isArray(page)) throw new Error('Invalid infrastructure date response.');
+      rows.push(...page);
+      if (page.length < 500) return rows;
+    }
+  }
+
+  async function saveInfrastructureDates(record, baseline) {
+    return saveCoordinationRecord('infrastructure_construction_dates',record,baseline,['infrastructure_id']);
+  }
+
+  async function listInfrastructureDateHistory(id, offset = 0) {
+    if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Invalid date history page.');
+    return dataRequest('infrastructure_construction_date_history?select=id,recorded_at,action,before_record,after_record&infrastructure_id=eq.'
+      + encodeURIComponent(id) + '&order=recorded_at.desc,id.desc&limit=20&offset=' + offset, {}, true);
+  }
+
+  async function removeInfrastructureDates(id, baseline) {
+    const rows = await dataRequest('infrastructure_construction_dates?infrastructure_id=eq.'+encodeURIComponent(id)+'&updated_at=eq.'+encodeURIComponent(baseline.updated_at), {
+      method:'DELETE', headers:{Prefer:'return=representation'}
+    }, true);
+    if (rows?.length !== 1) throw new Error('Another administrator changed these dates. Reopen the editor after refreshing sources.');
+  }
+
   async function saveRouteSchedule(record, baseline) {
     const keys=['route_id','construction_start','start_label','construction_finish','finish_label','phase','source_url','source_title','source_published_at','checked_at','evidence','notes','additional_sources'];
     const clean=Object.fromEntries(keys.filter(key=>record[key]!==undefined).map(key=>[key,record[key]]));
@@ -445,7 +472,7 @@
     return dataRequest('infrastructure_coordination_reviews?select=*&route_key=eq.'+encodeURIComponent(routeKey)+'&order=updated_at.desc',{},true);
   }
   async function saveCoordinationReview(record, baseline) {
-    const keys=['route_key','route_id','infrastructure_id','project_name','source_url','status','assigned_to','contact','next_action','due_date','notes','reviewed_schedule_version','bus_decision','bus_concerns','bus_resolution','reviewed_match_fingerprint','reviewed_network_fingerprint','bus_match_snapshot'];
+    const keys=['route_key','route_id','infrastructure_id','project_name','source_url','status','assigned_to','contact','next_action','due_date','notes','reviewed_schedule_version','reviewed_infrastructure_schedule','bus_decision','bus_concerns','bus_resolution','reviewed_match_fingerprint','reviewed_network_fingerprint','bus_match_snapshot'];
     const clean=Object.fromEntries(keys.filter(key=>record[key]!==undefined).map(key=>[key,record[key]]));
     return saveCoordinationRecord('infrastructure_coordination_reviews',clean,baseline,['route_key','infrastructure_id']);
   }
@@ -608,13 +635,13 @@
     }, true);
   }
 
-  async function listChangeProposals(status = 'pending', limit = 40) {
+  async function listChangeProposals(status = 'pending', limit = 40, projectId = null) {
     const safeLimit = Math.min(Math.max(Number(limit) || 40, 1), 100);
     const statusFilter = status
       ? `&status=eq.${encodeURIComponent(status)}`
       : '';
     const rows = await dataRequest(
-      `project_change_proposals?select=id,project_id,status,source_title,source_url,source_publisher,source_published_at,source_excerpt,analysis_summary,proposed_patch,changed_fields,confidence,baseline_updated_at,suggested_by,detected_at,reviewed_by,reviewed_at,review_note,approved_fields,rejected_fields&order=detected_at.desc&limit=${safeLimit}${statusFilter}`,
+      `project_change_proposals?select=id,project_id,status,source_title,source_url,source_publisher,source_published_at,source_excerpt,analysis_summary,proposed_patch,changed_fields,confidence,baseline_updated_at,suggested_by,detected_at,reviewed_by,reviewed_at,review_note,approved_fields,rejected_fields&order=detected_at.desc&limit=${safeLimit}${statusFilter}${projectId?'&project_id=eq.'+encodeURIComponent(projectId):''}`,
       {},
       true
     );
@@ -764,6 +791,26 @@
       },
       body: JSON.stringify({ p_status: status })
     }, true);
+  }
+
+  async function saveProjectSubmissionDraft(report, draft) {
+    return dataRequest('rpc/admin_save_project_submission_draft', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({p_report_id: report.id, p_baseline: report.status_updated_at, p_draft: draft})
+    }, true);
+  }
+
+  async function publishProjectSubmission(report, project, sortOrder) {
+    const row = await dataRequest('rpc/admin_publish_project_submission', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({p_report_id: report.id, p_baseline: report.status_updated_at, p_project: toRow(project, sortOrder)})
+    }, true);
+    if (!row?.id) throw new Error('The published project could not be found.');
+    return fromRow(row);
+  }
+
+  async function listAutomationReviewProjects() {
+    return listAllRows('project_change_proposals?select=id,project_id&status=eq.pending&suggested_by=eq.scheduled-news-monitor&order=id.asc');
   }
 
   async function reviewProjectSubmission(reportId, status, resolutionNote = '') {
@@ -974,6 +1021,10 @@
     listPublishedProjects,
     listTransitRoutes,
     listRouteSchedules,
+    listInfrastructureDates,
+    listInfrastructureDateHistory,
+    saveInfrastructureDates,
+    removeInfrastructureDates,
     listRouteScheduleHistory,
     listCoordinationScheduleCheckpoints,
     saveRouteSchedule,
@@ -1004,6 +1055,9 @@
     submitPublicProjectSubmission,
     getProjectSubmissionStatus,
     listProjectSubmissions,
+    saveProjectSubmissionDraft,
+    publishProjectSubmission,
+    listAutomationReviewProjects,
     reviewProjectSubmission,
     listProjectNews,
     listApprovedNews,

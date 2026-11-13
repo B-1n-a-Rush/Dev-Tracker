@@ -1,7 +1,7 @@
 /* Parcel profiles and public-source infrastructure coordination. */
 (function() {
   'use strict';
-  const C=window.TracksideLandCore;
+  const C=window.TracksideLandCore,D=window.TracksideInfrastructureDates,api=window.tracksideSupabase;
   if(!C||typeof map==='undefined')return;
   const $=id=>document.getElementById(id);
   const aside=document.querySelector('aside.detail');
@@ -131,6 +131,7 @@
   infrastructureSources.push({id:'arc-mtp',group:'arc-mtp',kind:'arc',jurisdiction:'ARC four-jurisdiction coverage',agency:'Atlanta Regional Commission / project sponsors',name:'ARC MTP / TIP · MARTA jurisdictions',url:'https://services1.arcgis.com/Ug5xGQbHsD8zuZzM/arcgis/rest/services/ARC_MTP/FeatureServer/2',where:"UPPER(COUNTY) LIKE '%FULTON%' OR UPPER(COUNTY) LIKE '%DEKALB%' OR UPPER(COUNTY) LIKE '%CLAYTON%' OR UPPER(CITY) LIKE '%ATLANTA%'",viewer:'https://experience.arcgis.com/experience/0e308ec9423e4a52bd527f7b83acdf85/',coverage:'Only Atlanta, Fulton, DeKalb and Clayton matches, including cross-county projects touching these jurisdictions. ARC polygons are planning/project areas. Programmed is not proof that construction has started. Long Range and Completed are optional; construction dates must be verified separately.'});
   let infrastructureRows=[],infrastructureLoad=null,loadedAt=null,lastScreened=[],lastUnlocated=[],lastPotential=[],sourceResults=[],reconciliation={matchedArcCount:0,possibleArcCount:0,newArcCount:0};
   const sourceSnapshots=new Map();
+  let baseInfrastructureRows=[],manualDates=new Map(),manualDateError="",manualDateVersion=0;
   const distanceCache=new Map();let routeGeometrySignature='';
   const layerSection=node('section','map-layer-section');
   layerSection.innerHTML='<div class="map-layer-section-title">Infrastructure</div><label class="map-layer-option"><span class="map-layer-copy"><strong>Public infrastructure projects</strong><small id="infrastructureLayerHelp">Four-jurisdiction coverage · roads, paths, sidewalks and utilities</small></span><input id="layerInfrastructure" type="checkbox" /></label><button type="button" class="land-button land-wide" id="browseInfrastructure">Browse & coordinate</button>';
@@ -138,9 +139,39 @@
   const layerInput=$('layerInfrastructure'),layerHelp=$('infrastructureLayerHelp');
   function setInfrastructureVisible(visible){layerInput.checked=visible;if(visible){infraLayer.addTo(map);loadInfrastructure();}else{map.removeLayer(infraLayer);infraHighlight.clearLayers();}updateMapLayersCount();}
   layerInput.addEventListener('change',()=>setInfrastructureVisible(layerInput.checked));
-  $('browseInfrastructure').addEventListener('click',()=>{setPage('explore');setInfrastructureVisible(true);showInfrastructure();$('mapLayersPanel').hidden=true;$('mapLayersButton').setAttribute('aria-expanded','false');});
+  $('browseInfrastructure').addEventListener('click',browseInfrastructure);
+  function browseInfrastructure(){
+    setPage('explore');
+    document.querySelector('[data-view="map"]')?.click();
+    setInfrastructureVisible(true);
+    showInfrastructure();
+    $('mapLayersPanel').hidden=true;
+    $('mapLayersButton').setAttribute('aria-expanded','false');
+  }
   const originalCount=updateMapLayersCount;updateMapLayersCount=function(){originalCount();if(layerInput.checked){const count=$('mapLayersCount');count.textContent=String((Number(count.textContent)||0)+1);}};
   infraPanel.innerHTML='<div class="eyebrow">Infrastructure coordination</div><h2>Coordinate along a corridor</h2><p class="land-subtitle">Local-agency and ARC projects · MARTA’s four jurisdictions</p><div class="land-banner">ARC projects are limited to Atlanta, Fulton, DeKalb and Clayton, including cross-county projects touching them. Programmed does not mean under construction. Long-range plans, completed work and possible duplicates are optional. ART, BRT and LRT routes are shown only from Trackside route shapefiles; imported rapid-transit alignments are excluded.</div><div class="land-controls"><label class="land-field">MARTA route / alignment<select id="infraRoute"><option value="">All loaded projects</option></select></label><label class="land-field">Distance from alignment<select id="infraDistance"><option value="30.48">100 feet</option><option value="76.2" selected>250 feet</option><option value="152.4">500 feet</option><option value="402.336">¼ mile</option><option value="804.672">½ mile</option></select></label><div class="land-control-row"><label class="land-field">Jurisdiction<select id="infraJurisdiction"><option value="">All four</option><option>Atlanta</option><option>DeKalb</option><option>Fulton</option><option>Clayton</option></select></label><label class="land-field">Project type<select id="infraCategory"><option value="">All types</option></select></label></div><label class="land-field">Municipality<select id="infraMunicipality"><option value="">All / not published</option></select></label><label class="land-field">Source / program<select id="infraProgram"><option value="">All connected sources</option></select></label><fieldset class="land-window"><legend>Your comparison window</legend><label class="land-field">Start<input type="date" id="infraStart" /></label><label class="land-field">Finish<input type="date" id="infraFinish" /></label><p>Enter the MARTA construction phase or study dates you want to compare. These dates are for this browser session.</p></fieldset><label class="land-check"><input id="infraIncludeComplete" type="checkbox" /> Include completed / closeout projects</label><label class="land-check"><input id="infraIncludeLongRange" type="checkbox" /> Include ARC long-range projects</label><label class="land-check"><input id="infraIncludePossible" type="checkbox" /> Include possible duplicates in map and totals</label><label class="land-check"><input id="infraOverlapOnly" type="checkbox" /> Overlaps + unknown schedules only</label></div><p class="land-message" id="infraMessage" role="status"></p><div class="land-stats" id="infraStats"></div><div class="land-actions"><button type="button" class="land-button" id="infraRefresh">Refresh sources</button><button type="button" class="land-button" id="infraExport">Export comparison CSV</button></div><p class="land-note">Proximity and schedule matches identify potential coordination needs. Line geometry is not a construction footprint. Project dates and anticipated construction dates are labeled separately. ARC planning areas use dashed outlines.</p><div id="infrastructureList" class="land-project-list"></div><details class="land-raw" id="infraDuplicates"><summary id="infraDuplicatesSummary">Possible duplicate ARC projects</summary><p class="land-note">Name/location similarities and ambiguous identifiers are not automatic merges. These candidates match your current filters but stay out of map totals unless explicitly included above. Compare both sources; related phases can be distinct projects.</p><button type="button" class="land-button" id="infraExportDuplicates">Export duplicate candidates</button><div id="infraDuplicatesList" class="land-project-list"></div></details><details class="land-raw" id="infraUnlocated"><summary id="infraUnlocatedSummary">Unmapped / area-wide records</summary><p class="land-note">Not plotted or counted in route proximity totals. These records may still need agency coordination. Jurisdiction, municipality, type and source filters apply; route and date-overlap filters do not.</p><button type="button" class="land-button" id="infraExportUnlocated">Export unmapped CSV</button><div id="infraUnlocatedList" class="land-project-list"></div></details><details class="land-raw"><summary>Sources & coverage</summary><div id="infraCoverage"></div></details>';
+  const scheduleFilter=node('select');scheduleFilter.id='infraScheduleFilter';scheduleFilter.setAttribute('aria-label','Construction dates');
+  for(const [value,label]of [['','All schedules'],['missing','Any date missing'],['start','Missing start'],['finish','Missing finish'],['both','Both dates missing'],['invalid','Dates need review'],['manual','Saved manual dates'],['changed','Agency dates changed']])scheduleFilter.add(new Option(label,value));
+  const scheduleField=node('label','land-field','Construction dates');scheduleField.append(scheduleFilter);$('infraOverlapOnly').parentElement.after(scheduleField);
+  const infrastructureSearch=node('input');
+  infrastructureSearch.type='search';
+  infrastructureSearch.maxLength=160;
+  infrastructureSearch.id='infraProjectSearch';
+  infrastructureSearch.placeholder='Project name, street, or project ID';
+  const searchField=node('label','land-field','Find infrastructure');
+  searchField.append(infrastructureSearch);
+  $('infraRoute').parentElement.before(searchField);
+  const infrastructureReview=$('adminInfrastructureReview');
+  if(infrastructureReview){
+    infrastructureReview.append(button('Find projects with missing construction dates',()=>{
+      if(!supabaseAdmin||pendingInviteActivation)return;
+      closeAuthModal();
+      clearInfrastructureDetail();
+      scheduleFilter.value='missing';
+      browseInfrastructure();
+      scheduleFilter.focus();
+    }));
+  }
   Object.keys(colors).forEach(cat=>$('infraCategory').add(new Option(cat,cat)));
   function refreshRouteChoices(){const select=$('infraRoute'),previous=select.value;select.replaceChildren(new Option('All loaded projects',''));for(const r of railLines)select.add(new Option(r.name+' · MARTA rail','rail:'+r.name));for(const r of brtArtRoutes)select.add(new Option(r.name+' · '+transitDisplayMode(r),'rapid:'+r.name));if([...select.options].some(o=>o.value===previous))select.value=previous;}
   function referenceGeometry(){const value=$('infraRoute').value;if(!value)return null;const rail=value.startsWith('rail:');const name=value.slice(rail?5:6);const route=(rail?railLines:brtArtRoutes).find(r=>r.name===name);if(!route)return null;const lines=routePointParts(route).map(line=>line.map(p=>[p[1],p[0]]));const signature=value+'|'+JSON.stringify(lines);if(signature!==routeGeometrySignature){routeGeometrySignature=signature;distanceCache.clear();}return {type:'MultiLineString',coordinates:lines};}
@@ -205,16 +236,164 @@
     layerHelp.textContent='Loading official infrastructure sources…';$('infraMessage').textContent='Loading official infrastructure sources…';$('infraRefresh').disabled=true;
     const health=window.TracksideDataStatus,tickets=infrastructureSources.map(s=>health?.begin('infra:'+s.id));
     infrastructureLoad=(async()=>{
-      const results=await Promise.allSettled(infrastructureSources.map(readInfrastructureSource)),at=new Date().toISOString();
+      const version=manualDateVersion;
+      const [results,[dates]]=await Promise.all([
+        Promise.allSettled(infrastructureSources.map(readInfrastructureSource)),
+        Promise.allSettled([Promise.resolve().then(()=>api?.enabled?api.listInfrastructureDates():[])])
+      ]),at=new Date().toISOString();
+      if(version===manualDateVersion){
+        if(dates.status==="fulfilled"){manualDates=new Map(dates.value.map(row=>[row.infrastructure_id,row]));manualDateError="";}
+        else manualDateError="Trackside construction dates could not refresh. "+(manualDates.size?"Showing previously loaded dates.":"Showing agency dates.");
+      }
       const states=window.TracksideDataStatusCore.retainSources(infrastructureSources,results,sourceSnapshots,at);
       sourceResults=states.map((r,i)=>{const v=r.value;if(r.ok)health?.success(tickets[i],{count:v.features.length,partial:v.truncated,sourceUpdated:v.sourceUpdated,geometryUpdated:v.geometryUpdated});else health?.failure(tickets[i],{retained:r.cached});return{source:r.source,ok:r.ok,cached:r.cached,lastSuccess:r.lastSuccess,count:v?.features.length||0,truncated:!!v?.truncated,error:r.error||'',sourceUpdated:v?.sourceUpdated||null,geometryUpdated:v?.geometryUpdated||null,notes:v?.notes||[]};});
       const rows=[];for(const result of states){if(!result.value)continue;const source=result.source;for(const feature of result.value.features){const row=C.infrastructure(feature,source);if(!row.geometry&&source.kind!=='fulton')continue;if(source.kind==='splost'&&!/resurfac|transportation|beautification|patch|greenway|trail|sidewalk|bikeway|bridge|drainage|intersection|pedestrian|safety|streetscape|utilities/i.test(row.kind))continue;rows.push(row);}}
-      reconciliation=C.reconcileInfrastructure(mergeInfrastructure(rows));infrastructureRows=reconciliation.rows;for(const result of sourceResults)result.excludedRapidTransitCount=reconciliation.excludedRapidTransitRows.filter(r=>r.source.id===result.source.id).length;
+      reconciliation=C.reconcileInfrastructure(mergeInfrastructure(rows));baseInfrastructureRows=reconciliation.rows;applyManualDates();for(const result of sourceResults)result.excludedRapidTransitCount=reconciliation.excludedRapidTransitRows.filter(r=>r.source.id===result.source.id).length;
       const times=sourceResults.map(r=>Date.parse(r.lastSuccess)).filter(Number.isFinite);loadedAt=times.length?new Date(Math.max(...times)):null;
-      distanceCache.clear();refreshInventoryChoices();renderCoverage();screenInfrastructure();if(typeof window.dispatchEvent==='function'&&typeof window.CustomEvent==='function')window.dispatchEvent(new window.CustomEvent('trackside:infrastructure-loaded'));
+      distanceCache.clear();refreshInventoryChoices();renderCoverage();screenInfrastructure();notifyInfrastructureLoaded();
     })().catch(e=>{for(const ticket of tickets)if(ticket)health?.failure(ticket);$('infraMessage').textContent='Infrastructure could not load. Previously displayed data may remain; retry the sources.';layerHelp.textContent='Sources unavailable · use Browse & coordinate to retry';}).finally(()=>{infrastructureLoad=null;$('infraRefresh').disabled=false;});
     return infrastructureLoad;
   }
+  function applyManualDates(){
+    infrastructureRows=baseInfrastructureRows.map(row=>D.apply(row,manualDates.get(row.id)));
+  }
+  function notifyInfrastructureLoaded(){
+    window.dispatchEvent(new CustomEvent('trackside:infrastructure-loaded'));
+  }
+  function refreshAfterDateEdit(row){
+    applyManualDates();
+    screenInfrastructure();
+    if(selectedInfrastructureId===row.id&&!infraPanel.hidden){
+      const updated=infrastructureRows.find(project=>project.id===row.id);
+      if(updated)focusInfrastructure(updated,{fit:false});
+    }
+    notifyInfrastructureLoaded();
+  }
+  function renderDateHistory(editor,row){
+    const history=node('details','land-raw'),summary=node('summary','','Construction date history');
+    const content=node('div'),status=note(''),list=node('div','land-project-list');
+    status.setAttribute('role','status');
+    const more=button('Load older entries',()=>void load());
+    more.hidden=true;
+    content.append(status,list,more);history.append(summary,content);editor.append(history);
+    let offset=0,loading=false,loaded=false;
+    history.addEventListener('toggle',()=>{if(history.open&&!loaded)void load();});
+    async function load(){
+      if(loading||!supabaseAdmin||pendingInviteActivation)return;
+      loading=more.disabled=true;status.textContent='Loading date history…';
+      try{
+        const entries=await api.listInfrastructureDateHistory(row.id,offset);
+        if(!supabaseAdmin||pendingInviteActivation||!history.isConnected)return;
+        for(const entry of entries){
+          const titles={baseline:'Recorded baseline',added:'Dates added',changed:'Dates changed',removed:'Manual dates removed'};
+          const card=node('article','land-project');
+          card.append(node('strong','',titles[entry.action]||'Date change'),note(new Date(entry.recorded_at).toLocaleString()));
+          for(const [label,record] of [['Before',entry.before_record],['After',entry.after_record]]){
+            if(!record)continue;
+            const values=['start','finish'].map(endpoint=>{
+              const value=record['construction_'+endpoint],certainty=D.certainty[record[endpoint+'_certainty']];
+              return value?C.dateLabel(value)+(certainty?' ('+certainty.toLowerCase()+')':''):'Agency date if available';
+            });
+            card.append(note(label+' · '+values.join(' → ')));
+            if(C.http(record.source_url))card.append(link(label+' source ↗',record.source_url));
+          }
+          list.append(card);
+        }
+        offset+=entries.length;loaded=true;more.hidden=entries.length<20;
+        status.textContent=offset?'':'No manual date history for this project.';
+      }catch(error){status.textContent='Could not load date history. '+error.message;}
+      finally{loading=more.disabled=false;}
+    }
+  }
+  function renderManualDates(detail,row){
+    if(row.manualSchedule){
+      const block=node('section','land-arc-reference');
+      block.append(node('h3','','Agency schedule'),facts([
+        ['Schedule basis',row.agencySchedule.label],
+        ['Agency start',C.dateLabel(row.agencySchedule.start)],
+        ['Agency finish',C.dateLabel(row.agencySchedule.finish)]
+      ]),link('Trackside construction date source ↗',row.manualSchedule.source_url));
+      if(D.agencyChanged(row))block.append(note('Agency dates changed since the manual entry was saved. Recheck both sources.'));
+      detail.append(block);
+    }
+    if(!api?.enabled||!D.eligible(row))return;
+    const editor=node('details','land-raw');
+    editor.className+=' infrastructure-date-editor';
+    editor.hidden=!supabaseAdmin||pendingInviteActivation;
+    editor.append(node('summary','','Edit construction dates'));
+    detail.append(editor);
+    const form=node('form','land-controls');
+    form.append(note('Enter YYYY, YYYY-MM, or YYYY-MM-DD. A blank field uses the agency date when the feed identifies it as construction. Saved dates and their source appear on the map and coordination tools.'));
+    const saved=row.manualSchedule;
+    for(const [key,label] of [['start','Construction start'],['finish','Construction finish']]){
+      const group=node('div','land-control-row');
+      const dateField=node('label','land-field',label),date=node('input');
+      date.type='text';date.placeholder='YYYY, YYYY-MM, or YYYY-MM-DD';
+      date.name='construction_'+key;date.maxLength=10;date.value=saved?.[date.name]||'';
+      dateField.append(date);
+      const certaintyField=node('label','land-field',key==='start'?'Start certainty':'Finish certainty'),select=node('select');
+      select.name=key+'_certainty';
+      for(const [value,text] of Object.entries(D.certainty))select.add(new Option(text,value));
+      select.value=saved?.[select.name]||'estimated';certaintyField.append(select);
+      group.append(dateField,certaintyField);form.append(group);
+    }
+    const sourceField=node('label','land-field','Direct supporting source URL'),source=node('input');
+    source.type='url';source.required=true;source.maxLength=2000;source.name='source_url';source.value=saved?.source_url||'';
+    sourceField.append(source);form.append(sourceField);
+    const status=node('p','land-message',manualDateError);status.setAttribute('role','status');
+    const save=node('button','land-button','Save construction dates');save.type='submit';
+    const actions=node('div','land-actions');
+    const remove=button('Remove manual dates',()=>{
+      if(window.confirm('Remove the manual dates for '+row.name+' and use the agency schedule again?'))void submit(true);
+    });
+    actions.append(save);if(saved)actions.append(remove);
+    form.append(actions,status);
+    editor.append(form);
+    renderDateHistory(editor,row);
+    let saving=false;
+    form.addEventListener('submit',event=>{event.preventDefault();void submit(false);});
+    async function submit(removing){
+      if(saving||!supabaseAdmin||pendingInviteActivation||manualDateError)return;
+      saving=save.disabled=remove.disabled=true;
+      status.textContent='Saving construction dates…';
+      try{
+        if(removing){
+          await api.removeInfrastructureDates(row.id,saved);
+          manualDates.delete(row.id);
+        }else{
+          const currentAgency=baseInfrastructureRows.find(project=>project.id===row.id);
+          if(!currentAgency)throw Error('The source project is unavailable. Refresh sources before saving.');
+          const record=D.validate(Object.fromEntries(new FormData(form)),currentAgency);
+          const stored=await api.saveInfrastructureDates(record,saved);
+          manualDates.set(row.id,stored);
+        }
+        manualDateVersion++;
+        refreshAfterDateEdit(row);
+        if(selectedInfrastructureId===row.id&&!infraPanel.hidden){
+          const updatedEditor=detail.querySelector('.infrastructure-date-editor');
+          if(updatedEditor&&!updatedEditor.hidden){
+            updatedEditor.open=true;
+            updatedEditor.querySelector('[role=status]').textContent=removing?'Manual dates removed. Screening uses the agency schedule.':'Dates saved and screening updated.';
+          }
+        }
+      }catch(error){status.textContent='Could not save construction dates. '+error.message;}
+      finally{saving=false;save.disabled=remove.disabled=Boolean(manualDateError);}
+    }
+    save.disabled=remove.disabled=Boolean(manualDateError);
+  }
+  new MutationObserver(()=>{
+    const editor=$('infraSelectedProject')?.querySelector('.infrastructure-date-editor');
+    if(!editor)return;
+    if(!supabaseAdmin||pendingInviteActivation){
+      editor.hidden=true;
+      editor.querySelectorAll('details').forEach(history=>history.remove());
+    }else{
+      editor.hidden=false;
+      const row=infrastructureRows.find(project=>project.id===selectedInfrastructureId);
+      if(row&&!editor.querySelector('details'))renderDateHistory(editor,row);
+    }
+  }).observe($('adminButton'),{attributeFilter:['class']});
+
   function renderCoverage(){
     const root=$('infraCoverage');root.replaceChildren();
     for(const r of sourceResults){
@@ -228,6 +407,7 @@
       for(const message of r.notes||[])item.append(note(message));
       root.append(item);
     }
+    if(manualDateError)root.append(note(manualDateError));
     root.append(note('Connected programs are not a complete inventory of every jurisdiction. Fulton and Clayton utility capital-project feeds are not connected. Plans and phases may have changed; confirm with the publishing agency.'),note(loadedAt?'Latest successful feed retrieval '+loadedAt.toLocaleString()+'. Individual feeds can be older; retrieval is not source verification.':'No infrastructure feed has loaded successfully in this session.'));
   }
   function recordUrl(row){
@@ -243,7 +423,7 @@
     const geometryDate=C.dateRange(row.geometryUpdated);
     if(row.geometry&&geometryDate&&geometryDate.last<Date.now()-365*86400000)messages.push('Published location data is over one year old; verify the alignment with the agency.');
     const finish=C.dateRange(row.finish);
-    if(!row.complete&&finish&&finish.last<Date.now())messages.push('Published finish is in the past; confirm the current phase and dates with the agency.');
+    if(!row.complete&&finish&&finish.last<Date.now())messages.push('The recorded finish is in the past; confirm the current phase and dates with the agency.');
     const update=C.dateRange(row.updated);
     if(update&&update.last<Date.now()-365*86400000)messages.push('Project record was last updated over one year ago.');
     return messages;
@@ -257,44 +437,69 @@
     const start=$('infraStart').value,finish=$('infraFinish').value,municipality=$('infraMunicipality').value,program=$('infraProgram').value;
     $('infraDistance').disabled=!reference;$('infraOverlapOnly').disabled=!start||!finish;
     const base=infrastructureRows.filter(r=>($('infraIncludeComplete').checked||!r.complete)&&($('infraIncludeLongRange').checked||!r.longRange)&&(!jurisdiction||rowJurisdictions(r).includes(jurisdiction))&&(!cat||r.category===cat)&&(!municipality||rowMunicipalities(r).includes(municipality))&&(!program||rowSourceIds(r).includes(program)));
-    lastUnlocated=base.filter(r=>!r.geometry).map(r=>({...r,distance:null,screen:'not-located'}));
-    const visible=base.filter(r=>r.geometry).map(r=>{let screen=C.schedule(r.start,r.finish,start,finish);if(screen==='reference-needed'&&(!C.dateRange(r.start)||!C.dateRange(r.finish)))screen='unknown';return {...r,distance:reference?distanceToRoute(r,reference):null,screen};}).filter(r=>!reference||r.distance<=threshold);
+    const query=infrastructureSearch.value.trim();
+    const scheduled=base.filter(row=>D.matchesFilter(row,scheduleFilter.value)&&D.matchesSearch(row,query));
+    lastUnlocated=scheduled.filter(r=>!r.geometry).map(r=>({...r,distance:null,screen:'not-located'}));
+    const visible=scheduled.filter(r=>r.geometry).map(r=>{
+      const coverage=D.coverage(r);
+      let screen=C.schedule(r.start,r.finish,start,finish);
+      if(screen!=='invalid-reference'&&coverage.invalid)screen='invalid';
+      else if(screen==='reference-needed'&&(coverage.missingStart||coverage.missingFinish))screen='unknown';
+      return {...r,distance:reference?distanceToRoute(r,reference):null,screen,coverage};
+    }).filter(r=>!reference||r.distance<=threshold);
     const dateMatches=r=>!$('infraOverlapOnly').checked||!start||!finish||r.screen!=='outside';
     lastPotential=visible.filter(r=>r.possibleMatches?.length&&dateMatches(r));
     const counted=visible.filter(r=>!r.possibleMatches?.length||$('infraIncludePossible').checked);
     lastScreened=counted.filter(dateMatches);
     lastScreened.sort((a,b)=>(a.distance??0)-(b.distance??0)||a.name.localeCompare(b.name));
-    const unknown=counted.filter(r=>!C.dateRange(r.start)||!C.dateRange(r.finish)).length,overlap=counted.filter(r=>r.screen==='overlap').length;
-    $('infraStats').replaceChildren();for(const [n,label] of [[counted.length,reference?'near alignment':'mapped projects'],[overlap,'possible overlaps'],[unknown,'unknown schedules']]){const s=node('div');s.append(node('strong','',String(n)),node('span','',label));$('infraStats').append(s);}
+    const unknown=counted.filter(r=>r.coverage.missingStart||r.coverage.missingFinish).length,overlap=counted.filter(r=>r.screen==='overlap').length;
+    $('infraStats').replaceChildren();for(const [n,label] of [[counted.length,reference?'near alignment':'mapped projects'],[overlap,'possible overlaps'],[unknown,'missing dates']]){const s=node('div');s.append(node('strong','',String(n)),node('span','',label));$('infraStats').append(s);}
     const failed=sourceResults.filter(r=>!r.ok).length;let message=loadedAt?String(lastScreened.length)+' mapped shown · '+lastUnlocated.length+' unmapped / area-wide · '+lastPotential.length+' possible duplicates'+(failed?' · '+failed+' source(s) unavailable':'')+' · latest successful feed '+loadedAt.toLocaleTimeString():sourceResults.length?failed+' source(s) unavailable · no successful source data loaded. Retry the sources.':'Enable the layer to load public sources.';
     if((start&&!finish)||(!start&&finish))message+=' · Set both comparison dates.';
     if(start&&finish&&C.schedule(null,null,start,finish)==='invalid-reference')message='Finish must be on or after start. No overlap results are available.';
     $('infraMessage').textContent=message;$('infraExport').disabled=!loadedAt||!lastScreened.length;
+    if(manualDateError)$('infraMessage').textContent+=' · '+manualDateError;
     layerHelp.textContent=loadedAt?String(lastScreened.length)+' mapped projects shown'+(failed?' · '+failed+' source(s) unavailable':''):'Four-jurisdiction infrastructure';
-    renderInfrastructureMap();const list=$('infrastructureList');list.replaceChildren();
-    for(const row of lastScreened.slice(0,120)){
-      const card=node('article','land-project'),head=button(row.name,()=>focusInfrastructure(row),'land-project-name'),badge=node('span','land-badge '+row.screen,labels[row.screen]);
-      card.append(head,note([row.jurisdiction,row.municipality,row.kind||row.category,row.sourceStatus||'Phase not published'].filter(Boolean).join(' · ')),badge,note(row.scheduleType+': '+C.dateLabel(row.start)+' → '+C.dateLabel(row.finish)));
+    renderInfrastructureMap();
+    renderInfrastructureCards($('infrastructureList'),lastScreened,40,'Mapped projects',row=>{
+      const card=node('article','land-project'),head=button(row.name,()=>focusInfrastructure(row),'land-project-name'),badge=node('span','land-badge '+row.screen,row.screen==='unknown'&&row.coverage.missingStart!==row.coverage.missingFinish?'Timing incomplete':labels[row.screen]);
+      card.append(head,note([row.jurisdiction,row.municipality,row.kind||row.category,row.sourceStatus||'Phase not published'].filter(Boolean).join(' · ')),badge,note(row.scheduleType+': '+D.endpointLabel(row,'start')+' → '+D.endpointLabel(row,'finish')));
       if(row.geometryBasis.startsWith('Representative'))card.append(node('span','land-badge','Representative point · not an alignment'));
       if(row.source.kind==='arc')card.append(node('span','land-badge',row.longRange?'ARC · Long Range':row.complete?'ARC · Completed':'ARC · Programmed'));
       if(row.arcReferences?.length)card.append(node('span','land-badge','ARC-linked · counted once'));
       if(reference)card.append(note(Math.round(row.distance/0.3048).toLocaleString()+' ft from alignment'+(row.geometryBasis.startsWith('Representative')?' to source point':'')));
       const stale=warnings(row).filter(v=>!v.startsWith('Representative'));if(stale.length)card.append(note(stale.join(' ')));
-      list.append(card);
-    }
-    if(lastScreened.length>120)list.append(note('Showing the first 120 cards. All matching mapped projects appear on the map and in the CSV. Narrow by route or type.'));
-    if(loadedAt&&!lastScreened.length)list.append(note('No mapped projects match within the connected sources. Unmapped records and other agency work may still be relevant.'));
+      return card;
+    });
+    if(loadedAt&&!lastScreened.length)$('infrastructureList').append(note('No mapped projects match within the connected sources. Unmapped records and other agency work may still be relevant.'));
     $('infraUnlocatedSummary').textContent='Unmapped / area-wide records ('+lastUnlocated.length+')';
     $('infraExportUnlocated').disabled=!lastUnlocated.length;
-    const unlocated=$('infraUnlocatedList');unlocated.replaceChildren();
-    for(const row of lastUnlocated.slice(0,80)){
-      const card=node('article','land-project');card.append(button(row.name,()=>focusInfrastructure(row),'land-project-name'),note([row.jurisdiction,row.municipality,row.sourceStatus].filter(Boolean).join(' · ')),note(row.locationNote||'Published location unavailable'),node('span','land-badge','Not spatially screened'));unlocated.append(card);
-    }
-    if(lastUnlocated.length>80)unlocated.append(note('First 80 unmapped records shown. Export includes all '+lastUnlocated.length+' matching records.'));
+    renderInfrastructureCards($('infraUnlocatedList'),lastUnlocated,30,'Unmapped projects',row=>{
+      const card=node('article','land-project');card.append(button(row.name,()=>focusInfrastructure(row),'land-project-name'),note([row.jurisdiction,row.municipality,row.sourceStatus].filter(Boolean).join(' · ')),note(row.locationNote||'Published location unavailable'),node('span','land-badge','Not spatially screened'));return card;
+    });
     $('infraDuplicatesSummary').textContent='Possible duplicate ARC projects ('+lastPotential.length+')';$('infraExportDuplicates').disabled=!lastPotential.length;
-    const duplicates=$('infraDuplicatesList');duplicates.replaceChildren();
-    for(const row of lastPotential.slice(0,80)){const card=node('article','land-project');card.append(button(row.name,()=>focusInfrastructure(row),'land-project-name'),note(row.sourceStatus+' · '+row.jurisdiction),note('May match: '+row.possibleMatches.map(r=>r.name).join('; ')),node('span','land-badge',$('infraIncludePossible').checked?'Included by your selection — counts may overlap':'Excluded from map totals'));duplicates.append(card);}
-    if(lastPotential.length>80)duplicates.append(note('First 80 candidates shown; export includes all matching candidates.'));
+    renderInfrastructureCards($('infraDuplicatesList'),lastPotential,30,'Possible duplicate projects',row=>{
+      const card=node('article','land-project');card.append(button(row.name,()=>focusInfrastructure(row),'land-project-name'),note(row.sourceStatus+' · '+row.jurisdiction),note('May match: '+row.possibleMatches.map(r=>r.name).join('; ')),node('span','land-badge',$('infraIncludePossible').checked?'Included by your selection — counts may overlap':'Excluded from map totals'));return card;
+    });
+  }
+  function renderInfrastructureCards(root,rows,pageSize,label,createCard){
+    const pages=Math.ceil(rows.length/pageSize);
+    if(pages<=1){root.replaceChildren(...rows.map(createCard));return;}
+    let page=0;
+    const cards=node('div','land-project-list'),pager=node('nav','land-actions'),count=node('span','land-note');
+    pager.setAttribute('aria-label',label+' pages');
+    count.setAttribute('role','status');
+    const previous=button('Previous page',()=>{page--;renderPage();if(previous.disabled)next.focus();});
+    const next=button('Next page',()=>{page++;renderPage();if(next.disabled)previous.focus();});
+    function renderPage(){
+      const start=page*pageSize,end=Math.min(start+pageSize,rows.length);
+      cards.replaceChildren(...rows.slice(start,end).map(createCard));
+      previous.disabled=page===0;
+      next.disabled=page+1>=pages;
+      count.textContent=(start+1)+'–'+end+' of '+rows.length;
+    }
+    pager.append(previous,count,next);root.replaceChildren(pager,cards);
+    renderPage();
   }
   function renderInfrastructureMap(){window.TracksideMapLegend?.refresh();
     infraLayer.clearLayers();if(!layerInput.checked)return;
@@ -319,42 +524,55 @@
       detail.append(block);
     }
   }
-  function focusInfrastructure(row){selectedInfrastructureId=row.id;
+  function focusInfrastructure(row,{fit=true}={}){selectedInfrastructureId=row.id;
     openProfile(infraPanel);infraHighlight.clearLayers();
     if(row.geometry){
       const layer=L.geoJSON({type:'Feature',geometry:row.geometry,properties:{}},{style:{color:'#172e26',weight:7,opacity:.65,interactive:false},pointToLayer:(_,p)=>L.circleMarker(p,{radius:10,color:'#172e26',interactive:false})}).addTo(infraHighlight);
-      const bounds=layer.getBounds();if(bounds.isValid())map.fitBounds(bounds,{padding:[45,45],maxZoom:16});
+      const bounds=layer.getBounds();if(fit&&bounds.isValid())map.fitBounds(bounds,{padding:[45,45],maxZoom:16});
     }
     let detail=$('infraSelectedProject');if(!detail){detail=node('section','land-selected');detail.id='infraSelectedProject';$('infrastructureList').before(detail);}
     const cost=C.numeric(row.cost);
-    detail.replaceChildren(node('h3','',row.name),note(row.agency),facts([['Source project / inventory ID',row.sourceId],['Municipality',row.municipality],['Published phase',row.sourceStatus||'Not published'],['Published status',row.raw.Status&&row.raw.Status!==row.sourceStatus?row.raw.Status:null],['Type',row.kind],['Program / funding',row.program],['Geometry basis',row.geometry?row.geometryBasis:'Unmapped / not spatially screened'],['Schedule basis',row.scheduleType],['Start',C.dateLabel(row.start)],['Finish',C.dateLabel(row.finish)],['Anticipated duration',row.duration],['Published activity',row.activity],['Location / limits',row.limits||row.municipality],['Contractor',row.contractor],['Published cost / budget',cost===null?C.text(row.cost):money(cost)],['Project record updated',C.dateLabel(row.updated)],['Location record / dataset updated',row.geometryUpdated?C.dateLabel(row.geometryUpdated):'']]));
+    detail.replaceChildren(node('h3','',row.name),note(row.agency),facts([['Source project / inventory ID',row.sourceId],['Municipality',row.municipality],['Published phase',row.sourceStatus||'Not published'],['Published status',row.raw.Status&&row.raw.Status!==row.sourceStatus?row.raw.Status:null],['Type',row.kind],['Program / funding',row.program],['Geometry basis',row.geometry?row.geometryBasis:'Unmapped / not spatially screened'],['Schedule basis',row.scheduleType],['Start used in screening',D.endpointLabel(row,'start')],['Finish used in screening',D.endpointLabel(row,'finish')],['Anticipated duration',row.duration],['Published activity',row.activity],['Location / limits',row.limits||row.municipality],['Contractor',row.contractor],['Published cost / budget',cost===null?C.text(row.cost):money(cost)],['Project record updated',C.dateLabel(row.updated)],['Location record / dataset updated',row.geometryUpdated?C.dateLabel(row.geometryUpdated):'']]));
+    renderManualDates(detail,row);
     if(row.description)detail.append(note(row.description));
     appendArcDetails(detail,row);
     if(window.TracksideHere&&row.geometry)detail.append(button('What’s happening here?',()=>window.TracksideHere.openInfrastructure(row)));
     for(const message of warnings(row))detail.append(node('p','land-banner',message));
     detail.append(link('Official project map / inventory ↗',row.source.viewer),link('Published source record ↗',recordUrl(row)));
     if(row.projectUrl&&row.source.kind!=='arc')detail.append(link('Agency project website ↗',row.projectUrl));
-    detail.append(rawDetails(row.raw),button('Close project detail',()=>{detail.remove();infraHighlight.clearLayers();}));detail.scrollIntoView({block:'nearest',behavior:'smooth'});
+    detail.append(rawDetails(row.raw),button('Close project detail',clearInfrastructureDetail));detail.scrollIntoView({block:'nearest',behavior:'smooth'});
   }
   function exportInfrastructure(mode='mapped'){
     const unmapped=mode==='unmapped',duplicates=mode==='duplicates';
-    const fields=['Project','Jurisdiction','Municipality','Agency','Project / inventory ID','Type','Program','Published phase','ARC IDs','GDOT PIs','ARC statuses','ARC fact sheets','Linked source records','Possible duplicate','Possible matches','Schedule basis','Start as published','Finish as published','Comparison route','Screening distance feet','Comparison start','Comparison finish','Result','Distance feet','Geometry basis','Location note','Project updated','Geometry updated','Published activity','Source record URL','Source URL','Retrieved at'];
+    const fields=['Project','Jurisdiction','Municipality','Agency','Project / inventory ID','Type','Program','Published phase','ARC IDs','GDOT PIs','ARC statuses','ARC fact sheets','Linked source records','Possible duplicate','Possible matches','Schedule basis','Start used in screening','Finish used in screening','Agency start','Agency finish','Trackside date source','Comparison route','Screening distance feet','Comparison start','Comparison finish','Result','Distance feet','Geometry basis','Location note','Project updated','Geometry updated','Published activity','Source record URL','Source URL','Retrieved at'];
     const quote=v=>'"'+String(v??'').replaceAll('"','""')+'"';
     const rows=(unmapped?lastUnlocated:duplicates?lastPotential:lastScreened).map(r=>{
       const arcs=[...(r.source.kind==='arc'?[r]:[]),...(r.arcReferences||[])],ids=r.identifiers||C.officialIdentifiers(r);
       const arcIds=[...new Set([...ids.arcIds,...arcs.flatMap(a=>a.identifiers?.arcIds||[])])],pis=[...new Set([...ids.gdotPis,...arcs.flatMap(a=>a.identifiers?.gdotPis||[])])];
       const result=unmapped?'Not spatially screened; route and overlap filters not applied':duplicates?'Possible duplicate; not an automatic merge':labels[r.screen];
-      return [r.name,rowJurisdictions(r).join(' / '),r.municipality,r.agency,r.sourceId,r.kind,r.program,r.sourceStatus,arcIds.join('; '),pis.join('; '),arcs.map(a=>a.sourceStatus).join('; '),arcs.map(a=>a.projectUrl).filter(Boolean).join('; '),arcs.map(recordUrl).join('; '),r.possibleMatches?.length?'Yes — may overlap with existing totals':'',r.possibleMatches?.map(m=>m.name+' ['+m.id+']').join('; '),r.scheduleType,C.dateLabel(r.start),C.dateLabel(r.finish),$('infraRoute').value||'All loaded projects',$('infraRoute').value?Math.round(Number($('infraDistance').value)/0.3048):'',$('infraStart').value,$('infraFinish').value,result,r.distance===null?'':Math.round(r.distance/0.3048),r.geometry?r.geometryBasis:'Unmapped',r.locationNote,C.dateLabel(r.updated),r.geometryUpdated?C.dateLabel(r.geometryUpdated):'',r.activity,recordUrl(r),r.source.url,loadedAt?.toISOString()];
+      return [r.name,rowJurisdictions(r).join(' / '),r.municipality,r.agency,r.sourceId,r.kind,r.program,r.sourceStatus,arcIds.join('; '),pis.join('; '),arcs.map(a=>a.sourceStatus).join('; '),arcs.map(a=>a.projectUrl).filter(Boolean).join('; '),arcs.map(recordUrl).join('; '),r.possibleMatches?.length?'Yes — may overlap with existing totals':'',r.possibleMatches?.map(m=>m.name+' ['+m.id+']').join('; '),r.scheduleType,D.endpointLabel(r,'start'),D.endpointLabel(r,'finish'),C.dateLabel(r.agencySchedule?r.agencySchedule.start:r.start),C.dateLabel(r.agencySchedule?r.agencySchedule.finish:r.finish),r.manualSchedule?.source_url||'',$('infraRoute').value||'All loaded projects',$('infraRoute').value?Math.round(Number($('infraDistance').value)/0.3048):'',$('infraStart').value,$('infraFinish').value,result,r.distance===null?'':Math.round(r.distance/0.3048),r.geometry?r.geometryBasis:'Unmapped',r.locationNote,C.dateLabel(r.updated),r.geometryUpdated?C.dateLabel(r.geometryUpdated):'',r.activity,recordUrl(r),r.source.url,loadedAt?.toISOString()];
     });
     const csv=[fields,...rows].map(row=>row.map(v=>quote(/^[=+@\-\t\r]/.test(String(v??''))?'\''+v:v)).join(',')).join('\r\n');
     const url=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));const a=node('a');a.href=url;a.download='trackside-infrastructure-'+(unmapped?'unmapped':duplicates?'duplicate-candidates':'comparison')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
-  ['infraRoute','infraDistance','infraJurisdiction','infraCategory','infraMunicipality','infraProgram','infraStart','infraFinish','infraIncludeComplete','infraIncludeLongRange','infraIncludePossible','infraOverlapOnly'].forEach(id=>$(id).addEventListener('change',()=>{$('infraSelectedProject')?.remove();infraHighlight.clearLayers();screenInfrastructure();if(id==='infraRoute'){const geometry=referenceGeometry();if(geometry){const bounds=L.geoJSON(geometry).getBounds();if(bounds.isValid())map.fitBounds(bounds,{padding:[35,35],maxZoom:15});}}}));
-  $('infraRefresh').addEventListener('click',()=>{$('infraSelectedProject')?.remove();infraHighlight.clearLayers();loadInfrastructure(true);});
+  function clearInfrastructureDetail(){selectedInfrastructureId='';$('infraSelectedProject')?.remove();infraHighlight.clearLayers();}
+  ['infraRoute','infraDistance','infraJurisdiction','infraCategory','infraMunicipality','infraProgram','infraStart','infraFinish','infraIncludeComplete','infraIncludeLongRange','infraIncludePossible','infraOverlapOnly'].forEach(id=>$(id).addEventListener('change',()=>{clearInfrastructureDetail();screenInfrastructure();if(id==='infraRoute'){const geometry=referenceGeometry();if(geometry){const bounds=L.geoJSON(geometry).getBounds();if(bounds.isValid())map.fitBounds(bounds,{padding:[35,35],maxZoom:15});}}}));
+  let searchTimer;
+  function applyInfrastructureFilters(){
+    clearTimeout(searchTimer);
+    clearInfrastructureDetail();
+    screenInfrastructure();
+  }
+  scheduleFilter.addEventListener('change',applyInfrastructureFilters);
+  infrastructureSearch.addEventListener('input',()=>{
+    clearTimeout(searchTimer);
+    searchTimer=setTimeout(applyInfrastructureFilters,180);
+  });
+  $('infraRefresh').addEventListener('click',()=>{clearInfrastructureDetail();loadInfrastructure(true);});
   $('infraExport').addEventListener('click',()=>exportInfrastructure('mapped'));
   $('infraExportUnlocated').addEventListener('click',()=>exportInfrastructure('unmapped'));
   $('infraExportDuplicates').addEventListener('click',()=>exportInfrastructure('duplicates'));
   // Public diagnostics support end-to-end verification without changing source records.
-  window.TracksideLand={get legendState(){return {enabled:layerInput.checked,categories:[...new Set(lastScreened.map(r=>r.category))]};},async applyMapView(view){setInfrastructureVisible(!!view.enabled);if(view.enabled||view.load){await loadInfrastructure();if(!loadedAt||!sourceResults.some(r=>r.ok))throw Error('Public infrastructure feeds could not load.');if(sourceResults.some(r=>!r.ok||r.truncated))throw Error('Public infrastructure coverage is partial; some feeds are unavailable or capped.');}},get selectedInfrastructureId(){return selectedInfrastructureId;},version:'20261024-here',openContextProfile(panel){profileGeneration++;parcelHighlight.clearLayers();infraHighlight.clearLayers();openProfile(panel);},focusInfrastructure,get parcelFeatures(){return parcelExportFeatures;},get loadedAt(){return loadedAt;},showInfrastructure,showParcel,parcelConfig,atlantaParcels,infrastructureSources,queryFeatures,readInfrastructureSource,loadInfrastructure,get infrastructureRows(){return infrastructureRows;},get sourceResults(){return sourceResults;},get screenedRows(){return lastScreened;},get unlocatedRows(){return lastUnlocated;},get possibleRows(){return lastPotential;},get excludedRapidTransitRows(){return reconciliation.excludedRapidTransitRows||[];},get reconciliation(){return {matchedArcCount:reconciliation.matchedArcCount,possibleArcCount:reconciliation.possibleArcCount,newArcCount:reconciliation.newArcCount};}};
+  window.TracksideLand={get manualDateError(){return manualDateError;},get shareFilters(){return {search:infrastructureSearch.value.trim(),dates:scheduleFilter.value};},get legendState(){return {enabled:layerInput.checked,categories:[...new Set(lastScreened.map(r=>r.category))]};},async applyMapView(view){infrastructureSearch.value=view.filters?.search||'';scheduleFilter.value=view.filters?.dates||'';setInfrastructureVisible(!!view.enabled);if(view.enabled||view.load){await loadInfrastructure();screenInfrastructure();if(!loadedAt||!sourceResults.some(r=>r.ok))throw Error('Public infrastructure feeds could not load.');if(sourceResults.some(r=>!r.ok||r.truncated))throw Error('Public infrastructure coverage is partial; some feeds are unavailable or capped.');}},get selectedInfrastructureId(){return selectedInfrastructureId;},version:'20261024-here',openContextProfile(panel){profileGeneration++;parcelHighlight.clearLayers();infraHighlight.clearLayers();openProfile(panel);},focusInfrastructure,get parcelFeatures(){return parcelExportFeatures;},get loadedAt(){return loadedAt;},showInfrastructure,showParcel,parcelConfig,atlantaParcels,infrastructureSources,queryFeatures,readInfrastructureSource,loadInfrastructure,get infrastructureRows(){return infrastructureRows;},get sourceResults(){return sourceResults;},get screenedRows(){return lastScreened;},get unlocatedRows(){return lastUnlocated;},get possibleRows(){return lastPotential;},get excludedRapidTransitRows(){return reconciliation.excludedRapidTransitRows||[];},get reconciliation(){return {matchedArcCount:reconciliation.matchedArcCount,possibleArcCount:reconciliation.possibleArcCount,newArcCount:reconciliation.newArcCount};}};
   if(parcelsEnabled)loadParcels();
 })();

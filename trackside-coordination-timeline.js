@@ -1,7 +1,7 @@
 /* Display-only construction timeline; all dates retain their published precision. */
 (function(){
 'use strict';
-const C=window.TracksideCoordinationCore,L=window.TracksideLandCore;
+const C=window.TracksideCoordinationCore,L=window.TracksideLandCore,D=window.TracksideInfrastructureDates;
 if(!C||!L)return;
 const N=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 const button=(text,fn)=>{const el=N('button','land-button',text);el.type='button';el.addEventListener('click',fn);return el;};
@@ -22,20 +22,20 @@ function render(root,opts){
  if(!opts.print){const previous=button('← Previous',()=>opts.onPage(opts.page-1)),next=button('Next →',()=>opts.onPage(opts.page+1));previous.disabled=opts.page===0;next.disabled=last>=count;pager.append(previous,N('p','land-note',count?'Showing '+(first+1)+'–'+last+' of '+count+' matching projects':'No matching projects'),next);root.append(pager);}
  const scroll=N('div','coord-timeline-scroll');scroll.id=scrollId;scroll.tabIndex=0;scroll.setAttribute('role','region');scroll.setAttribute('aria-label','Construction timeline. Scroll horizontally to explore dates and vertically for projects.');
  const canvas=N('div','coord-time-canvas');canvas.style.minWidth=(220+Math.max(540,axis.ticks.length*axis.cellWidth))+'px';
- const axisRow=N('div','coord-time-axis'),axisLabel=N('div','coord-time-label','Project / published dates'),axisTrack=N('div','coord-time-axis-track');
+ const axisRow=N('div','coord-time-axis'),axisLabel=N('div','coord-time-label','Project / screening dates'),axisTrack=N('div','coord-time-axis-track');
  const labelStep=opts.print?Math.max(1,Math.ceil(axis.ticks.length/8)):1;
  for(const [index,tick]of axis.ticks.entries()){const cell=N('span','coord-time-tick',index%labelStep?'':tick.label);cell.style.left=pct(tick.left);cell.style.width=pct(tick.width);axisTrack.append(cell);}axisRow.append(axisLabel,axisTrack);canvas.append(axisRow);
  const reference=C.timelineMark(model.route,model),today=Date.now(),todayPosition=100*(today-model.first)/(model.end-model.first),hasToday=today>=model.first&&today<model.end;
- function row({name,start,finish,window,state,id,route=false,subtitle='',sharedWindow=''}){
+ function row({name,start,finish,window,state,id,route=false,subtitle='',sharedWindow='',timingLabel=''}){
   const labelText='Start: '+(start||'Not published')+' · Finish: '+(finish||'Not published');
-  const rowLabel=name+'. '+labelText+'. '+(route?(opts.study?'Temporary study window.':'Published route construction window.'):(C.labels[state]||'')+(sharedWindow?'. '+sharedWindow:''));
+  const rowLabel=name+'. '+labelText+'. '+(route?(opts.study?'Temporary study window.':'Published route construction window.'):(timingLabel)+(sharedWindow?'. '+sharedWindow:''));
   const rowId=(opts.print?'coordPrintTimelineProject-':'coordTimelineProject-')+id;
   const el=route?N('div','coord-time-row coord-time-route'):opts.print?N('div'):button('',()=>{opts.onSelect(id);document.getElementById(rowId)?.focus({preventScroll:true});});
   if(!route)el.id=rowId;
   if(!route){el.className='coord-time-row coord-time-project'+(id===opts.selected?' selected':'');el.setAttribute('aria-pressed',String(id===opts.selected));el.setAttribute('aria-label',rowLabel);el.setAttribute('data-project-id',id);}else{el.setAttribute('aria-label',rowLabel);}
   el.title=rowLabel;
   const label=N('span','coord-time-label');label.append(N('strong','',name),N('small','',subtitle),N('small','',labelText));
-  if(!route)label.append(N('span','coord-time-state '+state,C.labels[state]));
+  if(!route)label.append(N('span','coord-time-state '+state,timingLabel));
   if(sharedWindow)label.append(N('small','',sharedWindow));
   const track=N('span','coord-time-track');track.setAttribute('aria-hidden','true');
   for(const tick of axis.ticks){const line=N('i','coord-time-gridline');line.style.left=pct(tick.left);track.append(line);}
@@ -47,17 +47,17 @@ function render(root,opts){
    const bar=N('span','coord-time-bar'+(route?' route':'')+(mark.kind!=='complete'?' endpoint':'')+(mark.approximate?' approximate':''));bar.style.left=pct(mark.left);bar.style.width=pct(mark.width);bar.style.backgroundColor=color;track.append(bar);
    if(mark.kind==='complete')for(const cap of mark.caps){const hatch=N('span','coord-time-uncertainty');hatch.style.left=pct(cap.left);hatch.style.width=pct(cap.width);track.append(hatch);}
    if(mark.clippedStart)track.append(N('span','coord-time-clipped before','‹'));if(mark.clippedFinish)track.append(N('span','coord-time-clipped after','›'));
-   if(mark.kind!=='complete')track.append(N('small','coord-time-incomplete',mark.kind==='start-only'?'Start window only · finish not published':'Finish window only · start not published'));
+   if(mark.kind!=='complete')track.append(N('small','coord-time-incomplete',mark.kind==='start-only'?'Start window only · finish unknown':'Finish window only · start unknown'));
   }else{const text={unknown:'Dates not published',invalid:'Dates need review',before:'Before visible period — choose “Fit all dates”',after:'After visible period — choose “Fit all dates”'};track.append(N('span','coord-time-empty',text[mark.kind]));}
   el.append(label,track);return el;
  }
  const startLabel=opts.study?L.dateLabel(opts.start):opts.routeStartLabel||L.dateLabel(opts.start),finishLabel=opts.study?L.dateLabel(opts.finish):opts.routeFinishLabel||L.dateLabel(opts.finish);
  if(!opts.existingService)canvas.append(row({name:opts.route.name,start:startLabel,finish:finishLabel,window:model.route,route:true,subtitle:opts.study?'Temporary study window':'MARTA construction schedule'}));
- for(const entry of model.items.slice(first,last)){const item=entry.item,r=item.row;canvas.append(row({name:r.name,start:L.dateLabel(r.start),finish:L.dateLabel(r.finish),window:entry.window,state:item.state,id:r.id,subtitle:r.scheduleType||'Published project schedule',sharedWindow:item.overlap?'Potential shared window · '+C.overlapLabel(item.overlap):''}));}
+ for(const entry of model.items.slice(first,last)){const item=entry.item,r=item.row;canvas.append(row({name:r.name,start:D.endpointLabel(r,'start'),finish:D.endpointLabel(r,'finish'),window:entry.window,state:item.state,timingLabel:C.timingLabel(item),id:r.id,subtitle:r.scheduleType||'Published project schedule',sharedWindow:item.overlap?'Potential shared window · '+C.overlapLabel(item.overlap):''}));}
  if(!count)canvas.append(N('p','land-note coord-time-no-results','No loaded, mapped projects match these filters. This is not evidence that no nearby work exists.'));
  scroll.append(canvas);root.append(scroll);
- const legend=N('div','coord-time-legend');for(const [cls,text]of [['route','MARTA route'],['overlap','Potential overlap'],['other','Other published window'],['endpoint','Known endpoint only'],['hatch','Month/year uncertainty'],['today','Today']]){if(opts.existingService&&cls==='route')continue;const item=N('span'),swatch=N('i',cls);if(cls==='route'&&/^#[0-9a-f]{6}$/i.test(opts.route.color))swatch.style.backgroundColor=opts.route.color;item.append(swatch,N('span','',text));legend.append(item);}root.append(legend);
- root.append(N('p','land-note','Bars span the earliest published start to the latest published finish. Hatched ends preserve month/year uncertainty; endpoint-only marks are not durations. Target dates remain estimates. Project schedules may cover more than construction; check each row’s schedule label.'));
+ const legend=N('div','coord-time-legend');for(const [cls,text]of [['route','MARTA route'],['overlap','Potential overlap'],['other','Other recorded window'],['endpoint','Known endpoint only'],['hatch','Month/year uncertainty'],['today','Today']]){if(opts.existingService&&cls==='route')continue;const item=N('span'),swatch=N('i',cls);if(cls==='route'&&/^#[0-9a-f]{6}$/i.test(opts.route.color))swatch.style.backgroundColor=opts.route.color;item.append(swatch,N('span','',text));legend.append(item);}root.append(legend);
+ root.append(N('p','land-note','Bars span the earliest recorded start to the latest recorded finish. Hatched ends preserve month/year uncertainty; endpoint-only marks are not durations. Target dates remain estimates. Project schedules may cover more than construction; check each row’s schedule label.'));
  scroll.scrollLeft=position.left;scroll.scrollTop=position.top;
 }
 window.TracksideCoordinationTimeline={render};

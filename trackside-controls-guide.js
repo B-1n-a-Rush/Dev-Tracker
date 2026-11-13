@@ -29,6 +29,7 @@ const topics={
  ['Interpret a walking estimate','A distance circle and a walking network answer different questions. Walking results are planning estimates; they do not certify ADA accessibility, current conditions, opening hours or a safe journey.']]},
  coordination:{label:'Coordinate construction',title:'Review potential construction impacts',intro:'Coordination tools bring together published infrastructure, route geometry and available construction dates.',items:[
  ['Public infrastructure','Browse official project records and compare nearby work with high-capacity route construction schedules. Inspect the source and location basis before acting.'],
+ ['Infrastructure search and date gaps','Search Public infrastructure by project name, street, or project ID. Use Construction dates to find missing starts or finishes. Open a project profile to see the sources behind dates entered in Trackside.'],
  ['Coordination watchlist','Review saved coordination decisions, follow-up items and their current status. Authorized staff can maintain responsibility, notes and next actions.'],
  ['Construction date coverage','See which routes have recorded construction start and finish dates and where schedule information is missing. Missing dates are a data gap, not evidence of no conflict.'],
  ['Coordination hotspot map','Find concentrations of nearby work with overlapping or unresolved timing. Inspect individual records to understand each potential coordination need.'],
