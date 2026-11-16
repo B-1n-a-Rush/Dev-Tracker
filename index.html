@@ -62,10 +62,17 @@
     /* Aggregated project pins keep dense map views readable and fast. */
     .project-cluster{background:transparent!important;border:0!important}
     .project-cluster span{width:40px;height:40px;display:grid;place-items:center;border:3px solid #fffefa;border-radius:50%;color:#fffefa;font:700 13px/1 "DM Sans",sans-serif;box-shadow:0 3px 10px #18352c66;transition:transform .14s ease,filter .14s ease,box-shadow .14s ease}
-    .project-cluster.cluster-density-1 span{background:#bdd9b5;color:#14251e}
-    .project-cluster.cluster-density-2 span{background:#6da780;color:#14251e}
-    .project-cluster.cluster-density-3 span{background:#277b57}
-    .project-cluster.cluster-density-4 span{background:#0d5042}
+    :root {
+      --project-cluster-small: #cfe3ff;
+      --project-cluster-medium: #8fb9ed;
+      --project-cluster-large: #2662a7;
+      --project-cluster-largest: #122e54;
+      --project-cluster-ink: var(--project-cluster-largest);
+    }
+    .project-cluster.cluster-density-1 span{background:var(--project-cluster-small);color:var(--project-cluster-ink)}
+    .project-cluster.cluster-density-2 span{background:var(--project-cluster-medium);color:var(--project-cluster-ink)}
+    .project-cluster.cluster-density-3 span{background:var(--project-cluster-large)}
+    .project-cluster.cluster-density-4 span{background:var(--project-cluster-largest)}
     .project-cluster:hover span,.project-cluster:focus-visible span{filter:brightness(.9);transform:scale(1.08);box-shadow:0 5px 14px #18352c80}
 
     /* Responsive map view: let the grid use the actual header and toolbar height. */
@@ -346,6 +353,7 @@
     @media print{body.printing-scenario{background:#fff}body.printing-scenario header,body.printing-scenario>.shell>.toolbar,body.printing-scenario .sidebar,body.printing-scenario .map-area,body.printing-scenario .sidebar-toggle,body.printing-scenario .detail-drawer-close,body.printing-scenario .news-page,body.printing-scenario .saved-page{display:none!important}body.printing-scenario .shell,body.printing-scenario main{display:block!important;height:auto!important;min-height:0!important}body.printing-scenario aside.detail{display:block!important;position:static!important;width:100%!important;max-width:none!important;height:auto!important;overflow:visible!important;border:0!important;box-shadow:none!important}body.printing-scenario #scenarioDetail{display:block!important}body.printing-scenario #scenarioDetail .detail-hero{min-height:120px}body.printing-scenario #scenarioDetail .detail-body{padding:24px}body.printing-scenario .scenario-compare-actions{display:none!important}body.printing-scenario .scenario-comparison-row{break-inside:avoid}}
 </style>
 <link rel="stylesheet" href="./workspace.css?v=20261101-admin-1">
+<link rel="stylesheet" href="./trackside-theme.css?v=20261116-blue">
 <style>.project-react-body{padding-bottom:8px}.project-native-actions{padding-top:8px}#projectReactRoot:empty{display:none}</style>
 </head>
 <body>
@@ -1837,7 +1845,7 @@ document.getElementById('search').addEventListener('input',render);document.getE
 <script src="./trackside-place-search.js?v=20261103-parcels-1"></script>
 <link rel="stylesheet" href="./trackside-data-status.css?v=20261103-1">
 <script src="./trackside-data-status-ui.js?v=20261103-parcels-1"></script>
-<link rel="stylesheet" href="./trackside-map-legend.css?v=20261104-1">
-<script src="./trackside-legend-core.js?v=20261104-1"></script>
-<script src="./trackside-map-legend.js?v=20261104-1"></script>
+<link rel="stylesheet" href="./trackside-map-legend.css?v=20261116-cluster-key">
+<script src="./trackside-legend-core.js?v=20261116-cluster-key"></script>
+<script src="./trackside-map-legend.js?v=20261116-cluster-key"></script>
 </body></html>

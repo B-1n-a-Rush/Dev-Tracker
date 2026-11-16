@@ -10,7 +10,7 @@ const routes=items=>(items||[]).map(r=>row(r.name||r.line_name,r.dashed?'dash':'
 const group=(id,title,rows,note='',fold=false)=>({id,title,rows,note,fold});
 function main(s={}){
  const groups=[];
- if(s.projects){const rows=unique(s.projectStatuses||['Construction','Planning','Complete']).filter(k=>statusColors[k]).map(k=>row(k,'dot',statusColors[k]));if(s.clustered&&!s.projectEmpty)rows.push(row('Grouped projects','cluster','#277b57','Number = project count; darker green = larger group, not project status.'));groups.push(group('projects','Development',rows,s.projectEmpty?'Enabled; no filtered project pins are currently shown.':''));}
+ if(s.projects){const rows=unique(s.projectStatuses||['Construction','Planning','Complete']).filter(k=>statusColors[k]).map(k=>row(k,'dot',statusColors[k]));if(s.clustered&&!s.projectEmpty)rows.push({label:'Grouped projects',kind:'cluster',note:'Number shows project count. Darker blue means more projects.'});groups.push(group('projects','Development',rows,s.projectEmpty?'Enabled; no filtered project pins are currently shown.':''));}
  if(s.rail)groups.push(group('rail','Existing rail',routes(s.railRoutes),'Paired colors identify shared rail segments.',true));
  if(s.stations)groups.push(group('stations','Rail stations',[row('Station reference point','ring','#14251e')]));
  const service=(s.routes||[]).filter(r=>r.existing),rapid=(s.routes||[]).filter(r=>!r.existing);

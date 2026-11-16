@@ -1,0 +1,213 @@
+/* Trackside ATL interface palette. Map and status colors live with their layers. */
+@media screen {
+  :root {
+    --brand-blue: #174a83;
+    --brand-navy: #122e54;
+    --brand-blue-soft: #eaf2fc;
+    --brand-blue-line: #c7d8ed;
+    --brand-yellow: #ffd45c;
+    --brand-yellow-soft: #fff5d5;
+    --brand-orange: #ffad6e;
+    --brand-orange-hover: #ffc299;
+    --brand-orange-ink: #843600;
+    --ink: #182b43;
+    --muted: #53657b;
+    --cream: #f3f6fb;
+    --line: #d7e0ed;
+    --green: var(--brand-blue);
+    --lime: var(--brand-yellow);
+  }
+
+  .shell > header,
+  .workspace-preview .shell > header {
+    background: var(--brand-navy);
+    border-bottom-color: var(--brand-yellow);
+  }
+
+  .shell > header .brand {
+    color: #fffefa;
+  }
+
+  .shell > header .brand em {
+    color: var(--brand-yellow);
+  }
+
+  .brand-mark {
+    background: var(--brand-blue);
+  }
+
+  .shell > header .brand-mark {
+    background: #25568b;
+  }
+
+  .shell > header .city {
+    color: #e0ebf9;
+    border-color: #597397;
+  }
+
+  .shell > header nav button {
+    background: #224773;
+    border-color: #627e9f;
+    color: #fffefa;
+  }
+
+  .shell > header nav button:hover {
+    background: #315b89;
+    color: #fffefa;
+  }
+
+  .shell > header nav button.active {
+    background: var(--brand-yellow) !important;
+    border-color: var(--brand-yellow) !important;
+    color: var(--brand-navy) !important;
+    box-shadow: none !important;
+  }
+
+  .shell > header .add {
+    background: var(--brand-orange);
+    color: var(--brand-navy);
+    box-shadow: none;
+  }
+
+  .shell > header .add:hover {
+    background: var(--brand-orange-hover);
+  }
+
+  .shell > header :is(button, a, input):focus-visible {
+    outline: 2px solid var(--brand-yellow);
+    outline-offset: 3px;
+  }
+
+  .workspace-preview .ws-rail,
+  .workspace-preview .ws-footer {
+    background: #f3f7fd;
+    border-color: var(--line);
+  }
+
+  .workspace-preview .ws-rail-extra {
+    border-color: var(--line);
+  }
+
+  .workspace-preview :is(.ws-nav, .ws-rail-extra button) {
+    color: var(--brand-navy);
+  }
+
+  .workspace-preview :is(.ws-nav, .ws-rail-extra button):hover {
+    background: var(--brand-blue-soft);
+  }
+
+  .workspace-preview :is(.ws-nav, .ws-rail-extra button).active {
+    background: var(--brand-blue);
+    color: #fffefa;
+  }
+
+  .workspace-preview .ws-admin-glyph {
+    color: inherit;
+  }
+
+  .workspace-preview :is(button, input, select, summary, [role=separator]):focus-visible {
+    outline-color: var(--brand-blue);
+  }
+
+  .workspace-preview .shell > header :is(button, a, input):focus-visible {
+    outline-color: var(--brand-yellow);
+  }
+
+  .project:hover,
+  .shell.list-mode .project:hover,
+  .workspace-preview .project:hover {
+    background: var(--brand-blue-soft);
+    border-color: var(--brand-blue-line);
+  }
+
+  .project.selected,
+  .shell.list-mode .project.selected,
+  .workspace-preview .project.selected {
+    background: var(--brand-yellow-soft);
+    border-color: var(--brand-blue-line);
+    box-shadow: inset 4px 0 var(--brand-orange);
+  }
+
+  .workspace-preview .ws-panel-head button,
+  .workspace-preview .ws-filter-head button,
+  .workspace-preview .ws-filter-foot button,
+  .workspace-preview .ws-admin-tabs button,
+  .workspace-preview .ws-show-tools,
+  .workspace-preview .ws-filters > summary,
+  .workspace-preview .ws-mode > button,
+  .workspace-preview .ws-mode .map-layers-button,
+  .map-layers-close,
+  .uploaded-route-edit,
+  .project-history-refresh {
+    background-color: var(--brand-blue-soft);
+    border-color: var(--brand-blue-line);
+    color: var(--brand-blue);
+  }
+
+  .workspace-preview .ws-panel-head button {
+    background-color: transparent;
+  }
+
+  .workspace-preview .ws-admin-tabs button.active,
+  .workspace-preview .ws-filters[open] > summary,
+  .workspace-preview .ws-mode .map-layers-button.is-active,
+  .study-area-button.is-active,
+  .parcel-toggle.active {
+    background: var(--brand-blue);
+    border-color: var(--brand-blue);
+    color: #fffefa;
+    box-shadow: none;
+  }
+
+  .workspace-preview .ws-mode input[type=checkbox],
+  .workspace-preview #routeUploadFile::file-selector-button {
+    accent-color: var(--brand-blue);
+  }
+
+  .workspace-preview .ws-filter-count,
+  .map-layers-count,
+  .discovery-count {
+    background: var(--brand-yellow);
+    color: var(--brand-navy);
+  }
+
+  .admin-button,
+  .admin-button:hover,
+  .admin-button.is-authenticated,
+  .active-filter-chip {
+    background: var(--brand-yellow-soft);
+    border-color: #ebc982;
+    color: var(--brand-orange-ink);
+  }
+
+  body :is(.map-share-copy, .map-share-preview, .shape-primary, .walk-button.primary,
+    .coord-view-actions button:first-child, .coord-view-controls .land-button[aria-pressed=true],
+    .following-tabs [aria-selected=true], .guide-topic[aria-pressed=true],
+    .sr2t-tabs button[aria-pressed=true], .sr2t-save-footer #sr2tSave) {
+    background: var(--brand-blue);
+    border-color: var(--brand-blue);
+    color: #fffefa;
+  }
+
+  body :is(.bus-list button[aria-pressed=true], .sr2t-site[aria-pressed=true]) {
+    background: var(--brand-yellow-soft);
+    border-color: #ebc982;
+    color: var(--brand-navy);
+  }
+
+  body .ts-place-submit,
+  body .ts-place-popup button {
+    background: var(--brand-blue);
+    border-color: var(--brand-blue);
+    color: #fffefa;
+  }
+
+  .auth-status.success,
+  .report-status.success {
+    color: #136647;
+  }
+
+  .station-buffer-note i {
+    border-color: #136647;
+  }
+}
