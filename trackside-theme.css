@@ -4,6 +4,7 @@
     --brand-blue: #174a83;
     --brand-navy: #122e54;
     --brand-blue-soft: #eaf2fc;
+    --brand-blue-hover: #dce9f9;
     --brand-blue-line: #c7d8ed;
     --brand-yellow: #ffd45c;
     --brand-yellow-soft: #fff5d5;
@@ -200,6 +201,78 @@
     background: var(--brand-blue);
     border-color: var(--brand-blue);
     color: #fffefa;
+  }
+
+
+  .controls-guide-head,
+  .controls-guide-nav {
+    background: var(--brand-blue-soft);
+  }
+
+  .controls-guide::backdrop {
+    background: #122e545e;
+  }
+
+  .controls-guide-head .eyebrow,
+  .digest-head .eyebrow {
+    color: var(--brand-orange-ink);
+  }
+
+  .digest-dialog .land-button,
+  #authModal :is(.land-button, .monitoring-run, .proposal-source-button,
+    .proposal-field-accept, .report-review-resolve, .data-health-actions button,
+    .data-health-actions a, .quality-overview-card button) {
+    background: var(--brand-blue-soft);
+    border-color: var(--brand-blue-line);
+    color: var(--brand-blue);
+  }
+
+  .digest-dialog .land-button:not(:disabled):hover,
+  #authModal :is(.land-button, .monitoring-run, .proposal-source-button,
+    .proposal-field-accept, .report-review-resolve, .data-health-actions button,
+    .data-health-actions a, .quality-overview-card button):not(:disabled):hover {
+    background: var(--brand-blue-hover);
+  }
+
+  #authModal :is(.quality-tabs, .data-health-summary, .sync-note,
+    .route-dropzone, .infra-review-preview, .report-review-resolution) {
+    background: var(--brand-blue-soft);
+    border-color: var(--brand-blue-line);
+    color: var(--ink);
+  }
+
+  #authModal .route-dropzone:is(:hover, .dragover) {
+    background: var(--brand-blue-hover);
+    border-color: var(--brand-blue);
+  }
+
+  #authModal .quality-tab {
+    color: var(--brand-blue);
+  }
+
+  #authModal .quality-tab.active {
+    background: var(--brand-blue);
+    color: var(--paper);
+    box-shadow: none;
+  }
+
+  #authModal :is(.auth-card, .admin-export-button, .proposal-item,
+    .route-upload-summary, .report-review-item, .team-member) {
+    border-color: var(--line);
+  }
+
+  #authModal :is(.admin-export-format, .team-owner-badge, .team-role.owner) {
+    background: var(--brand-yellow-soft);
+    color: var(--brand-orange-ink);
+  }
+
+  #authModal .proposal-diff-after {
+    color: var(--brand-blue);
+  }
+
+  #authModal :is(button, a, input, select, summary):focus-visible,
+  .digest-dialog .land-button:focus-visible {
+    outline-color: var(--brand-blue);
   }
 
   .auth-status.success,
