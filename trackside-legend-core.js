@@ -21,10 +21,10 @@ function main(s={}){
  if(s.infrastructure?.enabled){const cats=unique(s.infrastructure.categories);const rows=cats.map(k=>row(k,'line',infraColors[k]||infraColors.Other));if(cats.length)rows.push(row('Construction phase','line','#6a7570'),row('Other phases','dash','#6a7570'),row('Long-range plan','dots','#6a7570'),row('Point or area geometry','area','#6a7570','Published location; may not be a work footprint.'));groups.push(group('infrastructure','Public infrastructure',rows,cats.length?'Color = project type. Solid / dashed styling applies to lines and polygon outlines.':'Enabled; no mapped projects loaded for the current filters.',true));}
  if(s.parcels)groups.push(group('parcels','Tax parcels',[row('Parcel boundary','area','#49665a')],s.zoom<16?'Parcel display starts at zoom 16.':'Tax boundaries are not surveyed work limits.'));
  if(s.boundaries)groups.push(group('boundaries','Service-area boundaries',[row('County','dash','#136647'),row('City of Atlanta','dash','#365d8d')]));
- if(s.stationBuffer)groups.push(group('stationBuffer','Station distance',[row('Straight-line radius','area','#136647')],'Proximity does not establish walking access.'));
- if(s.study)groups.push(group('study','Study area',[row('Selected study area','area','#136647')]));
+ if(s.stationBuffer)groups.push(group('stationBuffer','Station distance',[row('Straight-line radius','area','#174a83')],'Proximity does not establish walking access.'));
+ if(s.study)groups.push(group('study','Study area',[row('Selected study area','area','#174a83')]));
  if(s.scenario)groups.push(group('scenario','What-if routes',[row('Hypothetical alignment','dash','#6847a5'),row('Proposed stop','ring','#c9ee6e')],'Concepts are separate from published services and projects.'));
- if(s.search)groups.push(group('search','Search selection',[row('Search pin','pin','#136647'),...(s.searchParcel?[row('Selected parcel','area','#136647')]:[])],'A parcel pin is a representative interior point, not a surveyed entrance.'));
+ if(s.search)groups.push(group('search','Search selection',[row('Search pin','pin','#174a83'),...(s.searchParcel?[row('Selected parcel','area','#174a83')]:[])],'A parcel pin is a representative interior point, not a surveyed entrance.'));
  return {title:'Map key',context:'Enabled layers · some features appear only when zoomed in.',groups};
 }
 function bus(s={}){
@@ -35,7 +35,7 @@ function bus(s={}){
 }
 function walking(s={}){
  const rows=(s.bands||[]).map(b=>row(b.label,'line',b.color));if(s.base)rows.push(row('Other mapped paths','line','#a8b4ac'),row('Station / stop reference','dot','#6b4fb3'),row('Straight-line comparison','dash','#809383'));
- if(s.result)rows.push(row('Walking start','dot','#136647'),...['Planning','Construction','Complete'].map(k=>row(k+' project candidate','dot',statusColors[k])));
+ if(s.result)rows.push(row('Walking start','dot','#174a83'),...['Planning','Construction','Complete'].map(k=>row(k+' project candidate','dot',statusColors[k])));
  if(s.inventory)rows.push(row('County sidewalk inventory','line','#a270ba'));
  return {title:'Walking map key',context:'Walking time along connected mapped paths, not distance bands.',groups:[group('walking','Estimated walking time',rows,'Missing paths, crossings and entrances remain uncertain. Estimates do not certify safe or ADA-accessible access.')]};
 }

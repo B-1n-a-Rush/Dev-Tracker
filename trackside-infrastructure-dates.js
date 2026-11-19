@@ -38,10 +38,57 @@
   }
 
   function endpointLabel(row, endpoint) {
-    const date = land.dateLabel(row[endpoint]);
+    const value = row[endpoint];
+    if (!land.dateRange(value)) return missingDate(value) ? 'Not published' : 'Needs review';
+    const date = land.dateLabel(value);
     const status = row.manualSchedule?.[endpoint + '_certainty'];
-    if (!row.manualSchedule || !land.dateRange(row[endpoint])) return date;
-    return date + ' (' + (status ? 'manual, ' + certainty[status].toLowerCase() : 'agency') + ')';
+    if (certainty[status]) return date + ' (manual, ' + certainty[status].toLowerCase() + ')';
+    const basis = row.agencySchedule?.label || row.scheduleType || '';
+    if (endpoint === 'finish' && /^actual completion\b/i.test(basis)) return date + ' (confirmed)';
+    if (/^(?:anticipated|estimated)\b/i.test(basis)) return date + ' (estimated)';
+    return date + (row.manualSchedule ? ' (agency)' : '');
+  }
+
+  function missingDate(value) {
+    return /^(?:tbd|tba|unknown|not (?:currently )?published|not set|pending|0)?$/i.test(clean(value));
+  }
+
+  function routeEndpointLabel(schedule, endpoint) {
+    const value = schedule['construction_' + endpoint];
+    const label = clean(schedule[endpoint + '_label']);
+    if (!land.dateRange(value) && missingDate(label)) return missingDate(value) ? 'Not published' : 'Needs review';
+    return missingDate(label) ? land.dateLabel(value) : label;
+  }
+
+  function endpointSources(values) {
+    const sources = [];
+    for (const [index, value] of values.entries()) {
+      const url = land.http(value);
+      if (!url) continue;
+      if (sources[0]?.url === url) sources[0].label = 'Start and finish source';
+      else sources.push({label: index === 0 ? 'Start source' : 'Finish source', url});
+    }
+    return sources;
+  }
+
+  function projectDateSources(row, agencyUrl) {
+    return endpointSources(endpoints.map(endpoint => {
+      if (!land.dateRange(row[endpoint])) return null;
+      return row.manualSchedule?.['construction_' + endpoint] != null ? row.manualSchedule.source_url : agencyUrl;
+    }));
+  }
+
+  function routeDateSources(schedule) {
+    const hints = {start: /\b(?:start|groundbreaking)\b/i, finish: /\b(?:finish|completion|year-end)\b/i};
+    const additional = Array.isArray(schedule.additional_sources) ? schedule.additional_sources : [];
+    return endpointSources(endpoints.map(endpoint => {
+      if (!land.dateRange(schedule['construction_' + endpoint])) return null;
+      const supporting = additional.find(source => source
+        && hints[endpoint].test(source.purpose)
+        && !/\bnot\s+(?:the\s+)?(?:construction\s+)?(?:start|finish|completion)\b/i.test(source.purpose)
+        && land.http(source.url));
+      return supporting?.url || schedule.source_url;
+    }));
   }
 
   function agencyChanged(row) {
@@ -126,5 +173,5 @@
     return record;
   }
 
-  return {eligible, apply, endpointLabel, agencyChanged, reviewSnapshot, reviewNeeded, coverage, matchesFilter, matchesSearch, validate, certainty};
+  return {eligible, apply, endpointLabel, routeEndpointLabel, projectDateSources, routeDateSources, agencyChanged, reviewSnapshot, reviewNeeded, coverage, matchesFilter, matchesSearch, validate, certainty};
 });

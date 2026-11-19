@@ -7,12 +7,12 @@ const $=id=>document.getElementById(id),N=(tag,cls,text)=>{const e=document.crea
 const dialog=N('dialog','coord-dialog digest-dialog');dialog.id='changeDigest';dialog.setAttribute('aria-labelledby','digestTitle');
 dialog.innerHTML='<div class="digest-head"><div><div class="eyebrow">Your places · Your routes</div><h2 id="digestTitle">Your change digest</h2><p>Published values since your last review. Follow stations, routes, projects and study areas without searching the whole map.</p></div><button id="digestClose" class="land-button digest-close" type="button" aria-label="Close change digest">×</button></div><div class="digest-scroll"><div class="digest-actions"><button id="digestAdd" class="land-button" type="button">Add a watch</button><button id="digestSaved" class="land-button" type="button">Watch saved projects</button><button id="digestCheck" class="land-button" type="button">Check live sources</button><button id="digestExport" class="land-button" type="button">Export watches</button><button id="digestImport" class="land-button" type="button">Import watches</button></div><p id="digestMessage" class="digest-message" role="status"></p><div id="digestFormHost" hidden></div><div class="digest-grid"><aside><h3>Your watches</h3><div id="digestWatches" class="digest-watches"></div></aside><section id="digestResults" class="digest-results" aria-label="Changes for selected watch"></section></div><p class="digest-private-note">Watches and review state stay in this browser at this tracker address. Export a backup to move them. No email is sent. Only approved coverage, published project/SR2T data and official infrastructure sources are compared; staff notes and unapproved suggestions are excluded. Snapshots show net changes between checks, rather than every intermediate edit.</p></div>';
 document.body.append(dialog);
-let watches=[],storageError='',selection='',busy=false,generation=0,lastFocus=null,formDirty=false,routeCatalog=[],busNetwork=null,busOptions=[],formSeed=null,filter='all',page=1,followingTab='updates',followingPanels={},savedSyncPromise=null,savedSyncAgain=false;
+let watches=[],watchUpdates=[],allUpdates=[],storageError='',selection='',busy=false,generation=0,lastFocus=null,formDirty=false,routeCatalog=[],busNetwork=null,busOptions=[],formSeed=null,filter='all',page=1,followingTab='updates',followingPanels={},savedSyncPromise=null,savedSyncAgain=false;
 const results=new Map(),routeMap=new Map(),recordMap=new Map();
 const launch=B('Change digest',()=>open());launch.id='digestOpen';launch.classList.add('digest-launch');const badge=N('span','digest-badge');badge.hidden=true;launch.append(badge);
-function context(id,text,target){const button=B(text,()=>{try{open(target());}catch(e){say(e.message,true);}});button.classList.add('digest-context-button');$(id)?.append(button);return button;}
-context('stationDetail','Watch this station',()=>{const s=selectedStation();if(!s)throw Error('Select a station first.');return{type:'station',name:s[0]+' Station',geometry:{type:'Point',coordinates:[s[2],s[1]]},radius:typeof stationBufferRadiusMeters==='number'?stationBufferRadiusMeters:804.672};});
-context('corridorDetail','Watch this route',()=>{const c=selectedCorridor();if(!c)throw Error('Select a route first.');return{type:'route',key:window.TracksideCoordinationCore.routeKey({...c.route,kind:c.kind}),name:c.name,radius:804.672};});
+function context(id,text,target,quick=false){const button=B(text,()=>{try{open(target(),{quick});}catch(e){say(e.message,true);}});button.classList.add('digest-context-button');$(id)?.append(button);return button;}
+context('stationDetail','Follow this area',()=>{const s=selectedStation();if(!s)throw Error('Select a station first.');return{type:'station',projectsOnly:true,name:s[0]+' Station',geometry:{type:'Point',coordinates:[s[2],s[1]]},radius:stationBufferRadiusMeters};},true);
+context('corridorDetail','Follow this area',()=>{const c=selectedCorridor();if(!c)throw Error('Select a route first.');return{type:'route',projectsOnly:true,key:window.TracksideCoordinationCore.routeKey({...c.route,kind:c.kind}),name:c.name,radius:corridorBufferRadiusMeters};},true);
 context('studyAreaDetail','Watch this study area',()=>{if(!studyAreaGeometry)throw Error('Draw a study buffer or polygon first.');const s=studyAreaGeometry;if(s.type==='buffer')return{type:'area',name:'My study buffer',geometry:{type:'Point',coordinates:[s.center[1],s.center[0]]},radius:s.radiusMeters};const ring=s.points.map(p=>[p.lng,p.lat]);ring.push([...ring[0]]);return{type:'area',name:'My study area',geometry:{type:'Polygon',coordinates:[ring]},radius:0};});
 const busWatch=B('Watch this bus route',()=>{const line=$('busRoute')?.value;if(!line)return;const close=$('closeLocalBusWorkspace');close?.click();if($('localBusWorkspace')?.open)return;open({type:'bus',key:'bus:'+line,name:window.TracksideLocalBus?.network?.data.routes.find(r=>r.line_id===line)?.line_name,radius:804.672});});$('busFit')?.after(busWatch);
 function savedIds(){return (typeof projects!=='undefined'?projects:[]).filter(p=>p.saved).map(p=>p.id);}
@@ -23,18 +23,21 @@ function mayLeave(){return !formDirty||confirm('Discard the unsaved watch settin
 function hideForm(){formDirty=false;formSeed=null;$('digestFormHost').hidden=true;$('digestFormHost').replaceChildren();}
 function close(){if(!mayLeave())return;generation++;busy=false;hideForm();dialog.close();lastFocus?.focus?.();}
 $('digestClose').addEventListener('click',close);dialog.addEventListener('cancel',e=>{e.preventDefault();close();});
-async function open(seed=null,options={}){if(!mayLeave())return;hideForm();lastFocus=document.activeElement;if(!dialog.open)dialog.showModal();read();if(options.tab)selectFollowingTab(options.tab,true);if(storageError){say(storageError,true);render();return;}await syncSavedProjects();render();if(seed){await form(seed);return;}if(followingTab==='updates'&&watches.length)await check(false);else if(!watches.length)say('Save a project or add a watch to establish a baseline. Future published changes will appear in Updates.');}
+async function open(seed=null,options={}){if(!mayLeave())return;hideForm();lastFocus=document.activeElement;if(!dialog.open)dialog.showModal();read();if(options.tab)selectFollowingTab(options.tab,true);if(storageError){say(storageError,true);render();return;}const opening=generation;await syncSavedProjects();if(!dialog.open||generation!==opening)return;render();if(seed){if(options.quick)await followArea(seed);else await form(seed);return;}if(followingTab==='updates'&&watches.length&&options.refresh!==false)await check(false);else if(!watches.length)say('Save a project or add a watch to establish a baseline. Future published changes will appear in Updates.');}
 function routeChoices(){return [...routeCatalog.map(r=>({key:'rapid:'+r.id,name:r.name,geometry:r.geometry,remoteId:r.id,mode:TracksideTransitCatalog.mode(r),kind:TracksideTransitCatalog.existing(r)?'service':'rapid'})),...(typeof railLines==='undefined'?[]:railLines.map(r=>({...r,key:window.TracksideCoordinationCore.routeKey({...r,kind:'rail'}),geometry:window.TracksideCoordinationCore.routeGeometry(r),kind:'rail',mode:'MARTA rail'})))];}
 async function ensureRoutes(){const rows=await api.listDigestRoutes();routeCatalog=rows;for(const key of routeMap.keys())if(!key.startsWith('bus:'))routeMap.delete(key);for(const r of routeChoices())routeMap.set(r.key,r);return routeChoices();}
 async function ensureBus(){const catalog=await api.listLocalBusNetworks(),meta=catalog.find(n=>n.is_active);if(!meta)throw Error('No active local bus network is available.');const shared=window.TracksideLocalBus?.network;if(busNetwork?.fingerprint!==meta.fingerprint)busNetwork=shared?.fingerprint===meta.fingerprint?shared:await api.getLocalBusNetwork(meta.fingerprint);busNetwork={...busNetwork,...meta,data:busNetwork.data};busOptions=Bus.routes(busNetwork.data,window.TRACKSIDE_BUS_MODE_REFERENCE,busNetwork.mode_overrides).filter(r=>r.mode==='local_bus');for(const key of routeMap.keys())if(key.startsWith('bus:'))routeMap.delete(key);for(const r of busOptions){const parts=busNetwork.data.directions.filter(d=>d.line_id===r.line_id).flatMap(d=>d.geometry?.type==='LineString'?[d.geometry.coordinates]:d.geometry?.type==='MultiLineString'?d.geometry.coordinates:[]);routeMap.set('bus:'+r.line_id,{key:'bus:'+r.line_id,name:r.line_name,mode:'Local bus · '+busNetwork.verification_status,geometry:{type:'MultiLineString',coordinates:parts},kind:'bus'});}return busOptions;}
 async function sources(targets,force){
- const spatial=targets.some(w=>w.scope.type!=='projects'),at=new Date().toISOString(),groups={};recordMap.clear();
- const tasks={projects:api.listDigestProjects(),news:window.TracksideNews.load(force)};if(spatial){tasks.routes=ensureRoutes();tasks.sr2t=api.listSR2TSites(false);const old=A.loadedAt&&new Date(A.loadedAt).toISOString(),reload=force||!A.loadedAt||Date.now()-Date.parse(A.loadedAt)>300000;tasks.infrastructure=A.loadInfrastructure(reload).then(()=>{if(reload&&old&&old===(A.loadedAt&&new Date(A.loadedAt).toISOString()))throw Error('Infrastructure sources could not be refreshed. Previous baseline retained.');});if(targets.some(w=>w.scope.type==='bus'))tasks.bus=ensureBus();}
+ const spatial=targets.some(w=>w.scope.type!=='projects'&&!w.scope.projectsOnly),at=new Date().toISOString(),groups={};recordMap.clear();
+ const tasks={projects:api.listDigestProjects()};
+ if(targets.some(w=>!w.scope.projectsOnly))tasks.news=window.TracksideNews.load(force);
+ if(spatial||targets.some(w=>w.scope.type==='route'))tasks.routes=ensureRoutes();
+ if(spatial){tasks.sr2t=api.listSR2TSites(false);const old=A.loadedAt&&new Date(A.loadedAt).toISOString(),reload=force||!A.loadedAt||Date.now()-Date.parse(A.loadedAt)>300000;tasks.infrastructure=A.loadInfrastructure(reload).then(()=>{if(reload&&old&&old===(A.loadedAt&&new Date(A.loadedAt).toISOString()))throw Error('Infrastructure sources could not be refreshed. Previous baseline retained.');});if(targets.some(w=>w.scope.type==='bus'))tasks.bus=ensureBus();}
  const names=Object.keys(tasks),settled=await Promise.allSettled(Object.values(tasks)),out=Object.fromEntries(names.map((k,i)=>[k,settled[i]]));
  for(const [key,result]of Object.entries(out))if(result.status==='rejected'&&!['projects','sr2t','news'].includes(key))groups['infra:availability_'+key]={ok:false,error:key+': '+result.reason.message,at};
  groups.projects=out.projects.status==='fulfilled'?{ok:true,items:out.projects.value.map(C.project),at}:{ok:false,error:out.projects.reason.message,at};
  const byProject=new Map((groups.projects.items||[]).map(p=>[p.id,p]));
- groups.news=out.news.status==='fulfilled'&&groups.projects.ok?{ok:true,items:out.news.value.filter(a=>byProject.has(String(a.project_id))).map(a=>C.news(a,byProject.get(String(a.project_id)))),at}:{ok:false,error:out.news.status==='rejected'?out.news.reason.message:'Published project locations unavailable; coverage baseline retained.',at};
+ if(out.news)groups.news=out.news.status==='fulfilled'&&groups.projects.ok?{ok:true,items:out.news.value.filter(a=>byProject.has(String(a.project_id))).map(a=>C.news(a,byProject.get(String(a.project_id)))),at}:{ok:false,error:out.news.status==='rejected'?out.news.reason.message:'Published project locations unavailable; coverage baseline retained.',at};
  if(spatial){
   if(out.routes.status==='fulfilled'){try{const schedules=await api.listDigestSchedules(routeCatalog.filter(r=>!TracksideTransitCatalog.existing(r)).map(r=>r.id));groups.schedules={ok:true,items:schedules.map(r=>C.schedule(r,routeCatalog.find(x=>String(x.id)===String(r.route_id)))),at:new Date().toISOString()};}catch(e){groups.schedules={ok:false,error:e.message,at};}}else groups.schedules={ok:false,error:'Published transit routes are unavailable.',at};
   if(out.sr2t.status==='fulfilled'){try{const sites=out.sr2t.value,meta=sites.length?(await api.listLocalBusNetworks()).find(n=>n.is_active):null;if(sites.length&&!meta)throw Error('No active stop reference is available for published SR2T locations.');groups.sr2t={ok:true,items:sites.map(r=>C.site(r,meta?.fingerprint)),at};}catch(e){groups.sr2t={ok:false,error:e.message,at};}}else groups.sr2t={ok:false,error:out.sr2t.reason.message,at};
@@ -45,41 +48,138 @@ async function sources(targets,force){
  const ownRoutes=new Map(routeMap);return{at:new Date().toISOString(),groups,out,geometryFor(w){if(w.scope.type==='route'&&out.routes?.status==='rejected')throw Error('Published route geometry could not be refreshed; baseline retained.');if(w.scope.type==='bus'&&out.bus?.status==='rejected')throw Error('The local bus network could not be refreshed; baseline retained.');return ownRoutes.get(w.scope.key)?.geometry;}};
 }
 let worker=null,workerUnavailable=false,workerId=0;const jobs=new Map();
-function getWorker(){if(workerUnavailable||typeof Worker==='undefined')return null;if(worker)return worker;try{worker=new Worker('./trackside-digest-worker.js?v=20261103-news-1');worker.onmessage=e=>{const job=jobs.get(e.data.id);if(!job)return;clearTimeout(job.timer);jobs.delete(e.data.id);if(e.data.error)job.reject(Error(e.data.error));else job.resolve(e.data.result);};worker.onerror=()=>{workerUnavailable=true;worker?.terminate();worker=null;for(const job of jobs.values()){clearTimeout(job.timer);job.resolve(null);}jobs.clear();};return worker;}catch{workerUnavailable=true;return null;}}
-async function build(w,data){const input={at:data.at,groups:data.groups,geometry:data.geometryFor(w)},active=getWorker();if(active){const result=await new Promise((resolve,reject)=>{const id=++workerId,timer=setTimeout(()=>{jobs.delete(id);reject(Error('The comparison exceeded its time limit. Narrow the watch; its baseline was retained.'));},45000);jobs.set(id,{resolve,reject,timer});try{active.postMessage({id,watch:w,data:input});}catch{clearTimeout(timer);jobs.delete(id);resolve(null);}});if(result)return result;}return C.snapshot(w,input,tick);}
-async function check(force=true){if(busy||!watches.length)return;const run=++generation;busy=true;render();say('Checking published projects, approved coverage, route schedules, SR2T sites and connected infrastructure sources…');try{await window.tracksideAppReady;if(run!==generation)return;const data=await sources(watches,force);for(const w of watches){if(run!==generation)return;try{const current=await build(w,data);if(run!==generation)return;results.set(w.id,current);}catch(e){if(run!==generation)return;results.set(w.id,{error:e.message});}await tick();}if(run===generation)say('Check finished. Opening this digest has not marked any changes as reviewed.');}catch(e){if(run===generation)say('Check failed: '+e.message+'. Stored baselines were retained.',true);}finally{if(run===generation){busy=false;render();}}}
-function selectedWatch(){return watches.find(w=>w.id===selection)||watches[0];}
+function getWorker(){if(workerUnavailable||typeof Worker==='undefined')return null;if(worker)return worker;try{worker=new Worker('./trackside-digest-worker.js?v=20261118-grouped-updates');worker.onmessage=e=>{const job=jobs.get(e.data.id);if(!job)return;clearTimeout(job.timer);jobs.delete(e.data.id);if(e.data.error)job.reject(Error(e.data.error));else job.resolve(e.data.result);};worker.onerror=()=>{workerUnavailable=true;worker?.terminate();worker=null;for(const job of jobs.values()){clearTimeout(job.timer);job.resolve(null);}jobs.clear();};return worker;}catch{workerUnavailable=true;return null;}}
+function areaProjectMatchIds(w,geometry,items){
+ const scope=w.scope;
+ if(scope.type==='station'){
+  const [lng,lat]=scope.geometry.coordinates;
+  return items.filter(r=>r.geometry&&map.distance([lat,lng],[r.geometry.coordinates[1],r.geometry.coordinates[0]])<=scope.radius).map(r=>r.id);
+ }
+ const parts=geometry?.type==='LineString'?[geometry.coordinates]:geometry?.type==='MultiLineString'?geometry.coordinates:[];
+ const corridor={route:{lines:parts.map(line=>line.map(([lng,lat])=>[lat,lng]))}};
+ return items.filter(r=>r.geometry&&projectCorridorDistance({lat:r.geometry.coordinates[1],lng:r.geometry.coordinates[0]},corridor)<=scope.radius).map(r=>r.id);
+}
+async function build(w,data){const input={at:data.at,groups:data.groups,geometry:data.geometryFor(w)};
+ if(w.scope.projectsOnly&&input.groups.projects?.ok)input.projectMatchIds=areaProjectMatchIds(w,input.geometry,input.groups.projects.items);
+ const active=getWorker();if(active){const result=await new Promise((resolve,reject)=>{const id=++workerId,timer=setTimeout(()=>{jobs.delete(id);reject(Error('The comparison exceeded its time limit. Narrow the watch; its baseline was retained.'));},45000);jobs.set(id,{resolve,reject,timer});try{active.postMessage({id,watch:w,data:input});}catch{clearTimeout(timer);jobs.delete(id);resolve(null);}});if(result)return result;}return C.snapshot(w,input,tick);}
+async function check(force=true,targets=watches){if(busy||!targets.length)return;const run=++generation;busy=true;render();say(targets.every(w=>w.scope.projectsOnly)?'Checking published projects in your followed areas…':'Checking published projects, approved coverage, route schedules, SR2T sites and connected infrastructure sources…');try{await window.tracksideAppReady;if(run!==generation)return;const data=await sources(targets,force);for(const w of targets){if(run!==generation)return;try{const current=await build(w,data);if(run!==generation)return;results.set(w.id,current);}catch(e){if(run!==generation)return;results.set(w.id,{error:e.message});}await tick();}if(run===generation)say('Check finished. Opening this digest has not marked any changes as reviewed.');}catch(e){if(run===generation)say('Check failed: '+e.message+'. Stored baselines were retained.',true);}finally{if(run===generation){busy=false;render();}}}
+async function followArea(seed){
+ if(busy)return;
+ const scope=C.scope(seed),same=w=>C.stable(w.scope)===C.stable(scope);
+ const duplicate=watches.find(same);
+ filter='all';page=1;selectFollowingTab('updates',true);
+ if(duplicate){selection=duplicate.id;render();await check(false,[duplicate]);return;}
+ const run=++generation;
+ busy=true;render();say('Checking the published projects in this area…');
+ try{
+  await window.tracksideAppReady;
+  if(run!==generation)return;
+  if(watches.filter(w=>w.id!==C.savedWatchId).length>=C.customLimit)throw Error('This browser supports '+C.customLimit+' custom watches, plus automatic saved projects.');
+  const w={id:crypto.randomUUID(),name:seed.name,scope,createdAt:new Date().toISOString(),baseline:{}};
+  const current=await build(w,await sources([w],false));
+  if(run!==generation)return;
+  if(!current.groups.projects?.ok)throw Error('Published projects could not be checked. Retry to start following this area.');
+  const latest=C.read(localStorage),existing=latest.find(same);
+  if(existing){
+   watches=latest;selection=existing.id;results.delete(existing.id);
+   say('You already follow this area. Check for updates to compare it with your saved baseline.');
+   return;
+  }
+  commit([...latest,C.reviewed(w,current)]);
+  results.set(w.id,current);selection=w.id;
+  const count=current.groups.projects.items.length;
+  say('Area followed. '+count+' current project'+(count===1?' forms':'s form')+' your starting baseline.');
+ }catch(e){if(run===generation)say(e.message,true);}
+ finally{if(run===generation){busy=false;render();}}
+}
+function selectedWatch(){return watches.find(w=>w.id===selection);}
 function delta(w){const r=results.get(w.id);return r&&!r.error?C.changes(w,r):null;}
 function render(){
  for(const id of ['digestAdd','digestSaved','digestCheck','digestImport'])$(id).disabled=busy||!!storageError||id==='digestCheck'&&!watches.length;$('digestExport').disabled=!watches.length||!!storageError;$('digestImport').disabled=busy;
- const list=$('digestWatches');list.replaceChildren();if(!watches.length)list.append(P('No watches yet. Save a project, or choose Add a watch to follow a station, route or drawn study area.'));const chosen=selectedWatch();if(chosen)selection=chosen.id;let total=0;
- for(const w of watches){const d=delta(w),count=d?.items.length||0;total+=count;const b=B('',()=>{if(!mayLeave())return;hideForm();selection=w.id;filter='all';page=1;render();});b.className='digest-watch';b.setAttribute('aria-pressed',String(w.id===selection));b.append(N('strong','',w.name),N('small','',scopeLabel(w.scope)),N('small','',count+' changed record'+(count===1?'':'s')+(results.get(w.id)?'':' · check needed')));list.append(b);}
- badge.textContent=String(total);badge.hidden=!total;renderFollowingTab();
+ const list=$('digestWatches');list.replaceChildren();
+ if(selection&&!selectedWatch())selection='';
+ watchUpdates=watches.map(watch=>({watch,delta:delta(watch)}));
+ allUpdates=C.groupUpdates(watchUpdates);
+ if(!watches.length)list.append(P('No watches yet. Save a project, or choose Add a watch to follow a station, route or drawn study area.'));
+ else list.append(watchButton('','All watches',allUpdates.length+' '+(allUpdates.length===1?'update':'updates')));
+ for(const {watch:w,delta:d} of watchUpdates){
+  const count=d?.items.length||0;
+  const summary=scopeLabel(w.scope)+' · '+(results.get(w.id)?count+' '+(count===1?'update':'updates'):'check needed');
+  list.append(watchButton(w.id,w.name,summary));
+ }
+ badge.textContent=String(allUpdates.length);badge.hidden=!allUpdates.length;renderFollowingTab();window.TracksideDigestMapReview?.refresh();
 }
-function scopeLabel(s){return s.type==='projects'?s.ids.length+' selected project'+(s.ids.length===1?'':'s'):s.type==='area'?(s.geometry.type==='Polygon'?'Drawn study polygon':(s.radius/1609.344).toFixed(1)+'-mile study buffer'):(s.type==='bus'?'Local bus route':s.type==='route'?'Transit route':'Station')+' · '+(s.radius/1609.344).toLocaleString('en-US',{maximumFractionDigits:2})+'-mile proximity';}
+function watchButton(id,title,summary){
+ const b=B('',()=>{if(!mayLeave())return;hideForm();selection=id;filter='all';page=1;render();});
+ b.className='digest-watch';b.setAttribute('aria-pressed',String(id===selection));
+ b.append(N('strong','',title),N('small','',summary));
+ return b;
+}
+function radiusLabel(radius){const miles=radius/1609.344;return miles===.25?'¼ mile':miles===.5?'½ mile':miles===1?'1 mile':miles.toLocaleString('en-US',{maximumFractionDigits:2})+' mi';}
+function scopeLabel(s){return s.projectsOnly?radiusLabel(s.radius)+' · Development projects':s.type==='projects'?s.ids.length+' selected project'+(s.ids.length===1?'':'s'):s.type==='area'?(s.geometry.type==='Polygon'?'Drawn study polygon':(s.radius/1609.344).toFixed(1)+'-mile study buffer'):(s.type==='bus'?'Local bus route':s.type==='route'?'Transit route':'Station')+' · '+(s.radius/1609.344).toLocaleString('en-US',{maximumFractionDigits:2})+'-mile proximity';}
 function showValue(value,key,before=false){if(value===null||value===undefined||value==='')return 'Not supplied';if(key==='location'&&typeof value==='string')return before?'Previously recorded geometry':'Updated published geometry';if(typeof value==='number')return value.toLocaleString();if(key==='windows'&&Array.isArray(value))return value.map(w=>(w.phase||'Published timing')+': '+(w.start||'Start unknown')+' → '+(w.finish||'Finish unknown')+' ('+(w.scope==='construction'?'construction':'project context; construction timing unknown')+'; '+w.certainty+')').join('\n');if(Array.isArray(value))return value.map(v=>typeof v==='object'?Object.entries(v).filter(([,x])=>x!==''&&x!==null).map(([k,x])=>k+': '+x).join(' · '):String(v)).join('\n')||'None recorded';if(typeof value==='object')return JSON.stringify(value);return String(value);}
 function typeName(type){return {project:'Development',infrastructure:'Infrastructure',schedule:'Transit schedule',sr2t:'SR2T',news:'Approved coverage',overlap:'Potential simultaneous window'}[type]||type;}
-function card(change,w){const r=change.record,el=N('article','digest-card');el.append(N('div','digest-kind',typeName(r.type)+' · '+({'new-record':'New published record','new-in-watch':'New in this watch','new-overlap':'New potential overlap','new-coverage':'Newly available approved article',updated:'Published values changed'}[change.kind])),N('h4','',r.title));
+function card(change,w,{mapReview=false,watchNames=null,review=()=>ack(w,[change.key])}={}){const r=change.record,el=N('article','digest-card');const area=w.scope.projectsOnly;
+ const projectReason=change.kind==='left-area'?'No longer matches this area':['new-record','new-in-watch'].includes(change.kind)?'New to this area':change.fields.some(f=>f.key==='status')?'Status changed':'Project details changed';
+ el.append(N('div','digest-kind',area?projectReason:typeName(r.type)+' · '+({'new-record':'New published record','new-in-watch':'New in this watch','new-overlap':'New potential overlap','new-coverage':'Newly available approved article',updated:'Published values changed'}[change.kind])),N('h4','',r.title));
+ if(watchNames){
+  const matches=N('ul','digest-matching-watches');
+  matches.setAttribute('aria-label','Matching watches');
+  for(const name of watchNames)matches.append(N('li','',name));
+  el.append(matches);
+ }
+ if(area&&change.kind!=='left-area'&&(!watchNames||watchNames.length===1)){
+  const title=w.scope.type==='route'?routeMap.get(w.scope.key)?.name:railStations.find(([,lat,lng])=>lng===w.scope.geometry.coordinates[0]&&lat===w.scope.geometry.coordinates[1])?.[0];
+  el.append(N('p','project-match-reason','Within '+radiusLabel(w.scope.radius)+' of '+(title?(w.scope.type==='station'?title+' Station':title):w.name)));
+ }
  if(change.fields.length){const table=N('table'),head=N('tr');for(const t of ['Field','Previously seen','Current published'])head.append(N('th','',t));const thead=N('thead');thead.append(head);table.append(thead);const tbody=N('tbody');for(const f of change.fields){const tr=N('tr');tr.append(N('td','',f.label),N('td','',showValue(f.before,f.key,true)),N('td','',showValue(f.after,f.key)));tbody.append(tr);}table.append(tbody);el.append(table);}else{for(const key of r.type==='overlap'?['start','finish','certainty','basis']:['status','units','phase','start','finish','basis'])if(r.values[key]!==undefined&&r.values[key]!=='')el.append(P(C.labels[key]+': '+showValue(r.values[key],key)));if(r.type==='infrastructure'&&r.values.windows)el.append(P(showValue(r.values.windows,'windows')));}
  el.append(N('p','digest-meta','Observed in the check at '+date(change.checkedAt)+'. The exact change time may be between source checks.'));
  if(r.type==='news')el.append(P(r.values.projectName),N('p','news-meta',r.values.publisher+' · '+(r.values.published?new Date(r.values.published).toLocaleDateString():'Publication date unknown')),P('Approved coverage; this article does not establish a change to the project’s published facts.'));
- const actions=N('div','digest-actions');if(r.type!=='overlap')actions.append(B('Open record',()=>openRecord(r,w)));else{for(const key of r.values.members||[]){const member=recordMap.get(key);if(member)actions.append(B('Open '+member.title,()=>openRecord(member,w)));}if(routeMap.has(w.scope.key))actions.append(B('Open coordination view',()=>openCoordination(w)));}
- if(G.http(r.url))actions.append(safeLink('Source ↗',r.url));const mark=B('Mark this reviewed',()=>ack(w,[change.key]));mark.disabled=busy;actions.append(mark);el.append(actions);return el;
+ const actions=N('div','digest-actions');if(r.type!=='overlap'){if(!mapReview)actions.append(B(r.type==='project'?'Open project':'Open record',()=>openRecord(r,w)));}else{for(const key of r.values.members||[]){const member=recordMap.get(key);if(member)actions.append(B('Open '+member.title,()=>openRecord(member,w)));}if(routeMap.has(w.scope.key))actions.append(B('Open coordination view',()=>openCoordination(w)));}
+ if(G.http(r.url))actions.append(safeLink('Source ↗',r.url));const mark=B(watchNames?.length>1?'Mark reviewed in '+watchNames.length+' watches':'Mark this reviewed',review);mark.disabled=busy;actions.append(mark);el.append(actions);return el;
 }
-function renderResult(w){const root=$('digestResults');root.replaceChildren();if(!w){const e=N('div','digest-empty');e.append(N('h3','','Follow the places that matter'),P('Watch a station, route or study area once. Return here to compare current published values with your reviewed baseline.'),P('A first watch establishes a starting point; it does not label every existing project as new.'));root.append(e);return;}
+function renderResult(w){const root=$('digestResults');root.replaceChildren();if(!w&&watches.length){renderAllWatches(root);return;}if(!w){const e=N('div','digest-empty');e.append(N('h3','','Follow the places that matter'),P('Watch a station, route or study area once. Return here to compare current published values with your reviewed baseline.'),P('A first watch establishes a starting point; it does not label every existing project as new.'));root.append(e);return;}
  root.append(N('h3','',w.name),P(scopeLabel(w.scope)),N('p','digest-meta','Watch started '+date(w.createdAt)+'. Last review action '+date(w.reviewedAt)+'.'));
  const actions=N('div','digest-actions');actions.append(B('Manage this watch',()=>selectFollowingTab('manage')));if(w.scope.type!=='projects')actions.append(B('Show watched area',()=>showArea(w)));root.append(actions);
  const current=results.get(w.id),d=delta(w);if(!current){root.append(P('Choose Check live sources to compare against this watch’s saved baseline.'));return;}if(current.error){root.append(N('p','digest-warning',current.error));return;}
- if(d.coverageChanged){root.append(N('p','digest-warning','This watch’s coverage changed. Counts from different alignments, areas or selections are not comparable. Inspect the updated coverage, then deliberately establish a new baseline.'),B('Use updated coverage & start baseline',()=>ack(w)));return;}
- const header=N('div','digest-filterbar');header.append(N('strong','',d.items.length+' changed records'));const kinds=N('select');kinds.setAttribute('aria-label','Digest record type');for(const [value,label]of [['all','All changes'],['project','Development'],['news','Approved coverage'],['infrastructure','Infrastructure'],['schedule','Transit schedules'],['sr2t','SR2T'],['overlap','Potential overlaps']])kinds.add(new Option(label,value));kinds.value=filter;kinds.addEventListener('change',()=>{filter=kinds.value;page=1;renderResult(w);});header.append(kinds);const markAll=B(d.initial.length?'Start missing baselines':'Mark all available updates reviewed',()=>ack(w));markAll.disabled=busy;header.append(markAll);root.append(header);
+ if(w.scope.projectsOnly&&!current.groups.projects?.ok){root.append(N('p','digest-warning','Published projects could not be checked. Your last reviewed baseline was retained.'));return;}
+ if(d.coverageChanged){const reset=B('Use updated coverage & start baseline',()=>ack(w));reset.disabled=busy;root.append(N('p','digest-warning','This watch’s coverage changed. Counts from different alignments, areas or selections are not comparable. Inspect the updated coverage, then deliberately establish a new baseline.'),reset);return;}
+ if(w.scope.projectsOnly&&d.items.length&&window.TracksideDigestMapReview&&$('workspacePanel')){const review=B('Review on map',()=>openMapReview(w.id));review.disabled=busy;actions.prepend(review);}
+ const header=N('div','digest-filterbar');header.append(N('strong','',d.items.length+(w.scope.projectsOnly?' project changes':' changed records')));if(!w.scope.projectsOnly)header.append(changeTypeFilter(w));const markAll=B(d.initial.length?'Start missing baselines':'Mark all available updates reviewed',()=>ack(w));markAll.disabled=busy;header.append(markAll);root.append(header);
  if(d.errors.length)root.append(N('p','digest-warning',d.errors.length+' source checks are incomplete. Their saved baselines are retained; they cannot establish that nothing changed.'));
  if(d.initial.length)root.append(P(d.initial.length+' newly available source groups need a first baseline; existing records from those groups are not labeled new.'));
  if(d.missing)root.append(P(d.missing+' previously seen records are absent from the current covered selection. This does not establish completion, cancellation or removal from the source.'));
- const visible=d.items.filter(c=>filter==='all'||c.record.type===filter);if(!visible.length){const empty=N('div','digest-empty');empty.append(N('h3','',d.errors.length?'Some sources could not be compared':d.initial.length?'Start your comparison baseline':filter==='all'?'You’re up to date with available checks':'No changes of this type'),P(d.initial.length?'Existing records in newly available sources need a starting baseline before future changes can be compared. Your earlier review history is retained.':'A check does not mark records reviewed. Net field changes will stay here until you mark them reviewed.'));root.append(empty);}for(const c of visible.slice(0,page*35))root.append(card(c,w));if(visible.length>page*35)root.append(B('Show more changes',()=>{page++;renderResult(w);}));
+ const visible=d.items.filter(c=>w.scope.projectsOnly||filter==='all'||c.record.type===filter);if(!visible.length){const empty=N('div','digest-empty');empty.append(N('h3','',d.errors.length?'Some sources could not be compared':d.initial.length?'Start your comparison baseline':filter==='all'?'You’re up to date with available checks':'No changes of this type'),P(d.initial.length?'Existing records in newly available sources need a starting baseline before future changes can be compared. Your earlier review history is retained.':'A check does not mark records reviewed. Net field changes will stay here until you mark them reviewed.'));root.append(empty);}for(const c of visible.slice(0,page*35))root.append(card(c,w));if(visible.length>page*35)root.append(B('Show more changes',()=>{page++;renderResult(w);}));
  renderCoverage(root,current.groups.news,w);
  const inventory=N('details','digest-inventory');inventory.append(N('summary','','Preview watched published records'));let count=0;for(const[group,g]of Object.entries(current.groups))if(g.ok&&group!=='overlaps')for(const r of g.items){if(count++<100)inventory.append(P(typeName(r.type)+' · '+r.title));}inventory.append(P(count+' records in available source groups'+(count>100?' · first 100 listed':'')+'.'));root.append(inventory);
  const coverage=N('details','digest-coverage');coverage.append(N('summary','','Check coverage & limits'));for(const[group,g]of Object.entries(current.groups))coverage.append(P(group+' · '+(g.ok?g.items.length+' matched records · data retrieved '+date(g.at)+(g.partial?' · '+g.error:''):g.error)));
+ if(w.scope.projectsOnly){root.append(coverage);return;}
  coverage.append(P('Infrastructure inventories may be incomplete. Long-range plans and possible duplicate imports are excluded. Missing locations cannot be assigned to an area. Potential simultaneous windows use complete construction-phase dates within the coming five years; project-context dates and missing endpoints are excluded. A shared route or area does not establish physical overlap, a detour or a service interruption.'));if(w.scope.type==='bus')coverage.append(P('Local bus geometry comes from the active imported network. Its operational verification status is '+(busNetwork?.verification_status||'unavailable')+'; modes use the existing verified code/name reference.'));root.append(coverage);
+}
+function changeTypeFilter(w){
+ const kinds=N('select');kinds.setAttribute('aria-label','Digest record type');
+ for(const [value,label] of [['all','All changes'],['project','Development'],['news','Approved coverage'],['infrastructure','Infrastructure'],['schedule','Transit schedules'],['sr2t','SR2T'],['overlap','Potential overlaps']])kinds.add(new Option(label,value));
+ kinds.value=filter;
+ kinds.addEventListener('change',()=>{filter=kinds.value;page=1;renderResult(w);kinds.blur();$('digestResults').querySelector('select')?.focus({preventScroll:true});});
+ return kinds;
+}
+function renderAllWatches(root){
+ root.append(N('h3','','All watches'));
+ const header=N('div','digest-filterbar');
+ header.append(N('strong','',allUpdates.length+' '+(allUpdates.length===1?'update':'updates')),changeTypeFilter());
+ root.append(header);
+ const pending=watchUpdates.filter(({delta:d})=>!d||d.coverageChanged||d.errors.length||d.initial.length).length;
+ if(pending)root.append(N('p','digest-warning',pending+' '+(pending===1?'watch needs':'watches need')+' a check or coverage review. Select a watch for details.'));
+ const entries=allUpdates.filter(({change})=>filter==='all'||change.record.type===filter);
+ if(!entries.length){
+  const empty=N('div','digest-empty');
+  empty.append(P(pending?'No updates to show from the available checks.':filter==='all'?'You’re up to date.':'No changes of this type.'));
+  root.append(empty);
+ }
+ for(const entry of entries.slice(0,page*35)){
+  root.append(card(entry.change,entry.watches[0],{watchNames:entry.watches.map(w=>w.name),review:()=>ackUpdateCard(entry)}));
+ }
+ if(entries.length>page*35)root.append(B('Show more changes',()=>{page++;renderResult();}));
 }
 function renderCoverage(root,group,w){
  if(!group?.ok)return;
@@ -92,12 +192,66 @@ function renderCoverage(root,group,w){
  item.hidden=shown++>=5;details.append(item);}
  if(groups.size>5){const more=B('Show all covered projects',()=>{details.querySelectorAll('article[hidden]').forEach(e=>e.hidden=false);more.remove();});details.append(more);}root.append(details);
 }
-function ack(w,keys=null){if(busy)return;if(w.id===C.savedWatchId&&savedSyncPromise){say('Saved-project following is refreshing. Review updates after it finishes.');return;}try{const current=results.get(w.id);if(!current||current.error)throw Error('Check sources before marking changes reviewed.');const changed=C.reviewed(w,current,keys);commit(watches.map(x=>x.id===w.id?changed:x));render();say(keys?'This record was marked reviewed.':'Available records reviewed. Incomplete source baselines were preserved.');}catch(e){say(e.message,true);}}
+function ack(w,keys=null,report=say){if(busy)return;if(w.id===C.savedWatchId&&savedSyncPromise){say('Saved-project following is refreshing. Review updates after it finishes.');return;}try{const current=results.get(w.id);if(!current||current.error)throw Error('Check sources before marking changes reviewed.');const changed=C.reviewed(w,current,keys);commit(watches.map(x=>x.id===w.id?changed:x));render();report(keys?'Update marked reviewed.':'Available records reviewed. Incomplete source baselines were preserved.');}catch(e){report(e.message,true);}}
+function ackUpdateCard(entry){
+ if(busy)return;
+ if(savedSyncPromise&&entry.watches.some(w=>w.id===C.savedWatchId)){
+  say('Saved-project following is refreshing. Review updates after it finishes.');
+  return;
+ }
+ try{
+  commit(C.reviewUpdateCard(C.read(localStorage),results,entry));
+  render();
+  const count=entry.watches.length;
+  say(count>1?'Update marked reviewed in '+count+' watches.':'Update marked reviewed.');
+ }catch(e){say(e.message,true);}
+}
+function openMapReview(id){
+ const w=watches.find(watch=>watch.id===id),compare=window.TracksideDigestMapReview;
+ if(!w?.scope.projectsOnly||busy||!delta(w)?.items.length||!compare)return;
+ close();
+ if(window.TracksideWorkspacePreview?.activate('review')!==true)return;
+ compare.open({
+  label:radiusLabel(w.scope.radius)+(w.scope.type==='route'?' from the alignment · approximate shading':' station buffer'),
+  read(){
+   const watch=watches.find(entry=>entry.id===id);
+   return{watch,current:results.get(id),changes:watch&&delta(watch),busy};
+  },
+  card(change){
+   const watch=watches.find(entry=>entry.id===id);
+   return card(change,watch,{mapReview:true,review:()=>ack(watch,[change.key],compare.message)});
+  },
+  back(){
+   window.TracksideWorkspacePreview.activate('explore');
+   $('workspaceFollowing')?.focus({preventScroll:true});
+   selection=id;filter='all';page=1;
+   open(null,{tab:'updates',refresh:false});
+  }
+ });
+}
 function renameWatch(w){const name=prompt('Watch name',w.name);if(name===null)return;if(!name.trim())return say('Enter a name for this watch.',true);try{commit(watches.map(x=>x.id===w.id?{...x,name:name.trim().slice(0,100)}:x));render();}catch(e){say(e.message,true);}}
 function removeWatch(w){if(w.id===C.savedWatchId){selectFollowingTab('saved');return;}if(!confirm('Remove the watch “'+w.name+'” from this browser? Public records and saved projects stay unchanged.'))return;try{commit(watches.filter(x=>x.id!==w.id));results.delete(w.id);selection='';render();say('Watch removed from this browser.');}catch(e){say(e.message,true);}}
 function openRecord(r,w){if(r.type==='news'){close();window.TracksideWorkspacePreview?.activate('explore');setPage('explore');show(r.values.projectId);}else if(r.type==='project'){close();window.TracksideWorkspacePreview?.activate('explore');setPage('explore');show(r.id);}else if(r.type==='sr2t'){close();window.TracksideSR2T?.open(false,r.id);}else if(r.type==='schedule')openCoordination({...w,scope:{type:'route',key:'rapid:'+r.id,radius:804.672}});else{const row=A.infrastructureRows.find(x=>x.id===r.id);if(!row)return say('Refresh infrastructure sources to reopen this record.',true);close();A.focusInfrastructure(row);}}
 function openCoordination(w){const r=routeMap.get(w.scope.key);if(r?.kind==='bus'){close();window.TracksideLocalBus.open(false,w.scope.key.slice(4));}else if(r){close();window.TracksideCoordination.open(r);}else say('Choose a watched transit route to open its coordination timeline. The source records remain available in this digest.');}
-const highlight=L.featureGroup();function showArea(w){const geometry=['route','bus'].includes(w.scope.type)?routeMap.get(w.scope.key)?.geometry:w.scope.geometry;if(!geometry)return say('Check live sources to load the current route geometry.',true);highlight.clearLayers();if(!map.hasLayer(highlight))highlight.addTo(map);const layer=geometry.type==='Point'?L.circle([geometry.coordinates[1],geometry.coordinates[0]],{radius:w.scope.radius,color:'#16684c',weight:3,fillOpacity:.08}):L.geoJSON(geometry,{style:{color:'#16684c',weight:5,fillOpacity:.08}});layer.addTo(highlight);close();setPage('explore');map.fitBounds(layer.getBounds(),{padding:[35,35],maxZoom:15});}
+const highlight=L.featureGroup();
+function restoreExploreArea(scope){
+ if(scope.type==='station'){
+  const [lng,lat]=scope.geometry.coordinates;
+  const station=railStations.find(([,y,x])=>x===lng&&y===lat);
+  const radius=[...stationRadiusFilter.options].find(o=>Number(o.value)*1609.344===scope.radius);
+  if(!station||!radius)return false;
+  stationRadiusFilter.value=radius.value;updateStationBufferRadius();
+  stationSelect.value=station[0];handleStationSelection();return true;
+ }
+ if(scope.type==='route'&&scope.radius===corridorBufferRadiusMeters){
+  const route=routeMap.get(scope.key);
+  const option=[...corridorSelect.options].find(o=>o.value===route?.kind+':'+route?.name);
+  if(!option)return false;
+  corridorSelect.value=option.value;handleCorridorSelection();return true;
+ }
+ return false;
+}
+function showArea(w){if(w.scope.projectsOnly&&(w.scope.type==='station'||routeMap.has(w.scope.key))){close();window.TracksideWorkspacePreview?.activate('explore');setPage('explore');highlight.clearLayers();if(restoreExploreArea(w.scope))return;}const geometry=['route','bus'].includes(w.scope.type)?routeMap.get(w.scope.key)?.geometry:w.scope.geometry;if(!geometry)return say('Check for updates to load the current route geometry.',true);highlight.clearLayers();if(!map.hasLayer(highlight))highlight.addTo(map);const layer=geometry.type==='Point'?L.circle([geometry.coordinates[1],geometry.coordinates[0]],{radius:w.scope.radius,color:'#174a83',weight:3,fillOpacity:.08}):L.geoJSON(geometry,{style:{color:'#174a83',weight:5,fillOpacity:.08}});layer.addTo(highlight);if(dialog.open)close();setPage('explore');map.fitBounds(layer.getBounds(),{padding:[35,35],maxZoom:15});}
 const clearArea=B('Clear watched-area outline',()=>highlight.clearLayers());clearArea.id='digestClearOutline';$('mapLayersPanel')?.append(clearArea);
 async function form(seed={}){
  if(storageError||busy)return;if(!mayLeave())return;hideForm();selectFollowingTab('manage',true);formSeed=structuredClone(seed);const host=$('digestFormHost');host.hidden=false;const el=N('form','digest-form');el.id='digestWatchForm';el.append(N('h3','',seed.editWatchId?'Adjust watch':'Add a watch'),P('The first successful check establishes a baseline. Only later net changes are flagged.'));
@@ -106,12 +260,12 @@ async function form(seed={}){
  const choices=async()=>{const run=++choiceRun,kind=type.value;targetLabel.hidden=['projects','area'].includes(kind);radiusLabel.hidden=kind==='projects'||kind==='area';save.disabled=true;hint.textContent='';target.replaceChildren();try{if(kind==='station'){for(const s of railStations)target.add(new Option(s[0]+' Station',s[0]));const wanted=seed.type==='station'?railStations.find(s=>(seed.geometry?.coordinates?.[0]===s[2]&&seed.geometry?.coordinates?.[1]===s[1])||s[0]+' Station'===seed.name):selectedStation();if(wanted)target.value=wanted[0];}else if(kind==='route'){const routes=await ensureRoutes();if(run!==choiceRun||!el.isConnected)return;for(const r of routes)target.add(new Option(r.name+' · '+r.mode,r.key));if(seed.key&&routes.some(r=>r.key===seed.key))target.value=seed.key;}else if(kind==='bus'){hint.textContent='Loading local bus choices on demand…';const rows=await ensureBus();if(run!==choiceRun||!el.isConnected)return;for(const r of rows)target.add(new Option(r.line_name,'bus:'+r.line_id));if(seed.key&&rows.some(r=>'bus:'+r.line_id===seed.key))target.value=seed.key;hint.textContent='Network: '+busNetwork.map_name+' · '+busNetwork.verification_status+'. Bus service itself is not assigned construction dates.';}else if(kind==='projects'){const ids=seed.type==='projects'?seed.ids:savedIds();hint.textContent=(ids?.length||0)+' selected saved projects. Their published records will be compared; unsynchronized local edits are excluded.';}else hint.textContent='Draw a buffer or polygon using Analyze → Study area first. This watch preserves that shape, independent of later map filters.';
  if(!name.value)name.value=kind==='station'?target.value+' Station':kind==='route'||kind==='bus'?routeMap.get(target.value)?.name||'Route watch':kind==='projects'?'Saved projects':'My study area';save.disabled=false;}catch(e){hint.textContent=e.message;}};
  type.addEventListener('change',()=>{formDirty=true;name.value='';radius.value='804.672';choices();});target.addEventListener('change',()=>{name.value=type.value==='station'?target.value+' Station':routeMap.get(target.value)?.name||'Route watch';formDirty=true;});el.addEventListener('input',()=>formDirty=true);el.addEventListener('change',()=>formDirty=true);await choices();host.scrollIntoView({block:'start'});
- el.addEventListener('submit',async e=>{e.preventDefault();if(busy)return;const run=++generation;try{if(!seed.editWatchId&&watches.filter(w=>w.id!==C.savedWatchId).length>=C.customLimit)throw Error('This browser supports '+C.customLimit+' custom watches, plus automatic saved projects.');let s={type:type.value,radius:Number(radius.value)};if(s.type==='station'){const station=railStations.find(x=>x[0]===target.value);if(!station)throw Error('Choose a station.');s.geometry={type:'Point',coordinates:[station[2],station[1]]};}else if(['route','bus'].includes(s.type))s.key=target.value;else if(s.type==='projects')s.ids=seed.type==='projects'?seed.ids:savedIds();else{const area=seed.type==='area'?seed:studyAreaGeometry;if(!area)throw Error('Draw a study area before saving this watch.');if(area.geometry){s.geometry=area.geometry;s.radius=area.radius;}else if(area.type==='buffer'){s.geometry={type:'Point',coordinates:[area.center[1],area.center[0]]};s.radius=area.radiusMeters;}else{const ring=area.points.map(p=>[p.lng,p.lat]);ring.push([...ring[0]]);s.geometry={type:'Polygon',coordinates:[ring]};s.radius=0;}}s=C.scope(s);const duplicate=watches.find(w=>w.id!==seed.editWatchId&&w.id!==C.savedWatchId&&C.stable(w.scope)===C.stable(s));if(duplicate){selection=duplicate.id;hideForm();selectFollowingTab('updates',true);render();say('You already watch this selection.');if(!results.has(duplicate.id))check(false);return;}const existing=seed.editWatchId?watches.find(w=>w.id===seed.editWatchId):null;if(seed.editWatchId&&!existing)throw Error('This watch is no longer available.');const w={...(existing||{id:crypto.randomUUID(),createdAt:new Date().toISOString(),baseline:{}}),name:name.value.trim(),scope:s};if(!w.name)throw Error('Enter a watch name.');busy=true;render();save.disabled=true;say('Establishing the first published-data baseline…');await window.tracksideAppReady;if(run!==generation)return;const data=await sources([w],false),current=await build(w,data);if(run!==generation)return;if(!Object.values(current.groups).some(g=>g.ok))throw Error('No source completed successfully. Your watch has not been saved.');if(s.type==='projects'&&!current.groups.projects?.items.length)throw Error('None of the selected projects is currently published.');commit(existing?watches.map(x=>x.id===w.id?w:x):[...watches,C.reviewed(w,current)]);results.set(w.id,current);selection=w.id;hideForm();selectFollowingTab('updates',true);say(existing?'Watch settings updated. Previous review baselines were preserved; changed coverage needs review.':'Watch saved. Its current published records form the baseline; future net changes will appear here.');}catch(error){if(run===generation)say(error.message,true);}finally{if(run===generation){busy=false;save.disabled=false;render();}}});
+ el.addEventListener('submit',async e=>{e.preventDefault();if(busy)return;const run=++generation;try{if(!seed.editWatchId&&watches.filter(w=>w.id!==C.savedWatchId).length>=C.customLimit)throw Error('This browser supports '+C.customLimit+' custom watches, plus automatic saved projects.');let s={type:type.value,radius:Number(radius.value),projectsOnly:seed.projectsOnly};if(s.type==='station'){const station=railStations.find(x=>x[0]===target.value);if(!station)throw Error('Choose a station.');s.geometry={type:'Point',coordinates:[station[2],station[1]]};}else if(['route','bus'].includes(s.type))s.key=target.value;else if(s.type==='projects')s.ids=seed.type==='projects'?seed.ids:savedIds();else{const area=seed.type==='area'?seed:studyAreaGeometry;if(!area)throw Error('Draw a study area before saving this watch.');if(area.geometry){s.geometry=area.geometry;s.radius=area.radius;}else if(area.type==='buffer'){s.geometry={type:'Point',coordinates:[area.center[1],area.center[0]]};s.radius=area.radiusMeters;}else{const ring=area.points.map(p=>[p.lng,p.lat]);ring.push([...ring[0]]);s.geometry={type:'Polygon',coordinates:[ring]};s.radius=0;}}s=C.scope(s);const duplicate=watches.find(w=>w.id!==seed.editWatchId&&w.id!==C.savedWatchId&&C.stable(w.scope)===C.stable(s));if(duplicate){selection=duplicate.id;hideForm();selectFollowingTab('updates',true);render();say('You already watch this selection.');if(!results.has(duplicate.id))check(false);return;}const existing=seed.editWatchId?watches.find(w=>w.id===seed.editWatchId):null;if(seed.editWatchId&&!existing)throw Error('This watch is no longer available.');const w={...(existing||{id:crypto.randomUUID(),createdAt:new Date().toISOString(),baseline:{}}),name:name.value.trim(),scope:s};if(!w.name)throw Error('Enter a watch name.');busy=true;render();save.disabled=true;say('Establishing the first published-data baseline…');await window.tracksideAppReady;if(run!==generation)return;const data=await sources([w],false),current=await build(w,data);if(run!==generation)return;if(!Object.values(current.groups).some(g=>g.ok))throw Error('No source completed successfully. Your watch has not been saved.');if(s.type==='projects'&&!current.groups.projects?.items.length)throw Error('None of the selected projects is currently published.');commit(existing?watches.map(x=>x.id===w.id?w:x):[...watches,C.reviewed(w,current)]);results.set(w.id,current);selection=w.id;hideForm();selectFollowingTab('updates',true);say(existing?'Watch settings updated. Previous review baselines were preserved; changed coverage needs review.':'Watch saved. Its current published records form the baseline; future net changes will appear here.');}catch(error){if(run===generation)say(error.message,true);}finally{if(run===generation){busy=false;save.disabled=false;render();}}});
 }
 function download(name,content,type){const url=URL.createObjectURL(new Blob([content],{type})),a=N('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 $('digestAdd').addEventListener('click',()=>form());$('digestSaved').addEventListener('click',()=>selectFollowingTab('saved'));$('digestCheck').addEventListener('click',()=>check(true));$('digestExport').addEventListener('click',()=>download('trackside-watches.json',JSON.stringify({version:1,watches}),'application/json'));
 const picker=N('input');picker.type='file';picker.accept='.json';picker.hidden=true;picker.id='digestImportFile';dialog.append(picker);$('digestImport').addEventListener('click',()=>picker.click());picker.addEventListener('change',async()=>{const file=picker.files[0];if(!file)return;try{if(file.size>C.maxBytes)throw Error('Watch backup is too large.');const imported=C.parse(await file.text()).map(w=>w.id===C.savedWatchId?{...w,id:crypto.randomUUID(),name:w.name+' (imported watch)'}:w);if(storageError){if(!confirm('Restore watches from this validated backup? A copy of the unreadable saved state will be downloaded before replacement.'))return;const raw=localStorage.getItem(C.storageKey);if(raw)download('trackside-unreadable-watches.txt',raw,'text/plain');}const next=[...watches];for(const w of imported){const same=next.find(x=>C.stable(x.scope)===C.stable(w.scope));if(!same)next.push({...w,id:next.some(x=>x.id===w.id)?crypto.randomUUID():w.id});}commit(next);results.clear();render();say('Watch backup imported. Choose Check live sources; no imported record is treated as current until checked.');}catch(e){say(e.message,true);}finally{picker.value='';}});
-window.addEventListener('storage',e=>{if(e.key!==C.storageKey)return;generation++;busy=false;read();results.clear();if(dialog.open){say(storageError||'Watches changed in another tab. Choose Check live sources before reviewing.',!!storageError);render();}});
+window.addEventListener('storage',e=>{if(e.key!==C.storageKey)return;generation++;busy=false;read();results.clear();if(dialog.open){say(storageError||'Watches changed in another tab. Choose Check live sources before reviewing.',!!storageError);render();}else window.TracksideDigestMapReview?.refresh();});
 function setupFollowing(){
  $('digestTitle').textContent='Following';$('digestCheck').textContent='Check for updates';$('digestClose').setAttribute('aria-label','Close Following');dialog.querySelector('.digest-head p').textContent='Published changes and approved coverage for the projects, stations, routes and places you follow.';
  const scroll=dialog.querySelector('.digest-scroll'),oldActions=scroll.querySelector('.digest-actions'),grid=scroll.querySelector('.digest-grid'),formHost=$('digestFormHost');
@@ -127,8 +281,8 @@ function setupFollowing(){
 function applyFollowingTab(){for(const[key,panel]of Object.entries(followingPanels)){const active=key===followingTab;panel.hidden=!active;const tab=$('followingTab_'+key);tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;}}
 function selectFollowingTab(key,force=false){if(!followingPanels[key])return false;if(key!==followingTab&&!force&&!mayLeave())return false;if(key!==followingTab&&formDirty)hideForm();followingTab=key;applyFollowingTab();renderFollowingTab();return true;}
 function renderFollowingTab(){applyFollowingTab();if(followingTab==='saved')renderSavedBookmarks();else if(followingTab==='manage')renderManagedWatches();else renderResult(selectedWatch());}
-function bookmarkIds(){let raw;try{raw=localStorage.getItem(typeof projectStorageKey==='string'?projectStorageKey:'trackside-atl-projects-v1');}catch{throw Error('Saved projects cannot be read in this browser. Existing follow baselines were retained.');}if(raw===null)return savedIds();let rows;try{rows=JSON.parse(raw);}catch{throw Error('The saved-project cache is unreadable. Existing follow baselines were retained.');}if(!Array.isArray(rows))throw Error('The saved-project cache is invalid. Existing follow baselines were retained.');return [...new Set(rows.filter(p=>p?.saved&&p.id).map(p=>String(p.id)))].sort();}
-function hydrateSavedFlags(){try{const ids=new Set(bookmarkIds());if(typeof projects!=='undefined')for(const p of projects)p.saved=ids.has(p.id);return true;}catch{return false;}}
+function bookmarkIds(){try{return [...readSavedProjectIds()].sort();}catch{throw Error('The saved-project cache could not be read. Existing follow baselines were retained.');}}
+function hydrateSavedFlags(){try{const ids=new Set(bookmarkIds());if(typeof projects!=='undefined')for(const p of projects)p.saved=ids.has(String(p.id));return true;}catch{return false;}}
 function savedStatus(id){const auto=watches.find(w=>w.id===C.savedWatchId);return{following:!!auto?.baseline?.projects?.items.some(r=>r.id===id),pending:!auto?.baseline?.projects?.items.some(r=>r.id===id)};}
 function refreshBookmarkUi(){if(typeof selected!=='undefined'&&selected&&typeof updateSaveToggle==='function'){const p=projects.find(p=>p.id===selected);if(p)updateSaveToggle(p);const hint=$('followingBookmarkStatus');if(hint){hint.hidden=!p?.saved||savedStatus(selected).following;hint.textContent=hint.hidden?'':'Saved. Following updates are pending a successful published-data check.';}}}
 async function syncSavedProjects(){

@@ -1,16 +1,20 @@
 /* Trackside ATL interface palette. Map and status colors live with their layers. */
+:root {
+  --brand-blue: #174a83;
+  --brand-navy: #122e54;
+  --brand-blue-soft: #eaf2fc;
+  --brand-blue-hover: #dce9f9;
+  --brand-blue-line: #c7d8ed;
+  --brand-blue-strong-line: #86a9ce;
+  --brand-yellow: #ffd45c;
+  --brand-yellow-soft: #fff5d5;
+  --brand-orange: #ffad6e;
+  --brand-orange-hover: #ffc299;
+  --brand-orange-ink: #843600;
+}
+
 @media screen {
   :root {
-    --brand-blue: #174a83;
-    --brand-navy: #122e54;
-    --brand-blue-soft: #eaf2fc;
-    --brand-blue-hover: #dce9f9;
-    --brand-blue-line: #c7d8ed;
-    --brand-yellow: #ffd45c;
-    --brand-yellow-soft: #fff5d5;
-    --brand-orange: #ffad6e;
-    --brand-orange-hover: #ffc299;
-    --brand-orange-ink: #843600;
     --ink: #182b43;
     --muted: #53657b;
     --cream: #f3f6fb;
@@ -182,18 +186,58 @@
   }
 
   body :is(.map-share-copy, .map-share-preview, .shape-primary, .walk-button.primary,
-    .coord-view-actions button:first-child, .coord-view-controls .land-button[aria-pressed=true],
-    .following-tabs [aria-selected=true], .guide-topic[aria-pressed=true],
-    .sr2t-tabs button[aria-pressed=true], .sr2t-save-footer #sr2tSave) {
+    .following-tabs [aria-selected=true], .guide-topic[aria-pressed=true]) {
     background: var(--brand-blue);
     border-color: var(--brand-blue);
     color: #fffefa;
   }
 
-  body :is(.bus-list button[aria-pressed=true], .sr2t-site[aria-pressed=true]) {
-    background: var(--brand-yellow-soft);
-    border-color: #ebc982;
-    color: var(--brand-navy);
+
+  :where(.coord-dialog, .coord-briefing-preview, .field-dialog, #infrastructureProfile) .land-button {
+    background: var(--brand-blue-soft);
+    border-color: var(--brand-blue-line);
+    color: var(--brand-blue);
+  }
+
+  :where(.coord-dialog, .coord-briefing-preview, .field-dialog, #infrastructureProfile) .land-button:hover:where(:not(:disabled)) {
+    background-color: var(--brand-blue-hover);
+  }
+
+  :where(.coord-dialog, .coord-briefing-preview, .field-dialog, #infrastructureProfile)
+    :is(.land-link, .land-project-name, .land-button, input, select, textarea, summary):focus-visible {
+    outline: 2px solid var(--brand-blue);
+    outline-offset: 2px;
+  }
+
+  :where(.coord-dialog, .field-dialog, #infrastructureProfile) input:is([type=checkbox], [type=radio]) {
+    accent-color: var(--brand-blue);
+  }
+
+  :where(.coord-dialog, .field-dialog) input[type=file]::file-selector-button {
+    background: var(--brand-blue-soft);
+    border: 1px solid var(--brand-blue-line);
+    border-radius: 6px;
+    color: var(--brand-blue);
+    padding: 6px 10px;
+  }
+
+  .sr2t-stop-popup .land-button {
+    background: var(--brand-blue-soft);
+    border-color: var(--brand-blue-line);
+  }
+
+  #infrastructureProfile :is(.land-banner, .land-stats > div, .land-selected) {
+    background: var(--brand-blue-soft);
+    border-color: var(--brand-blue-line);
+    color: var(--ink);
+  }
+
+  #infrastructureProfile :is(.land-window, .land-arc-reference) {
+    border-color: var(--line);
+  }
+
+  #infrastructureProfile .land-message {
+    color: var(--muted);
   }
 
   body .ts-place-submit,
@@ -277,10 +321,11 @@
 
   .auth-status.success,
   .report-status.success {
-    color: #136647;
+    color: var(--brand-blue);
   }
 
   .station-buffer-note i {
-    border-color: #136647;
+    border-color: var(--brand-blue);
+    background: #174a8326;
   }
 }

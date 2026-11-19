@@ -5,7 +5,17 @@ if(window.TracksidePlaceSearch||!window.TracksidePlaceSearchCore||typeof map==='
 const projectInput=document.getElementById('search'),original=projectInput?.closest('.search');if(!original)return;
 const make=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
 const sidebar=document.getElementById('projectSidebar'),mapArea=document.querySelector('.map-area');if(!sidebar||!mapArea)return;
-original.classList.add('ts-project-search');sidebar.querySelector('.intro').after(original);
+original.classList.add('ts-project-search');
+const projectSearch=make('div','ts-project-search-row');
+const clearProject=make('button','ts-project-clear','×');
+clearProject.type='button';
+clearProject.setAttribute('aria-label','Clear project search');
+clearProject.title='Clear project search';
+clearProject.addEventListener('click',()=>{projectInput.focus();removeActiveFilter('search');});
+sidebar.querySelector('.intro').after(projectSearch);
+projectSearch.append(original,clearProject);
+function syncProjectSearch(){clearProject.hidden=!projectInput.value;}
+syncProjectSearch();
 projectInput.placeholder='Search projects…';projectInput.setAttribute('aria-label','Search projects');
 const root=make('div','ts-place-search'),row=make('div','ts-place-search-row'),field=make('label','search ts-map-search');root.id='tracksidePlaceSearch';root.setAttribute('role','search');root.setAttribute('aria-label','Find an address or place');mapArea.append(root);root.append(row);row.append(field);
 const icon=original.querySelector('svg')?.cloneNode(true);if(icon){icon.setAttribute('aria-hidden','true');field.append(icon);}
@@ -30,7 +40,7 @@ async function serviceBoundaries({signal}={}){
  const result=await boundaryPending;if(signal?.aborted){const error=Error('Canceled');error.name='AbortError';throw error;}return result;
 }
 const client=window.TracksideParcelSearchCore.createSearch({parcels:parcelClient,places:placeClient,boundaries:serviceBoundaries});
-let controller=null,generation=0,marker=null,parcelOutline=null,selectedPlace=null,lastRows=[],busy=false;
+let controller=null,generation=0,marker=null,parcelOutline=null,selectedPlace=null,busy=false;
 function openPanel(){panel.hidden=false;}
 function closePanel(focus=false){if(focus)placeInput.focus({preventScroll:true});panel.hidden=true;}
 function message(text,error=false){status.textContent=text;status.classList.toggle('error',error);}
@@ -50,11 +60,11 @@ async function selectPlace(place){
  if(place.source?.viewer){const source=make('a','','Official parcel viewer ↗');source.href=place.source.viewer;source.target='_blank';source.rel='noopener noreferrer';popup.append(source);}
  const remove=make('button','','Remove search pin');remove.type='button';remove.addEventListener('click',clearPin);popup.append(remove);
  marker=L.marker([place.lat,place.lon],{title:place.title,alt:'Search location: '+place.title,zIndexOffset:900,bubblingMouseEvents:false,icon:L.divIcon({className:'ts-place-marker',html:'<span aria-hidden="true"></span>',iconSize:[26,34],iconAnchor:[13,34],popupAnchor:[0,-32]})}).addTo(map).bindPopup(popup,{maxWidth:290});
- selectedPlace={...place};clear.hidden=false;closePanel();map.invalidateSize();if(place.feature){parcelOutline=L.geoJSON(place.feature,{style:{color:'#136647',weight:3,fillColor:'#82aa72',fillOpacity:.15},interactive:false}).addTo(map);map.fitBounds(parcelOutline.getBounds(),{padding:[45,45],maxZoom:18});}else map.setView([place.lat,place.lon],17);marker.openPopup();
+ selectedPlace={...place};clear.hidden=false;closePanel();map.invalidateSize();if(place.feature){parcelOutline=L.geoJSON(place.feature,{style:{color:'#174a83',weight:3,fillColor:'#174a83',fillOpacity:.15},interactive:false}).addTo(map);map.fitBounds(parcelOutline.getBounds(),{padding:[45,45],maxZoom:18});}else map.setView([place.lat,place.lon],17);marker.openPopup();
  document.dispatchEvent(new CustomEvent('trackside:place-selected',{detail:{title:place.title,lat:place.lat,lon:place.lon,kind:place.kind,sourceId:place.sourceId}}));
  }catch(e){if(token===generation&&e.name!=='AbortError'){openPanel();message(e.message||'The selected location could not load. Search again.',true);}}finally{if(token===generation){busy=false;controller=null;submit.disabled=false;}}
 }
-function renderRows(rows){lastRows=rows;list.replaceChildren();rows.forEach(place=>{const li=make('li'),button=make('button','ts-place-result');button.type='button';button.append(make('strong','',place.title));if(place.detail)button.append(make('span','',place.detail));button.addEventListener('click',()=>selectPlace(place));li.append(button);list.append(li);});}
+function renderRows(rows){list.replaceChildren();rows.forEach(place=>{const li=make('li'),button=make('button','ts-place-result');button.type='button';button.append(make('strong','',place.title));if(place.detail)button.append(make('span','',place.detail));button.addEventListener('click',()=>selectPlace(place));li.append(button);list.append(li);});}
 async function search(){
  if(busy)return;try{window.TracksidePlaceSearchCore.query(placeInput.value);}catch(e){openPanel();message(e.message,true);return;}cancel();const token=generation;controller=new AbortController();busy=true;submit.disabled=true;list.setAttribute('aria-busy','true');renderRows([]);openPanel();message(window.TracksideParcelSearchCore.parse(placeInput.value)?'Searching county parcel addresses…':'Finding places within the MARTA service-area jurisdictions…');
  try{const result=await client.search(placeInput.value,{signal:controller.signal});if(token!==generation)return;renderRows(result.rows);let text=result.rows.length?result.rows.length+' '+(result.supplemental?'supplemental place':'parcel address')+' result'+(result.rows.length===1?'':'s')+' found. Choose a result to locate it on the map.':result.scopeUnavailable?'Supplemental place results could not be checked against the service-area boundary. Try a numbered street address.':result.placeUnavailable?'Supplemental place search is unavailable. Try a numbered street address or retry shortly.':'No matching location found in the connected service-area sources. Try the street number and street name; parcel addresses can be missing or recorded differently.';if(result.failures.length)text+=' Parcel coverage incomplete: '+result.failures.join(', ')+' unavailable; retry to check those counties.';if(result.limited)text+=' Results limited; add more of the street name to narrow the search.';message(text,!!result.failures.length||result.scopeUnavailable||result.placeUnavailable);
@@ -64,8 +74,16 @@ async function search(){
 submit.addEventListener('click',search);close.addEventListener('click',()=>closePanel(true));clear.addEventListener('click',clearPin);
 placeInput.addEventListener('input',()=>{cancel();renderRows([]);message('Press Find or Enter to search. Project filters stay as set.');openPanel();});
 placeInput.addEventListener('focus',openPanel);placeInput.addEventListener('keydown',e=>{if(e.isComposing)return;if(e.key==='Enter'){e.preventDefault();search();}else if(e.key==='ArrowDown'){e.preventDefault();openPanel();list.querySelector('button')?.focus();}});
-root.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden){e.preventDefault();e.stopPropagation();cancel();closePanel(true);panel.hidden=true;}else if((e.key==='ArrowDown'||e.key==='ArrowUp')&&e.target.closest('.ts-place-result')){e.preventDefault();const buttons=[...list.querySelectorAll('button')],i=buttons.indexOf(e.target.closest('button')),next=i+(e.key==='ArrowDown'?1:-1);if(next<0)placeInput.focus();else buttons[Math.min(next,buttons.length-1)]?.focus();}});
+root.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden){e.preventDefault();e.stopPropagation();cancel();closePanel(true);}else if((e.key==='ArrowDown'||e.key==='ArrowUp')&&e.target.closest('.ts-place-result')){e.preventDefault();const buttons=[...list.querySelectorAll('button')],i=buttons.indexOf(e.target.closest('button')),next=i+(e.key==='ArrowDown'?1:-1);if(next<0)placeInput.focus();else buttons[Math.min(next,buttons.length-1)]?.focus();}});
 document.addEventListener('pointerdown',e=>{if(!root.contains(e.target))closePanel();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!root.contains(e.target))closePanel();});
-window.TracksidePlaceSearch={clear:clearPin,get selection(){return selectedPlace?{...selectedPlace}:null;},get mode(){return 'places';}};
+function find(query){
+ const mapButton=document.querySelector('.view-switch [data-view="map"]');
+ if(document.querySelector('.shell')?.classList.contains('list-mode'))mapButton?.click();
+ cancel();
+ placeInput.value=query;
+ placeInput.focus({preventScroll:true});
+ return search();
+}
+window.TracksidePlaceSearch={clear:clearPin,find,syncProjectSearch,get selection(){return selectedPlace?{...selectedPlace}:null;},get mode(){return 'places';}};
 })();

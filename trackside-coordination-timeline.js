@@ -13,6 +13,11 @@ function render(root,opts){
  const controls=N('div','coord-timeline-controls');
  function select(label,id,options,value,change){const wrap=N('label','land-field',label),el=N('select');el.id=id;for(const [v,t]of options)el.add(new Option(t,v));el.value=value;el.addEventListener('change',()=>change(el.value));wrap.append(el);controls.append(wrap);}
  if(!opts.print){select('Time scale','coordTimelineScale',[['years','Years'],['quarters','Quarters'],['months','Months']],opts.scale,opts.onScale);select('Visible period','coordTimelineFit',[['route',opts.existingService?'Fit project dates':'Fit route dates'],['all','Fit all dates']],opts.fit,opts.onFit);head.append(controls);}root.append(head);
+ if(!opts.print&&opts.dateSources?.length){
+  const evidence=N('div','land-actions');
+  for(const source of opts.dateSources){const link=N('a','land-link','Route '+source.label.toLowerCase()+' ↗');link.href=source.url;link.target='_blank';link.rel='noopener noreferrer';evidence.append(link);}
+  root.append(evidence);
+ }
  if(opts.loading||opts.unavailable){root.append(N('p','land-message',opts.loading?'Loading the construction timeline…':'Infrastructure sources are unavailable. A project timeline cannot be drawn until sources load.'));return;}
  const model=C.timelineModel({start:opts.start,finish:opts.finish,rows:opts.items,fit:opts.fit}),axis=C.timelineTicks(model,opts.scale);
  const explanation=opts.existingService?'Visible period fits the available infrastructure project dates.':model.basis==='fallback'?'No usable dates are published. The calendar is shown for orientation only.':opts.fit==='route'&&model.basis==='all'?'Route dates are unavailable or invalid; the visible period fits the available project dates.':'Visible period: '+model.firstYear+'–'+(model.lastYear-1)+'.';
@@ -43,12 +48,12 @@ function render(root,opts){
   if(hasToday){const line=N('i','coord-time-today');line.style.left=pct(todayPosition);line.title='Today';track.append(line);}
   const mark=C.timelineMark(window,model);
   if(['complete','start-only','finish-only'].includes(mark.kind)){
-   const color=route&&/^#[0-9a-f]{6}$/i.test(opts.route.color)?opts.route.color:route?'#136647':state==='overlap'?'#b85d35':window.kind!=='complete'?'#8066a8':'#78937b';
+   const color=route&&/^#[0-9a-f]{6}$/i.test(opts.route.color)?opts.route.color:route?'#174a83':state==='overlap'?'#b85d35':window.kind!=='complete'?'#8066a8':'#667d9b';
    const bar=N('span','coord-time-bar'+(route?' route':'')+(mark.kind!=='complete'?' endpoint':'')+(mark.approximate?' approximate':''));bar.style.left=pct(mark.left);bar.style.width=pct(mark.width);bar.style.backgroundColor=color;track.append(bar);
    if(mark.kind==='complete')for(const cap of mark.caps){const hatch=N('span','coord-time-uncertainty');hatch.style.left=pct(cap.left);hatch.style.width=pct(cap.width);track.append(hatch);}
    if(mark.clippedStart)track.append(N('span','coord-time-clipped before','‹'));if(mark.clippedFinish)track.append(N('span','coord-time-clipped after','›'));
    if(mark.kind!=='complete')track.append(N('small','coord-time-incomplete',mark.kind==='start-only'?'Start window only · finish unknown':'Finish window only · start unknown'));
-  }else{const text={unknown:'Dates not published',invalid:'Dates need review',before:'Before visible period — choose “Fit all dates”',after:'After visible period — choose “Fit all dates”'};track.append(N('span','coord-time-empty',text[mark.kind]));}
+  }else{const text={unknown:'Timing unknown',invalid:'Dates need review',before:'Before visible period — choose “Fit all dates”',after:'After visible period — choose “Fit all dates”'};track.append(N('span','coord-time-empty',text[mark.kind]));}
   el.append(label,track);return el;
  }
  const startLabel=opts.study?L.dateLabel(opts.start):opts.routeStartLabel||L.dateLabel(opts.start),finishLabel=opts.study?L.dateLabel(opts.finish):opts.routeFinishLabel||L.dateLabel(opts.finish);

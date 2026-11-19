@@ -1,13 +1,9 @@
 const assert = require('node:assert/strict');
 const {test} = require('node:test');
-const fs = require('node:fs');
-const path = require('node:path');
-const local = path.join(__dirname, '../outputs');
-const runtime = fs.existsSync(path.join(local, 'index.html')) ? local : path.join(__dirname, '..');
-const dates = require(path.join(runtime, 'trackside-infrastructure-dates.js'));
-const coordination = require(path.join(runtime, 'trackside-coordination-core.js'));
-const bus = require(path.join(runtime, 'trackside-bus-core.js'));
-const shapes = require(path.join(runtime, 'trackside-shape-data.js'));
+const dates = require('../outputs/trackside-infrastructure-dates.js');
+const coordination = require('../outputs/trackside-coordination-core.js');
+const bus = require('../outputs/trackside-bus-core.js');
+const shapes = require('../outputs/trackside-shape-data.js');
 const agency = Object.freeze({id:'atl-capital:1',sourceId:'1',name:'Test roadwork',source:{kind:'atlanta'},start:'2028-02',finish:null,scheduleType:'Anticipated construction'});
 const source_url = 'https://example.gov/schedule';
 
@@ -91,4 +87,40 @@ test('Infrastructure search matches street and linked source IDs without relying
   assert.equal(dates.matchesSearch(row,'SIDEWALK dk-104'),true);
   assert.equal(dates.matchesSearch(row,'druid briarcliff'),true);
   assert.equal(dates.matchesSearch(row,'unrelated'),false);
+});
+
+test('Date sources follow the published start and estimated finish separately', () => {
+  const primary = 'https://example.gov/construction';
+  const opening = 'https://example.gov/opening';
+  const completion = 'https://example.gov/completion-estimate';
+  const route = {
+    construction_start:'2026-10-26', start_label:'October 26, 2026 (scheduled)',
+    construction_finish:'2029', finish_label:'Mid-2029 (estimated)', source_url:primary,
+    additional_sources:[
+      {url:opening, purpose:'Passenger service, not construction finish'},
+      {url:completion, purpose:'Reported completion estimate'}
+    ]
+  };
+  assert.equal(dates.routeEndpointLabel(route,'start'),'October 26, 2026 (scheduled)');
+  assert.equal(dates.routeEndpointLabel(route,'finish'),'Mid-2029 (estimated)');
+  assert.deepEqual(dates.routeDateSources(route),[
+    {label:'Start source',url:primary},
+    {label:'Finish source',url:completion}
+  ]);
+  assert.equal(dates.routeEndpointLabel({start_label:'Not currently published'},'start'),'Not published');
+  assert.deepEqual(dates.routeDateSources({source_url:primary}),[]);
+});
+
+test('Project evidence distinguishes an agency estimate from sourced manual dates', () => {
+  const agencyUrl = 'https://example.gov/inventory';
+  const manual = dates.validate({construction_finish:'2028-08',finish_certainty:'confirmed',source_url},agency);
+  const project = dates.apply(agency,manual);
+  assert.equal(dates.endpointLabel(project,'start'),'Feb 2028 (estimated)');
+  assert.equal(dates.endpointLabel(project,'finish'),'Aug 2028 (manual, confirmed)');
+  assert.deepEqual(dates.projectDateSources(project,agencyUrl),[
+    {label:'Start source',url:agencyUrl},
+    {label:'Finish source',url:source_url}
+  ]);
+  assert.equal(dates.endpointLabel({...agency,finish:'TBD'},'finish'),'Not published');
+  assert.equal(dates.endpointLabel({...agency,finish:'2028-02-30'},'finish'),'Needs review');
 });

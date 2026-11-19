@@ -231,31 +231,38 @@
     const polys=g?.type==='Polygon'?[g.coordinates]:g?.type==='MultiPolygon'?g.coordinates:[];
     return polys.some(poly=>ringContains(p,poly[0])&&!poly.slice(1).some(r=>ringContains(p,r)));
   }
-  function pointSegment(p,a,b) {
+  function pointSegmentSquared(p,a,b) {
     const dx=b[0]-a[0],dy=b[1]-a[1],den=dx*dx+dy*dy;
     const t=den?Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/den)):0;
-    return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);
+    return (p[0]-a[0]-t*dx)**2+(p[1]-a[1]-t*dy)**2;
   }
   function segmentsCross(a,b,c,d) {
+    const tolerance=1e-7;
+    // Separated segment envelopes cannot cross, including endpoint tolerance.
+    if(Math.max(a[0],b[0])+tolerance<Math.min(c[0],d[0])||Math.max(c[0],d[0])+tolerance<Math.min(a[0],b[0])
+      ||Math.max(a[1],b[1])+tolerance<Math.min(c[1],d[1])||Math.max(c[1],d[1])+tolerance<Math.min(a[1],b[1]))return false;
     const cross=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);
     const x=cross(a,b,c),y=cross(a,b,d),z=cross(c,d,a),w=cross(c,d,b);
     if(((x>0&&y<0)||(x<0&&y>0))&&((z>0&&w<0)||(z<0&&w>0)))return true;
-    return pointSegment(a,c,d)<1e-7||pointSegment(b,c,d)<1e-7||pointSegment(c,a,b)<1e-7||pointSegment(d,a,b)<1e-7;
+    const limit=tolerance*tolerance;
+    return pointSegmentSquared(a,c,d)<limit||pointSegmentSquared(b,c,d)<limit||pointSegmentSquared(c,a,b)<limit||pointSegmentSquared(d,a,b)<limit;
   }
   // Local planar screening distance, including crossings between sparse vertices.
   function geometryDistance(a,b) {
     const pa=geometryParts(a),pb=geometryParts(b);if(!pa.length||!pb.length)return Infinity;
     if(pa.some(part=>contains(b,part[0]))||pb.some(part=>contains(a,part[0])))return 0;
     const lat=(pa[0][0][1]+pb[0][0][1])/2*Math.PI/180;
-    const project=p=>[p[0]*111195*Math.cos(lat),p[1]*111195];let min=Infinity;
-    for(const x of pa)for(const y of pb) {
-      const px=x.map(project),py=y.map(project);
+    const longitudeScale=Math.cos(lat),project=p=>[p[0]*111195*longitudeScale,p[1]*111195];
+    const projectedA=pa.map(part=>part.map(project)),projectedB=pb.map(part=>part.map(project));
+    let minSquared=Infinity;
+    for(const px of projectedA)for(const py of projectedB) {
       for(let i=0;i<px.length;i++)for(let j=0;j<py.length;j++) {
         if(i&&j&&segmentsCross(px[i-1],px[i],py[j-1],py[j]))return 0;
-        min=Math.min(min,Math.hypot(px[i][0]-py[j][0],px[i][1]-py[j][1]));
-        if(i)min=Math.min(min,pointSegment(py[j],px[i-1],px[i]));if(j)min=Math.min(min,pointSegment(px[i],py[j-1],py[j]));
+        minSquared=Math.min(minSquared,(px[i][0]-py[j][0])**2+(px[i][1]-py[j][1])**2);
+        if(i)minSquared=Math.min(minSquared,pointSegmentSquared(py[j],px[i-1],px[i]));
+        if(j)minSquared=Math.min(minSquared,pointSegmentSquared(px[i],py[j-1],py[j]));
       }
-    }return min;
+    }return Math.sqrt(minSquared);
   }
   return {text,pick,numeric,http,parcel,groupParcels,dateRange,dateLabel,schedule,category,infrastructure,joinFulton,geometryDistance,arcJurisdictions,officialIdentifiers,reconcileInfrastructure,isImportedRapidTransit};
 });

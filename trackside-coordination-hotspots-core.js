@@ -36,7 +36,8 @@ function anchor(geometry,routeGeometry){if(!geometry||!routeGeometry)return null
  const segments=lines=>lines.flatMap(line=>line.length===1?[[project(line[0]),project(line[0])]]:line.slice(1).map((p,i)=>[project(line[i]),project(p)]));
  const nearest=(p,u,v)=>{const dx=v[0]-u[0],dy=v[1]-u[1],d=dx*dx+dy*dy,t=d?Math.max(0,Math.min(1,((p[0]-u[0])*dx+(p[1]-u[1])*dy)/d)):0;return[u[0]+t*dx,u[1]+t*dy];};
  let best=null,distance=Infinity;const consider=(p,q)=>{const d=sq(p,q);if(d<distance){distance=d;best=p;}};
- for(const [u,v]of segments(a))for(const [w,x]of segments(b)){const dx=v[0]-u[0],dy=v[1]-u[1],ex=x[0]-w[0],ey=x[1]-w[1],den=dx*ey-dy*ex;
+ const projectSegments=segments(a),routeSegments=segments(b);
+ for(const [u,v]of projectSegments)for(const [w,x]of routeSegments){const dx=v[0]-u[0],dy=v[1]-u[1],ex=x[0]-w[0],ey=x[1]-w[1],den=dx*ey-dy*ex;
   if(Math.abs(den)>1e-18){const t=((w[0]-u[0])*ey-(w[1]-u[1])*ex)/den,s=((w[0]-u[0])*dy-(w[1]-u[1])*dx)/den;if(t>=0&&t<=1&&s>=0&&s<=1){best=[u[0]+t*dx,u[1]+t*dy];const result=restore(best);cache.set(geometry,result);return result;}}
   consider(u,nearest(u,w,x));consider(v,nearest(v,w,x));consider(nearest(w,u,v),w);consider(nearest(x,u,v),x);
  }

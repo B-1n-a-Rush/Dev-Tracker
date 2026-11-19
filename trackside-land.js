@@ -312,7 +312,7 @@
         ['Schedule basis',row.agencySchedule.label],
         ['Agency start',C.dateLabel(row.agencySchedule.start)],
         ['Agency finish',C.dateLabel(row.agencySchedule.finish)]
-      ]),link('Trackside construction date source ↗',row.manualSchedule.source_url));
+      ]));
       if(D.agencyChanged(row))block.append(note('Agency dates changed since the manual entry was saved. Recheck both sources.'));
       detail.append(block);
     }
@@ -532,7 +532,13 @@
     }
     let detail=$('infraSelectedProject');if(!detail){detail=node('section','land-selected');detail.id='infraSelectedProject';$('infrastructureList').before(detail);}
     const cost=C.numeric(row.cost);
-    detail.replaceChildren(node('h3','',row.name),note(row.agency),facts([['Source project / inventory ID',row.sourceId],['Municipality',row.municipality],['Published phase',row.sourceStatus||'Not published'],['Published status',row.raw.Status&&row.raw.Status!==row.sourceStatus?row.raw.Status:null],['Type',row.kind],['Program / funding',row.program],['Geometry basis',row.geometry?row.geometryBasis:'Unmapped / not spatially screened'],['Schedule basis',row.scheduleType],['Start used in screening',D.endpointLabel(row,'start')],['Finish used in screening',D.endpointLabel(row,'finish')],['Anticipated duration',row.duration],['Published activity',row.activity],['Location / limits',row.limits||row.municipality],['Contractor',row.contractor],['Published cost / budget',cost===null?C.text(row.cost):money(cost)],['Project record updated',C.dateLabel(row.updated)],['Location record / dataset updated',row.geometryUpdated?C.dateLabel(row.geometryUpdated):'']]));
+    detail.replaceChildren(node('h3','',row.name),note(row.agency),facts([['Source project / inventory ID',row.sourceId],['Municipality',row.municipality],['Published phase',row.sourceStatus||'Not published'],['Published status',row.raw.Status&&row.raw.Status!==row.sourceStatus?row.raw.Status:null],['Type',row.kind],['Program / funding',row.program],['Geometry basis',row.geometry?row.geometryBasis:'Unmapped / not spatially screened'],['Anticipated duration',row.duration],['Published activity',row.activity],['Location / limits',row.limits||row.municipality],['Contractor',row.contractor],['Published cost / budget',cost===null?C.text(row.cost):money(cost)],['Project record updated',C.dateLabel(row.updated)],['Location record / dataset updated',row.geometryUpdated?C.dateLabel(row.geometryUpdated):'']]));
+    detail.append(node('h4','','Dates used in screening'),facts([
+      ['Schedule basis',row.scheduleType],
+      ['Start',D.endpointLabel(row,'start')],
+      ['Finish',D.endpointLabel(row,'finish')]
+    ]));
+    for(const source of D.projectDateSources(row,recordUrl(row)))detail.append(link(source.label+' ↗',source.url));
     renderManualDates(detail,row);
     if(row.description)detail.append(note(row.description));
     appendArcDetails(detail,row);

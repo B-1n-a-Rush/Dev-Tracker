@@ -40,5 +40,12 @@ const service = C.screen({ route, rows, existingService: true });
 assert.equal(service.rows.find(item => item.row.id === 'intersecting').state, 'service-work');
 assert.match(service.rows[0].reason, /service hours/);
 assert.ok(service.rows.every(item => !item.overlap));
+assert.match(C.matchSummary(byId.intersecting), /Mapped geometry meets the route · Comparison dates incomplete/);
+assert.match(C.matchSummary({...shared,distance:54.864},route.name), /180 ft from Buford ART · Potential schedule overlap/);
+assert.match(C.matchSummary(complete.rows.find(item => item.row.id === 'unknown')), /Project finish unknown/);
+assert.match(C.matchSummary({...byId.invalid,distance:1,row:{...byId.invalid.row,geometryBasis:'Representative project point'}}), /Representative point 3 ft from the route · Dates need review/);
+assert.match(C.matchSummary({...shared,row:{...shared.row,source:{kind:'arc'}}}), /Planning area meets the route/);
+assert.match(C.matchSummary(service.rows.find(item => item.row.id === 'intersecting')), /Potential impact/);
+assert.equal(C.proximityLabel(0.001),'1 ft from the route');
 console.log('Coordination overlap evidence checks passed.');
 

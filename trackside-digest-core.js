@@ -6,7 +6,7 @@ const labels={name:'Name',status:'Status',source_status:'Source wording',units:'
 const txt=(x,max=400)=>String(x??'').trim().slice(0,max),stable=v=>Bus.fingerprint(v),http=v=>G.http(v),iso=v=>typeof v==='string'&&Number.isFinite(Date.parse(v))?v:'';
 function point(lng,lat){return lng!==null&&lat!==null&&lng!==''&&lat!==''&&Number.isFinite(Number(lng))&&Number.isFinite(Number(lat))?{type:'Point',coordinates:[Number(lng),Number(lat)]}:null;}
 function validateGeometry(g){let count=0;function position(p){if(!Array.isArray(p)||p.length!==2||p.some(x=>!Number.isFinite(x))||p[0]<-90||p[0]>-80||p[1]<30||p[1]>37||++count>500)throw Error('Use a study area in the MARTA region, with no more than 500 vertices.');return [...p];}if(g?.type==='Point')return{type:'Point',coordinates:position(g.coordinates)};if(g?.type==='Polygon'&&g.coordinates?.length===1){const ring=g.coordinates[0].map(position);if(ring.length<4||JSON.stringify(ring[0])!==JSON.stringify(ring.at(-1)))throw Error('A study polygon needs a closed ring with at least three corners.');const area=ring.slice(1).reduce((sum,p,i)=>sum+ring[i][0]*p[1]-p[0]*ring[i][1],0);if(Math.abs(area)<1e-12)throw Error('The study polygon has no usable area.');return{type:'Polygon',coordinates:[ring]};}throw Error('Draw a buffer or polygon in Study area first.');}
-function scope(s){if(!s||!['projects','station','route','bus','area'].includes(s.type))throw Error('Unsupported watch type.');if(s.type==='projects'){const ids=[...new Set((s.ids||[]).map(x=>txt(x,160)))];if(!ids.length||ids.length>500||ids.some(x=>!x))throw Error('Choose 1–500 published project IDs.');return{type:s.type,ids:ids.sort()};}const radius=Number(s.radius??804.672);if(!Number.isFinite(radius)||radius<0||radius>(s.type==='area'?16093.44:1609.344))throw Error('Invalid watch distance.');if(['route','bus'].includes(s.type)){if(!txt(s.key,200))throw Error('Choose a route.');return{type:s.type,key:txt(s.key,200),radius};}return{type:s.type,geometry:validateGeometry(s.geometry),radius:s.geometry.type==='Polygon'?0:radius};}
+function scope(s){if(!s||!['projects','station','route','bus','area'].includes(s.type))throw Error('Unsupported watch type.');if(s.type==='projects'){const ids=[...new Set((s.ids||[]).map(x=>txt(x,160)))];if(!ids.length||ids.length>500||ids.some(x=>!x))throw Error('Choose 1–500 published project IDs.');return{type:s.type,ids:ids.sort()};}const projectWatch=s.projectsOnly===true&&['station','route'].includes(s.type)?{projectsOnly:true}:{};const radius=Number(s.radius??804.672);if(!Number.isFinite(radius)||radius<0||radius>(s.type==='area'?16093.44:1609.344))throw Error('Invalid watch distance.');if(['route','bus'].includes(s.type)){if(!txt(s.key,200))throw Error('Choose a route.');return{type:s.type,key:txt(s.key,200),radius,...projectWatch};}return{type:s.type,geometry:validateGeometry(s.geometry),radius:s.geometry.type==='Polygon'?0:radius,...projectWatch};}
 function record(type,id,title,values,extra={}){return{key:type+':'+id,type,id:String(id),title:txt(title),url:http(extra.url),updatedAt:iso(extra.updatedAt),createdAt:iso(extra.createdAt),values,...extra};}
 function project(r){const m=r.metadata||{},g=point(r.longitude,r.latitude),values={name:txt(r.name),status:txt(r.status),source_status:txt(r.source_status),units:r.residential_units??null,hotel:m.hotel_units??null,retail:m.retail_space_sq_ft??null,commercial:m.commercial_space_sq_ft??null,medical:m.medical_space_sq_ft??null,type:txt(r.project_type),subtypes:r.subtypes||[],source:http(r.source_url),verified:txt(m.last_verified_at),location:g?.coordinates||null};return record('project',r.id,r.name,values,{geometry:g,url:http(r.source_url),updatedAt:iso(r.updated_at),createdAt:iso(r.created_at)});}
 function news(a,p){return record('news',a.id,a.title,{article:txt(a.title,500),publisher:txt(a.publisher),published:iso(a.published_at),projectId:p.id,projectName:p.title},{geometry:p.geometry,url:http(a.url),createdAt:iso(a.reviewed_at)});}
@@ -23,13 +23,86 @@ function overlapRecords(records,now=Date.now()){
  for(let i=0;i<eligible.length;i++)for(let j=i+1;j<eligible.length;j++){const a=eligible[i],b=eligible[j];for(const x of a.windows)for(const y of b.windows){const first=Math.max(x.first,y.first),last=Math.min(x.last,y.last);if(first>last||last<now)continue;const id=[a.key,b.key].sort().join('|')+'|'+x.id+'|'+y.id;items.push(record('overlap',id,a.title+' + '+b.title,{members:[a.key,b.key],start:new Date(first).toISOString().slice(0,10),finish:new Date(last).toISOString().slice(0,10),certainty:x.certainty==='confirmed'&&y.certainty==='confirmed'?'Confirmed source dates · potential interaction':'Estimated / uncertain dates · potential interaction',basis:'Same watched route or area; physical overlap and service interruption are not established.'},{sourceGroups:[...new Set([a.sourceGroup,b.sourceGroup].filter(Boolean))]}));}}
  return{items,ok:true,error:''};
 }
-async function snapshot(w,data,yieldUI=async()=>{}){const s=scope(w.scope),geometry=['route','bus'].includes(s.type)?data.geometry:s.geometry,signature=s.type==='projects'?stable(s):stable({s,geometry});if(s.type!=='projects'&&!box(geometry))throw Error('This route has no usable geometry in the current published network. Its previous baseline is retained.');const groups={},matched=[],warnings=[];let n=0;
- for(const [name,g]of Object.entries(data.groups)){if(s.type==='projects'&&!['projects','news'].includes(name))continue;if(!g.ok){groups[name]={ok:false,error:g.error||'Source unavailable',at:g.at||data.at};continue;}const items=[];for(const r of g.items||[]){if(inside(s,r,geometry)){items.push(cleanRecord(r));matched.push({...r,sourceGroup:name});}if(++n%30===0)await yieldUI();}groups[name]={ok:true,items,at:g.at||data.at};}
- if(s.type!=='projects'){const dependencies=Object.entries(groups).filter(([k])=>k.startsWith('infra:')||k==='schedules'),failed=new Set(dependencies.filter(([,g])=>!g.ok).map(([k])=>k)),overlaps=overlapRecords(matched,data.now??Date.now());if(!dependencies.length){groups.overlaps={ok:false,error:'No construction sources were checked.',at:data.at};}else if(overlaps.ok){const held=(w.baseline?.overlaps?.items||[]).filter(r=>failed.size&&(!r.sourceGroups?.length||r.sourceGroups.some(k=>failed.has(k))));const all=new Map([...held,...overlaps.items].map(r=>[r.key,r]));groups.overlaps={ok:true,items:[...all.values()],at:data.at,partial:failed.size>0,error:failed.size?'Only available construction sources were compared; baselines involving unavailable sources are retained.':''};}else groups.overlaps={...overlaps,at:data.at};}
- return{at:data.at,signature,groups,warnings};
+async function snapshot(w,data,yieldUI=async()=>{}){const s=scope(w.scope),geometry=['route','bus'].includes(s.type)?data.geometry:s.geometry,signature=s.type==='projects'?stable(s):stable({s,geometry});if(s.type!=='projects'&&!box(geometry))throw Error('This route has no usable geometry in the current published network. Its previous baseline is retained.');const groups={},matched=[],warnings=[],departures=[];
+ const projectMatches=Array.isArray(data.projectMatchIds)?new Set(data.projectMatchIds):null;
+ const priorIds=new Set((w.baseline?.projects?.items||[]).map(r=>r.id));
+ let n=0;
+ for(const [name,g]of Object.entries(data.groups)){if((s.projectsOnly&&name!=='projects')||(s.type==='projects'&&!['projects','news'].includes(name)))continue;if(!g.ok){groups[name]={ok:false,error:g.error||'Source unavailable',at:g.at||data.at};continue;}const items=[];for(const r of g.items||[]){const matches=s.projectsOnly&&projectMatches?projectMatches.has(r.id):inside(s,r,geometry);if(matches){items.push(cleanRecord(r));if(!s.projectsOnly)matched.push({...r,sourceGroup:name});}else if(s.projectsOnly&&r.geometry&&priorIds.has(r.id)){departures.push(cleanRecord(r));}if(++n%30===0)await yieldUI();}groups[name]={ok:true,items,at:g.at||data.at};}
+ if(s.type!=='projects'&&!s.projectsOnly){const dependencies=Object.entries(groups).filter(([k])=>k.startsWith('infra:')||k==='schedules'),failed=new Set(dependencies.filter(([,g])=>!g.ok).map(([k])=>k)),overlaps=overlapRecords(matched,data.now??Date.now());if(!dependencies.length){groups.overlaps={ok:false,error:'No construction sources were checked.',at:data.at};}else if(overlaps.ok){const held=(w.baseline?.overlaps?.items||[]).filter(r=>failed.size&&(!r.sourceGroups?.length||r.sourceGroups.some(k=>failed.has(k))));const all=new Map([...held,...overlaps.items].map(r=>[r.key,r]));groups.overlaps={ok:true,items:[...all.values()],at:data.at,partial:failed.size>0,error:failed.size?'Only available construction sources were compared; baselines involving unavailable sources are retained.':''};}else groups.overlaps={...overlaps,at:data.at};}
+ return{at:data.at,signature,groups,warnings,departures,...(s.projectsOnly?{reviewGeometry:geometry}:{})};
 }
-function changes(w,current){if(w.signature&&w.signature!==current.signature)return{coverageChanged:true,items:[],missing:0,initial:[],errors:[]};const result=[],initial=[],errors=[];let missing=0;for(const [group,g]of Object.entries(current.groups)){if(!g.ok){errors.push({group,error:g.error});continue;}const old=w.baseline?.[group];if(!old){initial.push(group);continue;}const before=new Map(old.items.map(r=>[r.key,r])),after=new Set();for(const r of g.items){after.add(r.key);const a=before.get(r.key);if(!a){if(group==='overlaps'&&r.sourceGroups?.some(k=>!w.baseline?.[k]))continue;result.push({key:group+'|'+r.key,group,record:r,kind:r.type==='news'?'new-coverage':r.type==='overlap'?'new-overlap':r.createdAt&&Date.parse(r.createdAt)>Date.parse(old.at)?'new-record':'new-in-watch',fields:[],checkedAt:g.at,baselineAt:old.at});continue;}const fields=Object.keys(labels).filter(k=>JSON.stringify(a.values[k]??null)!==JSON.stringify(r.values[k]??null)).map(k=>({key:k,label:labels[k],before:a.values[k]??null,after:r.values[k]??null}));if(fields.length)result.push({key:group+'|'+r.key,group,record:r,kind:'updated',fields,checkedAt:g.at,baselineAt:old.at});}missing+=[...before.keys()].filter(k=>!after.has(k)).length;}return{coverageChanged:false,items:result,initial,errors,missing};}
-function reviewed(w,current,keys=null){if(w.signature&&w.signature!==current.signature&&keys)throw Error('Review the changed watch coverage first.');const out=structuredClone(w);out.baseline=w.signature&&w.signature!==current.signature?{}:out.baseline||{};for(const[group,g]of Object.entries(current.groups))if(g.ok){if(!keys){out.baseline[group]={at:g.at,items:g.items.map(cleanRecord)};continue;}const prior=out.baseline[group];if(!prior)continue;const selected=new Set(keys),items=new Map(prior.items.map(r=>[r.key,r]));for(const r of g.items)if(selected.has(group+'|'+r.key))items.set(r.key,cleanRecord(r));out.baseline[group]={at:prior.at,items:[...items.values()]};}out.signature=current.signature;out.reviewedAt=new Date().toISOString();return out;}
+function changes(w,current){if(w.signature&&w.signature!==current.signature)return{coverageChanged:true,items:[],missing:0,initial:[],errors:[]};const result=[],initial=[],errors=[];let missing=0;for(const [group,g]of Object.entries(current.groups)){if(!g.ok){errors.push({group,error:g.error});continue;}const old=w.baseline?.[group];if(!old){initial.push(group);continue;}const before=new Map(old.items.map(r=>[r.key,r])),after=new Set();for(const r of g.items){after.add(r.key);const a=before.get(r.key);if(!a){if(group==='overlaps'&&r.sourceGroups?.some(k=>!w.baseline?.[k]))continue;result.push({key:group+'|'+r.key,group,record:r,kind:r.type==='news'?'new-coverage':r.type==='overlap'?'new-overlap':r.createdAt&&Date.parse(r.createdAt)>Date.parse(old.at)?'new-record':'new-in-watch',fields:[],checkedAt:g.at,baselineAt:old.at});continue;}const fields=Object.keys(labels).filter(k=>JSON.stringify(a.values[k]??null)!==JSON.stringify(r.values[k]??null)).map(k=>({key:k,label:labels[k],before:a.values[k]??null,after:r.values[k]??null}));if(fields.length)result.push({key:group+'|'+r.key,group,record:r,kind:'updated',fields,checkedAt:g.at,baselineAt:old.at});}for(const r of group==='projects'?current.departures||[]:[]){if(!before.has(r.key)||after.has(r.key))continue;after.add(r.key);result.push({key:group+'|'+r.key,group,record:r,kind:'left-area',fields:[],checkedAt:g.at,baselineAt:old.at});}missing+=[...before.keys()].filter(k=>!after.has(k)).length;}return{coverageChanged:false,items:result,initial,errors,missing};}
+function reviewed(w,current,keys=null){if(w.scope.projectsOnly&&!current.groups.projects?.ok)throw Error('The published project check did not finish. Your baseline was retained.');if(w.signature&&w.signature!==current.signature&&keys)throw Error('Review the changed watch coverage first.');const out=structuredClone(w);out.baseline=w.signature&&w.signature!==current.signature?{}:out.baseline||{};for(const[group,g]of Object.entries(current.groups))if(g.ok){if(!keys){const items=g.items.map(cleanRecord);if(w.scope.projectsOnly&&group==='projects'&&w.signature===current.signature){const observed=new Set([...items,...(current.departures||[])].map(r=>r.key));for(const prior of out.baseline[group]?.items||[])if(!observed.has(prior.key))items.push(prior);}out.baseline[group]={at:g.at,items};continue;}const prior=out.baseline[group];if(!prior)continue;const selected=new Set(keys),items=new Map(prior.items.map(r=>[r.key,r]));for(const r of g.items)if(selected.has(group+'|'+r.key))items.set(r.key,cleanRecord(r));if(group==='projects')for(const r of current.departures||[])if(selected.has(group+'|'+r.key))items.delete(r.key);out.baseline[group]={at:prior.at,items:[...items.values()]};}out.signature=current.signature;out.reviewedAt=new Date().toISOString();return out;}
+
+function projectFieldUpdate(change){
+ return change.group==='projects'&&change.record.type==='project'&&change.kind==='updated'&&change.fields.length>0;
+}
+function fieldTransition(field){
+ return JSON.stringify([field.key,field.before,field.after]);
+}
+function groupUpdates(watchUpdates){
+ const cards=[],fields=new Map();
+ for(const {watch,delta} of watchUpdates){
+  for(const change of delta?.items||[]){
+   if(!projectFieldUpdate(change)){
+    cards.push({change,watches:[watch]});
+    continue;
+   }
+   for(const field of change.fields){
+    const key=JSON.stringify([change.key,fieldTransition(field)]);
+    if(!fields.has(key))fields.set(key,{change,field,watches:[]});
+    const update=fields.get(key);
+    update.watches.push(watch);
+    if(Date.parse(change.checkedAt)>Date.parse(update.change.checkedAt))update.change=change;
+   }
+  }
+ }
+ const byWatchSet=new Map();
+ for(const {change,field,watches} of fields.values()){
+  const key=JSON.stringify([change.key,watches.map(w=>w.id)]);
+  if(!byWatchSet.has(key))byWatchSet.set(key,{change:{...change,fields:[]},watches});
+  const group=byWatchSet.get(key);
+  group.change.fields.push(field);
+  if(Date.parse(change.checkedAt)>Date.parse(group.change.checkedAt)){
+   group.change={...change,fields:group.change.fields};
+  }
+ }
+ cards.push(...byWatchSet.values());
+ return cards.sort((a,b)=>Date.parse(b.change.checkedAt)-Date.parse(a.change.checkedAt)||a.change.record.title.localeCompare(b.change.record.title));
+}
+function reviewUpdateCard(watches,snapshots,card){
+ const {change}=card;
+ const ids=new Set(card.watches.map(w=>w.id));
+ const stale=()=>Error('This update changed since it was displayed. Check for updates before reviewing it.');
+ if(!ids.size||[...ids].some(id=>!watches.some(w=>w.id===id)))throw stale();
+ const selective=projectFieldUpdate(change);
+ const expected=new Set(change.fields.map(fieldTransition));
+ const at=new Date().toISOString();
+ return watches.map(w=>{
+  if(!ids.has(w.id))return w;
+  const current=snapshots.get(w.id);
+  if(!current||current.error)throw stale();
+  const observed=changes(w,current).items.find(item=>item.key===change.key&&item.kind===change.kind);
+  if(!observed)throw stale();
+  if(!selective){
+   if(JSON.stringify(observed.record.values)!==JSON.stringify(change.record.values)||observed.fields.length!==expected.size||observed.fields.some(field=>!expected.has(fieldTransition(field))))throw stale();
+   return reviewed(w,current,[change.key]);
+  }
+  const exact=observed.fields.filter(field=>expected.has(fieldTransition(field)));
+  if(exact.length!==expected.size)throw stale();
+  const next=structuredClone(w);
+  const saved=next.baseline.projects.items.find(record=>record.key===observed.record.key);
+  if(!saved)throw stale();
+  for(const field of exact){
+   if(Object.hasOwn(observed.record.values,field.key))saved.values[field.key]=structuredClone(observed.record.values[field.key]);
+   else delete saved.values[field.key];
+   if(field.key==='name')saved.title=observed.record.title;
+   if(field.key==='source')saved.url=observed.record.url;
+  }
+  next.reviewedAt=at;
+  return next;
+ });
+}
 function watch(w){if(!w||!txt(w.id,100)||!txt(w.name,100)||!iso(w.createdAt))throw Error('Invalid saved watch.');if(w.id===savedWatchId&&w.scope?.type!=='projects')throw Error('The saved-project watch must contain project IDs.');const baseline={};for(const[k,g]of Object.entries(w.baseline||{})){if(!/^(projects|news|sr2t|schedules|overlaps|infra:[a-zA-Z0-9_-]+)$/.test(k)||!iso(g.at)||!Array.isArray(g.items)||g.items.length>8000)throw Error('Invalid saved watch baseline.');const items=g.items.map(cleanRecord);if(new Set(items.map(i=>i.key)).size!==items.length)throw Error('Duplicate saved records.');baseline[k]={at:g.at,items};}return{id:txt(w.id,100),name:txt(w.name,100),scope:scope(w.scope),createdAt:w.createdAt,reviewedAt:iso(w.reviewedAt),signature:txt(w.signature,100),baseline};}
 function parse(source){if(new TextEncoder().encode(source).length>maxBytes)throw Error('Watch backup is too large.');let raw;try{raw=JSON.parse(source);}catch{throw Error('Saved watches could not be read. They have been left unchanged.');}if(raw?.version!==1||!Array.isArray(raw.watches)||raw.watches.length>limit)throw Error('Unsupported or oversized watch backup.');const rows=raw.watches.map(watch);if(rows.filter(w=>w.id!==savedWatchId).length>customLimit)throw Error('Too many custom watches.');if(new Set(rows.map(w=>w.id)).size!==rows.length)throw Error('Duplicate watch identifiers.');return rows;}
 function write(storage,watches){const clean=watches.map(watch);if(clean.filter(w=>w.id!==savedWatchId).length>customLimit)throw Error('Too many custom watches.');if(clean.length>limit)throw Error('You can keep up to '+limit+' watches.');if(new Set(clean.map(w=>w.id)).size!==clean.length)throw Error('Duplicate watch identifiers.');const json=JSON.stringify({version:1,watches:clean});if(new TextEncoder().encode(json).length>maxBytes)throw Error('Watch snapshots are too large. Remove a broad watch or export a backup first.');try{storage.setItem(storageKey,json);}catch{throw Error('Browser storage is unavailable or full. Your previous watches and review state were not replaced.');}return clean;}
@@ -44,5 +117,5 @@ function syncBookmarks(input,ids,published=[],at=new Date().toISOString()){
  return{watches:next,pending,changed:JSON.stringify(next)!==JSON.stringify(input)};
 }
 function scopeIds(ids){const result=[...new Set((ids||[]).map(x=>txt(x,160)).filter(Boolean))].sort();if(result.length>500)throw Error('Automatic following supports up to 500 saved projects. Existing watches were retained.');return result;}
-return{storageKey,savedWatchId,customLimit,limit,maxBytes,labels,scope,project,news,infrastructure,site,schedule,near,snapshot,changes,reviewed,watch,read,write,parse,stable,cleanRecord,syncBookmarks};
+return{storageKey,savedWatchId,customLimit,limit,maxBytes,labels,scope,project,news,infrastructure,site,schedule,near,snapshot,changes,reviewed,groupUpdates,reviewUpdateCard,watch,read,write,parse,stable,cleanRecord,syncBookmarks};
 });

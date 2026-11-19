@@ -44,6 +44,26 @@ function timingLabel(item) {
   }
   return labels[item.state];
 }
+function proximityLabel(distance,route='the route',geometry='Mapped geometry'){
+  if(distance===0)return geometry+' meets '+route;
+  const feet=Math.max(1,Math.round(distance/.3048)).toLocaleString('en-US');
+  return feet+' ft from '+route;
+}
+function matchSummary(item,route='the route'){
+  const basis=item.row.geometryBasis||'';
+  const geometry=/representative/i.test(basis)?'Representative point':item.row.source?.kind==='arc'||/\bARC\b/i.test(basis)?'Planning area':'Mapped geometry';
+  const distance=proximityLabel(item.distance,route,geometry);
+  const location=item.distance!==0&&geometry!=='Mapped geometry'?geometry+' '+distance:distance;
+  let timing=timingLabel(item);
+  if(item.state==='unknown'||item.state==='reference-needed'){
+    const work=constructionWindow(item.row.start,item.row.finish);
+    if(item.state==='reference-needed')timing=work.kind==='complete'?'Comparison dates incomplete':'Project and comparison dates incomplete';
+    else if(work.kind==='start-only')timing='Project finish unknown';
+    else if(work.kind==='finish-only')timing='Project start unknown';
+    else timing='Project dates unknown';
+  }
+  return location+' · '+timing;
+}
 function comparison(start,finish,a,b){return timing(constructionWindow(start,finish),constructionWindow(a,b),false).state;}
 function screen(opts){
  const {route,rows=[],start='',finish='',jurisdiction='',category='',includeCompleted=false,includeLongRange=false,includePossible=false}=opts;
@@ -113,5 +133,5 @@ function timelineTicks(domain,scale='quarters'){
  }
  return {ticks,step,requested,cellWidth:step>=12?150:scale==='months'?68:76};
 }
-return {labels,timingLabel,statuses,slug,routeKey,routeGeometry,validateDate,comparison,screen,csv,constructionWindow,overlapLabel,timelineModel,timelineMark,timelineTicks};
+return {labels,timingLabel,proximityLabel,matchSummary,statuses,slug,routeKey,routeGeometry,validateDate,comparison,screen,csv,constructionWindow,overlapLabel,timelineModel,timelineMark,timelineTicks};
 });

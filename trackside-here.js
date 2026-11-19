@@ -129,8 +129,8 @@
   }
   function draw(result,fit){
     overlay.clearLayers();
-    const circle=L.circle([result.center.lat,result.center.lng],{radius:result.radiusMeters,color:'#136647',weight:2,fillColor:'#c9ee6e',fillOpacity:.09,interactive:false}).addTo(overlay);
-    L.circleMarker([result.center.lat,result.center.lng],{radius:5,color:'#fffefa',weight:2,fillColor:'#136647',fillOpacity:1,interactive:false}).addTo(overlay);
+    const circle=L.circle([result.center.lat,result.center.lng],{radius:result.radiusMeters,color:'#174a83',weight:2,fillColor:'#174a83',fillOpacity:.09,interactive:false}).addTo(overlay);
+    L.circleMarker([result.center.lat,result.center.lng],{radius:5,color:'#fffefa',weight:2,fillColor:'#174a83',fillOpacity:1,interactive:false}).addTo(overlay);
     for(const item of result.infrastructure){const row=item.record;L.geoJSON(row.geometry,{style:{color:'#92754c',weight:3,dashArray:'5 5',fillOpacity:.04},pointToLayer:(_,p)=>L.circleMarker(p,{radius:5,color:'#92754c'})}).bindTooltip(n('span','',row.name)).on('click',()=>A.focusInfrastructure(row)).addTo(overlay);}
     for(const item of result.routes){const r=item.record;L.geoJSON(r.geometry,{style:{color:r.route.color||'#3853a4',weight:4,opacity:.7,dashArray:r.kind==='rapid'?(r.route.dashArray||'8 5'):null}}).bindTooltip(n('span','',r.name)).on('click',()=>{if(typeof showCorridorHighlight==='function')showCorridorHighlight(r);showCorridorOverview(r);}).addTo(overlay);}
     for(const item of result.projects){const p=item.record;L.circleMarker([Number(p.lat),Number(p.lng)],{radius:8,color:p.color||'#136647',weight:2,fillOpacity:.12}).bindTooltip(n('span','',p.name)).on('click',()=>show(p.id)).addTo(overlay);}
