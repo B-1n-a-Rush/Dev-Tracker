@@ -14,16 +14,17 @@ const launch=B('Coordination watchlist',()=>open());launch.id='openCoordinationW
 const corridorEntry=B('Open coordination watchlist',()=>open(selectedCorridor()));corridorEntry.id='corridorCoordinationButton';$('corridorDetail').append(corridorEntry);
 const adminEntry=B('Open infrastructure coordination watchlist',()=>{$('closeAuthModal').click();open();});adminEntry.id='adminCoordinationEntry';adminEntry.hidden=true;$('adminRouteManager').before(adminEntry);
 for(const [value,label]of Object.entries(C.statuses))$('coordReviewFilter').add(new Option(label,value));
-$('coordReviewFilter').add(new Option('Schedule changed / review checkpoint missing','needs-recheck'));
+$('coordReviewFilter').add(new Option('Schedule or alignment needs review','needs-recheck'));
 function needsScheduleRecheck(review){return !isExistingTransitRoute(currentRoute)&&!!currentRoute?.remoteId&&!!window.TracksideScheduleCoverageCore?.needsRecheck(review,scheduleFor());}
-function needsRecheck(review,row){return needsScheduleRecheck(review)||D.reviewNeeded(review,row);}
+function needsRecheck(review,row){return needsScheduleRecheck(review)||D.reviewNeeded(review,row)||alignmentChanges.has(review?.infrastructure_id);}
 let routes=[],currentRoute=null,result={rows:[],unmapped:0,duplicates:0,overlaps:0,unknown:0},filtered=[],selection=null,page=0,generation=0,busy=false,liveError='',reviews=new Map(),reviewsReady=false,reviewsError='',lastFocus=null;
 let studyWindows=new Map(),notesDirty=false,scheduleDirty=false;
+let alignmentContext=null,alignmentError='',alignmentChanges=new Map();
 let resultsView='timeline',timelineScale='years',timelineFit='route',viewsPanel=null;
 const viewControls=N('div','coord-view-controls');viewControls.setAttribute('aria-label','Watchlist result view');
 const timelineView=B('Timeline',()=>setResultsView('timeline')),listView=B('List & details',()=>setResultsView('list'));timelineView.id='coordTimelineView';listView.id='coordListView';viewControls.append(timelineView,listView);
 const timelinePanel=N('section','coord-timeline');timelinePanel.id='coordTimeline';timelinePanel.setAttribute('aria-label','Construction timeline');
-const resultsGrid=$('coordDetail').parentElement;resultsGrid.before(viewControls);resultsGrid.before(timelinePanel);$('coordDetail').after($('coordSavedExtras'));
+const resultsGrid=$('coordDetail').parentElement;resultsGrid.before(viewControls);resultsGrid.before(timelinePanel);resultsGrid.before($('coordSavedExtras'));
 function setResultsView(value){viewsPanel?.invalidate();resultsView=value;dialog.setAttribute('data-results-view',value);timelinePanel.hidden=value!=='timeline';$('coordList').hidden=$('coordPagination').hidden=value==='timeline';timelineView.setAttribute('aria-pressed',String(value==='timeline'));listView.setAttribute('aria-pressed',String(value==='list'));if(value==='timeline')renderTimeline();}
 function timelineOptions(){const [start,finish]=dates(),s=scheduleFor();return {route:currentRoute,start,finish,items:filtered,selected:selection,page,scale:timelineScale,fit:timelineFit,study:studyActive(),existingService:isExistingTransitRoute(currentRoute)&&!studyActive(),routeStartLabel:D.routeEndpointLabel(s,'start'),routeFinishLabel:D.routeEndpointLabel(s,'finish'),dateSources:studyActive()?[]:D.routeDateSources(s),loading:busy,unavailable:!A.sourceResults.some(s=>s.ok),onSelect:selectCoordinationItem,onPage:value=>{page=value;renderList();renderTimeline();},onScale:value=>{viewsPanel?.invalidate();timelineScale=value;renderTimeline();$('coordTimelineScale')?.focus({preventScroll:true});},onFit:value=>{viewsPanel?.invalidate();timelineFit=value;renderTimeline();$('coordTimelineFit')?.focus({preventScroll:true});}};}
 function renderTimeline(){if(!currentRoute||!window.TracksideCoordinationTimeline)return;window.TracksideCoordinationTimeline.render(timelinePanel,timelineOptions());}
@@ -51,11 +52,18 @@ async function loadSchedules(){
  catch(error){liveError='Live schedule service unavailable; showing the researched snapshot. '+error.message;}
 }
 async function loadReviews(token){
- reviews=new Map();reviewsReady=false;reviewsError='';if(!admin())return;
+ reviews=new Map();reviewsReady=false;reviewsError='';alignmentContext=null;alignmentError='';alignmentChanges.clear();if(!admin())return;
  if(!api?.listCoordinationReviews){reviewsError='Coordination service has not loaded. Refresh the tracker.';return;}
  const key=C.routeKey(currentRoute);
- try{const rows=await api.listCoordinationReviews(key);if(token!==generation||!admin())return;reviews=new Map(rows.map(r=>[r.infrastructure_id,r]));reviewsReady=true;}
- catch(error){if(token===generation)reviewsError='Could not load saved coordination notes: '+error.message;}
+ const [saved,alignment]=await Promise.allSettled([
+  api.listCoordinationReviews(key),currentRoute.remoteId&&api.getCoordinationAlignmentChanges?api.getCoordinationAlignmentChanges(currentRoute.remoteId):null
+ ]);
+ if(token!==generation||!admin())return;
+ if(saved.status==='fulfilled'){reviews=new Map(saved.value.map(r=>[r.infrastructure_id,r]));reviewsReady=true;}
+ else reviewsError='Could not load saved coordination notes: '+saved.reason.message;
+ if(alignment.status==='fulfilled')alignmentContext=alignment.value;
+ else alignmentError='Route alignment changes could not be checked: '+alignment.reason.message;
+
 }
 async function open(preferred){
  if(dialog.open){if(!allowNavigation())return false;}else{lastFocus=document.activeElement;dialog.showModal();}
@@ -81,6 +89,10 @@ async function openItem(route,infrastructureId,options={}){
 }
 async function refresh(force){
  const token=++generation;busy=true;viewsPanel?.setBusy(true);$('coordDetail').replaceChildren(P('Loading coordination details…'));$('coordList').replaceChildren();notesDirty=false;scheduleDirty=false;reviewsReady=false;status('Loading connected infrastructure and route schedules…');$('coordRefresh').disabled=true;$('coordCsv').disabled=$('coordPrint').disabled=true;renderSchedule();renderTimeline();
+ if(force&&currentRoute?.remoteId){
+  try{await loadRemoteTransitRoutes();if(token!==generation||!dialog.open)return false;refreshRoutes(currentRoute);}
+  catch{if(token!==generation||!dialog.open)return false;}
+ }
  await Promise.allSettled([A.loadInfrastructure(force),loadSchedules(),loadReviews(token)]);
  if(token!==generation||!dialog.open)return false;busy=false;viewsPanel?.setBusy(false);$('coordRefresh').disabled=false;
  const category=$('coordCategory'),value=category.value;category.replaceChildren(new Option('All types',''));for(const name of [...new Set(A.infrastructureRows.map(r=>r.category))].sort())category.add(new Option(name,name));if(value&&!Array.from(category.options).some(o=>o.value===value))category.add(new Option(value+' (not currently available)',value));category.value=value;
@@ -98,8 +110,23 @@ function renderSchedule(){
  if([s.construction_start,s.construction_finish].some(v=>v&&String(v).length<10))root.append(P('Month/year values are screened using their full calendar range. This preserves uncertainty; it does not set an exact construction day.'));
  if(admin()&&currentRoute?.remoteId){const editor=N('details','coord-editor');editor.append(N('summary','','Edit sourced route schedule'));root.append(editor);renderScheduleEditor(editor,s);}
 }
+function compareSavedAlignments(){
+ alignmentChanges.clear();
+ if(!admin()||!alignmentContext?.geometry)return;
+ const rows=new Map(A.infrastructureRows.map(row=>[row.id,row]));
+ for(const revision of alignmentContext.comparisons||[])for(const item of revision.items){
+  if(!reviews.has(item.infrastructure_id))continue;
+  const changed=C.alignmentChange(rows.get(item.infrastructure_id),revision.geometry,alignmentContext.geometry,Number(item.distance_m));
+  if(changed)alignmentChanges.set(item.infrastructure_id,changed);
+ }
+}
+function alignmentReason(change){
+ const feet=Math.round(change.threshold/.3048).toLocaleString();
+ return change.entered?'Route replacement moved this work within the '+feet+' ft screening distance.':'Route replacement moved this work outside the '+feet+' ft screening distance.';
+}
 function screen(){
  if(!currentRoute)return;
+ compareSavedAlignments();
  viewsPanel?.invalidate();
  const [start,finish]=dates();
  try{result=C.screen({route:currentRoute,rows:A.infrastructureRows,start,finish,distanceMeters:$('coordDistance').value,jurisdiction:$('coordJurisdiction').value,category:$('coordCategory').value,includeCompleted:$('coordCompleted').checked,includeLongRange:$('coordLongRange').checked,includePossible:$('coordDuplicates').checked,existingService:isExistingTransitRoute(currentRoute)&&!studyActive()});}
@@ -114,18 +141,30 @@ function screen(){
  if(studyActive())message+=' Using your temporary study window.';
  if((start&&!C.validateDate(start))||(finish&&!C.validateDate(finish))||(LCore.dateRange(start)&&LCore.dateRange(finish)&&LCore.dateRange(start).first>LCore.dateRange(finish).last))message+=' Comparison dates are invalid; overlap results are unavailable.';
  if(A.manualDateError)message+=' '+A.manualDateError;
- if(reviewsError)message+=' '+reviewsError;status(message);
+ if(reviewsError)message+=' '+reviewsError;
+ if(alignmentError)message+=' '+alignmentError;
+ if(alignmentChanges.size)message+=' '+alignmentChanges.size+' saved coordination '+(alignmentChanges.size===1?'item needs':'items need')+' alignment review.';
+ status(message);
  const stats=$('coordStats');stats.replaceChildren();for(const [n,label]of [[result.rows.length,'nearby projects'],[service?result.rows.filter(r=>r.state==='service-work').length:result.overlaps,service?'published work windows':'potential overlaps'],[result.unknown,'incomplete / uncertain']]){const el=N('div');el.append(N('strong','',successful?String(n):'—'),N('span','',label));stats.append(el);}
  page=Math.min(page,Math.max(0,Math.ceil(filtered.length/20)-1));if(!filtered.some(r=>r.row.id===selection))selection=filtered[0]?.row.id||null;renderList();renderDetail();renderCoverage();renderTimeline();
  $('coordCsv').disabled=$('coordPrint').disabled=busy||!successful;
 }
 function renderList(){
  const root=$('coordList');root.replaceChildren();const slice=filtered.slice(page*20,(page+1)*20);
- for(const item of slice){const r=item.row,card=B('',()=>selectCoordinationItem(r.id),'coord-row'+(selection===r.id?' selected':''));card.append(N('strong','',r.name),N('small','',[r.jurisdiction,r.category,r.agency].filter(Boolean).join(' · ')),N('span','land-badge '+item.state,C.matchSummary(item)),N('small','',D.endpointLabel(r,'start')+' → '+D.endpointLabel(r,'finish')));if(item.overlap)card.append(N('small','','Potential shared window · '+C.overlapLabel(item.overlap)));if(admin()){card.append(N('span','coord-review-state',C.statuses[reviews.get(r.id)?.status||'unreviewed']));if(needsRecheck(reviews.get(r.id),r))card.append(N('small','coord-recheck-warning','Schedule changed / review checkpoint missing'));}root.append(card);}
+ for(const item of slice){const r=item.row,card=B('',()=>selectCoordinationItem(r.id),'coord-row'+(selection===r.id?' selected':''));card.append(N('strong','',r.name),N('small','',[r.jurisdiction,r.category,r.agency].filter(Boolean).join(' · ')),N('span','land-badge '+item.state,C.matchSummary(item)),N('small','',D.endpointLabel(r,'start')+' → '+D.endpointLabel(r,'finish')));if(item.overlap)card.append(N('small','','Potential shared window · '+C.overlapLabel(item.overlap)));if(admin()){card.append(N('span','coord-review-state',C.statuses[reviews.get(r.id)?.status||'unreviewed']));const changed=alignmentChanges.get(r.id);if(changed)card.append(N('small','coord-recheck-warning',alignmentReason(changed)));if(needsScheduleRecheck(reviews.get(r.id))||D.reviewNeeded(reviews.get(r.id),r))card.append(N('small','coord-recheck-warning','Schedule changed / review checkpoint missing'));}root.append(card);}
  if(!slice.length)root.append(P('No loaded, mapped projects match these selections. Check the source coverage and unmapped inventory before concluding there is no nearby work.'));
  const pager=$('coordPagination');pager.replaceChildren();const previous=B('← Previous',()=>{page--;renderList();renderTimeline();}),next=B('Next →',()=>{page++;renderList();renderTimeline();});previous.disabled=page===0;next.disabled=(page+1)*20>=filtered.length;pager.append(previous,P(filtered.length?'Showing '+(page*20+1)+'–'+Math.min((page+1)*20,filtered.length)+' of '+filtered.length:'0 matching results'),next);
- const extras=[...reviews.values()].filter(r=>!result.rows.some(item=>item.row.id===r.infrastructure_id));$('coordSavedExtras').hidden=!admin()||!extras.length;$('coordSavedList').replaceChildren();
- for(const r of extras)$('coordSavedList').append(B(r.project_name+' · '+C.statuses[r.status],()=>{if(!allowNavigation())return;notesDirty=false;scheduleDirty=false;renderSchedule();selection=r.infrastructure_id;renderTimeline();renderDetail(r);}));
+ const extras=[...reviews.values()].filter(r=>!result.rows.some(item=>item.row.id===r.infrastructure_id));
+ const savedExtras=$('coordSavedExtras'),changedExtras=extras.filter(row=>alignmentChanges.has(row.infrastructure_id)).length;
+ savedExtras.hidden=!admin()||!extras.length;
+ savedExtras.querySelector('summary').textContent='Saved items outside these results'+(changedExtras?' · '+changedExtras+' to review':'');
+ $('coordSavedList').replaceChildren();
+ for(const r of extras){
+  const changed=alignmentChanges.get(r.infrastructure_id);
+  const entry=B(r.project_name+' · '+C.statuses[r.status],()=>{if(!allowNavigation())return;notesDirty=false;scheduleDirty=false;renderSchedule();selection=r.infrastructure_id;renderTimeline();renderDetail(r);$('coordDetail').scrollIntoView({block:'nearest'});});
+  if(changed)entry.append(N('small','coord-recheck-warning',alignmentReason(changed)));
+  $('coordSavedList').append(entry);
+ }
 }
 function sourceRecord(r){if(r.source?.kind==='fulton'){const u=new URL(r.source.url);u.search=new URLSearchParams({'$where':"project_id='"+String(r.raw?.project_id||'').replaceAll("'","''")+"'"});return u.href;}if(r.source?.url)return r.source.url+'/query?'+new URLSearchParams({f:'pjson',objectIds:String(LCore.pick(r.raw||{},['OBJECTID','ObjectId'])),outFields:'*',returnGeometry:'false'});return '';}
 function renderCoverage(){const root=$('coordCoverage');root.replaceChildren();for(const r of A.sourceResults){root.append(link(r.source.name,r.source.viewer),P(r.ok?r.count+' records retrieved'+(r.truncated?' (capped)':''):'Unavailable: '+r.error));if(r.source.coverage)root.append(P(r.source.coverage));}if(A.loadedAt)root.append(P('Infrastructure retrieved '+A.loadedAt.toLocaleString()+'. Retrieval time does not verify individual project schedules.'));}
@@ -173,7 +212,14 @@ function renderDetail(savedOnly){
  if(needsScheduleRecheck(saved))root.append(N('p','coord-recheck-warning route-checkpoint',!scheduleFor().schedule_version?'The live schedule version is unavailable. Refresh the route schedule before recording a review checkpoint.':saved.reviewed_schedule_version==null?'This saved item has no recorded schedule checkpoint. Review the current construction dates, then save the notes to record that review.':'The route construction dates changed after this item was reviewed. Check the current dates and screening before saving the follow-up again.'));
  const reviewedVersion=liveSchedules.get(String(currentRoute.remoteId))?.schedule_version??null;
  const infrastructureSnapshot=D.reviewSnapshot(row);
+ const alignmentChange=alignmentChanges.get(selection),alignmentReviewAt=alignmentContext?.latest_at;
  const form=N('form','coord-note-form');form.append(N('h4','','Coordination follow-up'),P('Visible to tracker administrators only. Saving does not change the agency source or mark a conflict as confirmed.'));
+ let acknowledge;
+ if(alignmentChange){
+  root.append(N('p','coord-recheck-warning alignment-checkpoint',alignmentReason(alignmentChange)+' Review the current location before relying on this follow-up.'));
+  const option=N('label','land-check');acknowledge=N('input');acknowledge.type='checkbox';acknowledge.id='coordAcknowledgeAlignment';
+  option.append(acknowledge,document.createTextNode(' I reviewed the changed route match'));form.append(option);
+ }
  const statusWrap=N('label','land-field','Coordination status'),select=N('select');select.id='coordEditStatus';for(const [v,label]of Object.entries(C.statuses))select.add(new Option(label,v));select.value=saved?.status||'unreviewed';statusWrap.append(select);form.append(statusWrap);
  field(form,'Assigned to','coordAssigned',saved?.assigned_to);field(form,'Agency / contact','coordContact',saved?.contact,'text',1000);field(form,'Next action','coordNextAction',saved?.next_action,'textarea',2000);field(form,'Follow-up date','coordDue',saved?.due_date,'date');field(form,'Notes','coordNotes',saved?.notes,'textarea',10000);
  if(saved)form.append(P('Last saved '+new Date(saved.updated_at).toLocaleString()+' by '+(saved.updated_by===currentAdminSession?.user?.id?'you':'an administrator')+'.'));
@@ -183,7 +229,10 @@ function renderDetail(savedOnly){
  if(row&&JSON.stringify(D.reviewSnapshot(latest))!==JSON.stringify(infrastructureSnapshot)){message.textContent='Infrastructure dates changed while this form was open. Copy your notes before reopening the project to review the new dates.';return;}
  save.disabled=true;message.textContent='Saving…';try{
   const record={route_key:key,route_id:route.remoteId?Number(route.remoteId):null,infrastructure_id:infrastructureId,project_name:row?.name||saved.project_name,source_url:row?sourceRecord(row):saved.source_url,status:select.value,assigned_to:$('coordAssigned').value.trim(),contact:$('coordContact').value.trim(),next_action:$('coordNextAction').value.trim(),due_date:$('coordDue').value||null,notes:$('coordNotes').value.trim(),reviewed_schedule_version:reviewedVersion,reviewed_infrastructure_schedule:infrastructureSnapshot??baseline?.reviewed_infrastructure_schedule??null};
-  const updated=await api.saveCoordinationReview(record,baseline);if(token!==generation||!admin())return;baseline=updated;reviews.set(infrastructureId,updated);notesDirty=false;message.textContent='Saved to the shared administrator watchlist.';if(!needsScheduleRecheck(updated))root.querySelector('.route-checkpoint')?.remove();if(!D.reviewNeeded(updated,row))root.querySelector('.infrastructure-checkpoint')?.remove();renderList();window.TracksideScheduleCoverage?.refreshIfOpen();
+   if(record.route_id&&!baseline){record.reviewed_route_distance_m=Number($('coordDistance').value);if(alignmentReviewAt)record.reviewed_route_match_at=alignmentReviewAt;}
+   const acknowledgeChange=Boolean(acknowledge?.checked&&alignmentReviewAt);
+   if(acknowledgeChange){record.reviewed_route_match_at=alignmentReviewAt;record.reviewed_route_distance_m=alignmentChange.threshold;}
+   const updated=await api.saveCoordinationReview(record,baseline);if(token!==generation||!admin())return;baseline=updated;reviews.set(infrastructureId,updated);notesDirty=false;message.textContent='Saved to the shared administrator watchlist.';if(!needsScheduleRecheck(updated))root.querySelector('.route-checkpoint')?.remove();if(!D.reviewNeeded(updated,row))root.querySelector('.infrastructure-checkpoint')?.remove();if(acknowledgeChange){alignmentChanges.delete(infrastructureId);for(const comparison of alignmentContext?.comparisons||[])comparison.items=comparison.items.filter(item=>item.infrastructure_id!==infrastructureId);root.querySelector('.alignment-checkpoint')?.remove();acknowledge.closest('label')?.remove();}renderList();window.TracksideScheduleCoverage?.refreshIfOpen();
  }catch(error){message.textContent='Could not save: '+error.message+' Your text is still in this form.';}finally{save.disabled=false;}});
  root.append(form);
 }
@@ -237,7 +286,7 @@ function renderCorridorSummary(){
 }
 const corridorSummary=N('section','coord-corridor-schedule');corridorSummary.id='corridorConstructionSchedule';corridorEntry.before(corridorSummary);
 const originalCorridor=showCorridorOverview;showCorridorOverview=function(...args){const value=originalCorridor(...args);renderCorridorSummary();return value;};
-const originalAdmin=updateAdminUi;updateAdminUi=function(...args){const value=originalAdmin(...args);adminEntry.hidden=!admin();if(!admin()){reviews.clear();reviewsReady=false;window.TracksideCoordinationBriefing?.close();$('coordPrintReport')?.remove();document.body.classList.remove('coord-printing');}if(dialog.open){notesDirty=false;scheduleDirty=false;if(admin())loadReviews(generation).then(()=>{if(dialog.open)screen();});else screen();renderSchedule();}return value;};adminEntry.hidden=!admin();
+const originalAdmin=updateAdminUi;updateAdminUi=function(...args){const value=originalAdmin(...args);adminEntry.hidden=!admin();if(!admin()){reviews.clear();reviewsReady=false;alignmentContext=null;alignmentChanges.clear();alignmentError='';window.TracksideCoordinationBriefing?.close();$('coordPrintReport')?.remove();document.body.classList.remove('coord-printing');}if(dialog.open){notesDirty=false;scheduleDirty=false;if(admin())loadReviews(generation).then(()=>{if(dialog.open)screen();});else screen();renderSchedule();}return value;};adminEntry.hidden=!admin();
 const watched=['coordDistance','coordJurisdiction','coordCategory','coordCompleted','coordLongRange','coordDuplicates','coordFilter','coordReviewFilter'],previous=new Map();
 function remember(){for(const id of watched){const el=$(id);previous.set(id,{value:el.value,checked:el.checked});}}
 for(const id of watched)$(id).addEventListener('change',()=>{if(!allowNavigation()){const old=previous.get(id);if(old)Object.assign($(id),old);return;}notesDirty=false;scheduleDirty=false;renderSchedule();page=0;screen();remember();});
@@ -252,7 +301,7 @@ function currentPublicView(){
 }
 async function applyPublicView(input){
  const view=window.TracksideCoordinationViewsCore.normalize(input);await window.tracksideAppReady;if(!allowNavigation())return false;
- refreshRoutes();const match=routes.find(r=>C.routeKey(r)===view.route)||(/^rapid:(?!\d+$)/.test(view.route)?routes.find(r=>r.kind==='rapid'&&C.slug(r.slug||r.name)===view.route.slice(6)):null);
+ refreshRoutes();const match=routes.find(r=>C.routeKey(r)===view.route)||(/^rapid:(?!\d+$)/.test(view.route)?routes.find(r=>r.kind==='rapid'&&[r.slug||r.name,TracksideTransitCatalog.legacyName(r)].filter(Boolean).some(name=>C.slug(name)===view.route.slice(6))):null);
  if(!match)throw Error('The route in this view is no longer published or could not be loaded. No substitute route was used.');
  if(!dialog.open){lastFocus=document.activeElement;dialog.showModal();}setMapLayersMenuOpen(false);notesDirty=false;scheduleDirty=false;
  currentRoute=match;$('coordRoute').value=C.routeKey(match);$('coordDistance').value=view.distance;$('coordJurisdiction').value=view.jurisdiction;

@@ -88,6 +88,12 @@ function screen(opts){
  const rank={'service-work':0,overlap:0,unknown:1,'reference-needed':1,invalid:2,outside:3};result.sort((a,b)=>rank[a.state]-rank[b.state]||a.distance-b.distance||a.row.name.localeCompare(b.row.name));
  return {rows:result,unmapped,duplicates,overlaps:result.filter(r=>r.state==='overlap').length,unknown:result.filter(r=>r.state==='unknown'||r.state==='reference-needed'||r.state==='invalid').length};
 }
+function alignmentChange(project,previous,current,threshold){
+ if(!project?.geometry||!previous||!current||!Number.isFinite(threshold)||threshold<0||threshold>1609.344)return null;
+ const wasNear=nearDistance(project.geometry,previous,threshold)<=threshold;
+ const isNear=nearDistance(project.geometry,current,threshold)<=threshold;
+ return wasNear===isNear?null:{entered:isNear,threshold};
+}
 function csv(rows){const cell=v=>{let s=String(v??'');if(/^[\s]*[=+@-]|^[\t\r]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';};return '\ufeff'+rows.map(r=>r.map(cell).join(',')).join('\r\n');}
 // Timeline geometry is display-only. A missing endpoint never becomes a duration.
 function constructionWindow(start,finish){
@@ -133,5 +139,5 @@ function timelineTicks(domain,scale='quarters'){
  }
  return {ticks,step,requested,cellWidth:step>=12?150:scale==='months'?68:76};
 }
-return {labels,timingLabel,proximityLabel,matchSummary,statuses,slug,routeKey,routeGeometry,validateDate,comparison,screen,csv,constructionWindow,overlapLabel,timelineModel,timelineMark,timelineTicks};
+return {labels,timingLabel,proximityLabel,matchSummary,statuses,slug,routeKey,routeGeometry,validateDate,comparison,screen,alignmentChange,csv,constructionWindow,overlapLabel,timelineModel,timelineMark,timelineTicks};
 });

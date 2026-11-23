@@ -3,6 +3,7 @@
   if (!config?.url || !config?.publishableKey) return;
 
   const sessionKey = 'trackside-supabase-session-v1';
+  const publicRouteCheck = window.parent && window.parent !== window && /^[a-f0-9]{32}$/.test(new URL(window.location.href).searchParams.get('public-route-check') || '');
   const authUrl = `${config.url}/auth/v1`;
   const restUrl = `${config.url}/rest/v1`;
   const functionsUrl = `${config.url}/functions/v1`;
@@ -26,6 +27,7 @@
   let expiringSession = null;
 
   const readSession = () => {
+    if (publicRouteCheck) return null;
     try {
       return JSON.parse(localStorage.getItem(sessionKey)) || null;
     } catch {
@@ -186,6 +188,7 @@
   };
 
   async function consumeAuthRedirect() {
+    if (publicRouteCheck) return null;
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const query = new URLSearchParams(window.location.search);
     const error = hash.get('error_description') || query.get('error_description');
@@ -272,7 +275,7 @@
     };
     if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
     try {
-      return await request(`${restUrl}/${path}`, { ...options, headers });
+      return await request(`${restUrl}/${path}`, { ...options, headers, ...(publicRouteCheck ? {cache: 'no-store'} : {}) });
     } catch (error) {
       const authorizationEnded = requireAuth && (
         error?.status === 401 ||
@@ -468,11 +471,18 @@
     const clean=Object.fromEntries(keys.filter(key=>record[key]!==undefined).map(key=>[key,record[key]]));
     return saveCoordinationRecord('route_construction_schedules',clean,baseline,['route_id']);
   }
-  async function listCoordinationReviews(routeKey) {
-    return dataRequest('infrastructure_coordination_reviews?select=*&route_key=eq.'+encodeURIComponent(routeKey)+'&order=updated_at.desc',{},true);
+  async function listCoordinationReviews(routeKey,{summary=false}={}) {
+    const fields = summary ? 'infrastructure_id,project_name' : '*';
+    return dataRequest('infrastructure_coordination_reviews?select='+fields+'&route_key=eq.'+encodeURIComponent(routeKey)+'&order=updated_at.desc',{},true);
+  }
+  async function getCoordinationAlignmentChanges(routeId) {
+    if(!/^\d+$/.test(String(routeId)))throw new Error('Choose a published route.');
+    return dataRequest('rpc/coordination_alignment_changes',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_route_id:routeId})
+    },true);
   }
   async function saveCoordinationReview(record, baseline) {
-    const keys=['route_key','route_id','infrastructure_id','project_name','source_url','status','assigned_to','contact','next_action','due_date','notes','reviewed_schedule_version','reviewed_infrastructure_schedule','bus_decision','bus_concerns','bus_resolution','reviewed_match_fingerprint','reviewed_network_fingerprint','bus_match_snapshot'];
+    const keys=['route_key','route_id','infrastructure_id','project_name','source_url','status','assigned_to','contact','next_action','due_date','notes','reviewed_schedule_version','reviewed_infrastructure_schedule','reviewed_route_match_at','reviewed_route_distance_m','bus_decision','bus_concerns','bus_resolution','reviewed_match_fingerprint','reviewed_network_fingerprint','bus_match_snapshot'];
     const clean=Object.fromEntries(keys.filter(key=>record[key]!==undefined).map(key=>[key,record[key]]));
     return saveCoordinationRecord('infrastructure_coordination_reviews',clean,baseline,['route_key','infrastructure_id']);
   }
@@ -511,12 +521,52 @@
     );
   }
 
-  async function upsertTransitRoute(route) {
-    const rows = await dataRequest('transit_routes?on_conflict=slug', {
+  async function listBundledRouteVisibility() {
+    return dataRequest('bundled_transit_route_visibility?select=route_name,is_published,updated_at');
+  }
+
+  async function listOwnerImpactProjects() {
+    const projects = [];
+    for (let offset = 0; ; offset += 500) {
+      const rows = await dataRequest('projects?select=id,name,latitude,longitude,transit_route_overrides&is_published=eq.true&order=id.asc&limit=500&offset=' + offset);
+      if (!Array.isArray(rows)) throw new Error('Invalid published project response.');
+      projects.push(...rows.filter(row => row.latitude != null && row.longitude != null).map(row => ({
+        id: row.id, name: row.name, lat: Number(row.latitude), lng: Number(row.longitude),
+        transitRouteOverrides: row.transit_route_overrides
+      })));
+      if (rows.length < 500) return projects;
+    }
+  }
+
+  async function listOwnerAutomationStatus() {
+    return dataRequest('rpc/tracker_automation_status', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'}, true);
+  }
+
+  async function listOwnerRouteChanges() {
+    const fields = [
+      'id', 'route_id', 'bundled_name', 'route_name', 'changed_at', 'geometry_changed', 'restores_change_id',
+      'before_published:before_state->>is_published', 'after_published:after_state->>is_published',
+      'before_miles:before_state->>miles', 'after_miles:after_state->>miles',
+      'before_file:before_state->>source_filename', 'after_file:after_state->>source_filename',
+      'after_updated_at:after_state->>updated_at'
+    ];
+    return dataRequest('owner_route_change_history?select=' + encodeURIComponent(fields.join(',')) + '&order=id.desc&limit=30', {}, true);
+  }
+
+  async function changeOwnerRoute(params) {
+    return dataRequest('rpc/change_tracker_route', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    }, true);
+  }
+
+  async function createTransitRoute(route) {
+    const rows = await dataRequest('transit_routes', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates,return=representation'
+        Prefer: 'return=representation'
       },
       body: JSON.stringify({
         slug: route.slug,
@@ -535,8 +585,8 @@
     return Array.isArray(rows) ? rows[0] : rows;
   }
 
-  async function updateTransitRoute(id, route) {
-    const rows = await dataRequest(`transit_routes?id=eq.${encodeURIComponent(id)}`, {
+  async function updateTransitRoute(id, route, version) {
+    const rows = await dataRequest(`transit_routes?id=eq.${encodeURIComponent(id)}&updated_at=eq.${encodeURIComponent(version)}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -556,16 +606,17 @@
       })
     }, true);
     if (!Array.isArray(rows) || rows.length !== 1) {
-      throw new Error('Route was not updated. Refresh and check your admin access.');
+      throw new Error('Route was not updated. Reload the route before making changes.');
     }
     return rows[0];
   }
 
-  async function deleteTransitRoute(id) {
-    await dataRequest(`transit_routes?id=eq.${encodeURIComponent(id)}`, {
+  async function deleteTransitRoute(id, version) {
+    const rows = await dataRequest(`transit_routes?id=eq.${encodeURIComponent(id)}&updated_at=eq.${encodeURIComponent(version)}&select=id`, {
       method: 'DELETE',
-      headers: { Prefer: 'return=minimal' }
+      headers: { Prefer: 'return=representation' }
     }, true);
+    if (!Array.isArray(rows) || rows.length !== 1) throw new Error('Route was not deleted. Reload the route and try again.');
   }
 
   async function upsertProject(project, sortOrder) {
@@ -1020,6 +1071,11 @@
     listProjects,
     listPublishedProjects,
     listTransitRoutes,
+    listBundledRouteVisibility,
+    listOwnerRouteChanges,
+    listOwnerImpactProjects,
+    listOwnerAutomationStatus,
+    changeOwnerRoute,
     listRouteSchedules,
     listInfrastructureDates,
     listInfrastructureDateHistory,
@@ -1029,13 +1085,14 @@
     listCoordinationScheduleCheckpoints,
     saveRouteSchedule,
     listCoordinationReviews,
+    getCoordinationAlignmentChanges,
     saveCoordinationReview,
     listLocalBusNetworks,
     getLocalBusNetwork,
     importLocalBusNetwork,
     updateLocalBusNetwork,
     syncLocalBusFindings,
-    upsertTransitRoute,
+    createTransitRoute,
     updateTransitRoute,
     deleteTransitRoute,
     upsertProject,

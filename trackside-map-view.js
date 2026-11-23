@@ -18,7 +18,7 @@ const visible=e=>!!e&&!e.hidden&&getComputedStyle(e).display!=='none'&&!!e.getCl
 const checked=id=>!!$(id)?.checked,value=id=>$(id)?.value||'';
 const countLabel=(n,label)=>n+' '+label+(n===1?'':'s');
 const routeRef=r=>r.remoteId?{id:String(r.remoteId),name:r.name}:{name:r.name};
-function findRoute(ref,kind){const list=kind==='rail'?railLines:brtArtRoutes;return ref.id?list.find(r=>String(r.remoteId)===ref.id):list.find(r=>r.name===ref.name);}
+function findRoute(ref,kind){const list=kind==='rail'?railLines:brtArtRoutes;return ref.id?list.find(r=>String(r.remoteId)===ref.id):list.find(r=>kind==='rail'?r.name===ref.name:TracksideTransitCatalog.matchesName(r,ref.name));}
 function routeSetting(c){return c?{kind:c.kind,route:routeRef(c.route)}:null;}
 function notice(text){bannerText.textContent=text;banner.hidden=false;}
 function cleanViewParameter(){if(applying)return;const u=new URL(location.href);if(!u.searchParams.has(C.parameter))return;u.searchParams.delete(C.parameter);history.replaceState(history.state,'',u.pathname+u.search+u.hash);}
@@ -43,7 +43,7 @@ async function capture(){
 }
 function close(){build++;dialog.close();focus?.focus?.();}
 $('mapShareClose').addEventListener('click',close);dialog.addEventListener('cancel',e=>{e.preventDefault();close();});dialog.addEventListener('keydown',e=>{if(e.key==='Escape')e.stopPropagation();});dialog.addEventListener('click',e=>{if(e.target===dialog)close();});
-async function open(){focus=document.activeElement;if(!dialog.open)dialog.showModal();const token=++build;$('mapShareCopy').disabled=true;$('mapShareUrl').value='';$('mapSharePreview').hidden=true;$('mapSharePreview').removeAttribute('href');$('mapShareMessage').textContent='Preparing the current map view…';$('mapShareSummary').replaceChildren();try{await window.tracksideAppReady;if(token!==build||!dialog.open)return;const {state,omitted}=await capture();if(token!==build||!dialog.open)return;const url=C.buildUrl(publicBase,state);$('mapShareUrl').value=url;$('mapShareCopy').disabled=false;$('mapShareLocalNote').hidden=!local;if(local){$('mapSharePreview').href=C.buildUrl(location.href,state);$('mapSharePreview').hidden=false;}const title=N('strong','','Your current map'),description=N('span','',countLabel(state.layers.routes.length,'individual transit alignment')+' · '+countLabel(activeFilterDefinitions().length,'active project filter'));$('mapShareSummary').append(title,description);const names=[['projects','Development'],['rail','Rail lines'],['stations','Rail stations'],['infrastructure','Infrastructure'],['bus','Local bus'],['stops','Bus stops'],['sr2t','SR2T'],['boundaries','Boundaries'],['parcels','Parcels']].filter(([key])=>state.layers[key]).map(([,name])=>name);if(names.length)$('mapShareSummary').append(N('span','','Layers: '+names.join(' · ')));if(state.selection){const selectedName=state.selection.type==='project'?projects.find(p=>p.id===state.selection.id)?.name:state.selection.type==='route'?state.selection.route.name:state.selection.id||'Custom study area';$('mapShareSummary').append(N('span','','Selected: '+selectedName));}if(state.study)$('mapShareSummary').append(N('span','','Drawn study area included.'));$('mapShareMessage').textContent=omitted||'Ready to copy.';}catch(e){if(token===build)$('mapShareMessage').textContent='Could not create the link: '+e.message;}}
+async function open(profile){focus=document.activeElement;if(!dialog.open)dialog.showModal();const token=++build;$('mapShareCopy').disabled=true;$('mapShareUrl').value='';$('mapSharePreview').hidden=true;$('mapSharePreview').removeAttribute('href');$('mapShareMessage').textContent='Preparing the current map view…';$('mapShareSummary').replaceChildren();try{await window.tracksideAppReady;if(token!==build||!dialog.open)return;const {state,omitted}=profile?.selection?{state:C.normalize(profile),omitted:''}:await capture();if(token!==build||!dialog.open)return;const url=C.buildUrl(publicBase,state);$('mapShareUrl').value=url;$('mapShareCopy').disabled=false;$('mapShareLocalNote').hidden=!local;if(local){$('mapSharePreview').href=C.buildUrl(location.href,state);$('mapSharePreview').hidden=false;}const title=N('strong','',profile?.selection?'Public profile link':'Your current map'),description=N('span','',profile?.selection?'Opens the selected profile with a standard map view.':countLabel(state.layers.routes.length,'individual transit alignment')+' · '+countLabel(activeFilterDefinitions().length,'active project filter'));$('mapShareSummary').append(title,description);const names=[['projects','Development'],['rail','Rail lines'],['stations','Rail stations'],['infrastructure','Infrastructure'],['bus','Local bus'],['stops','Bus stops'],['sr2t','SR2T'],['boundaries','Boundaries'],['parcels','Parcels']].filter(([key])=>state.layers[key]).map(([,name])=>name);if(names.length)$('mapShareSummary').append(N('span','','Layers: '+names.join(' · ')));if(state.selection){const selectedName=state.selection.type==='project'?projects.find(p=>p.id===state.selection.id)?.name:state.selection.type==='route'?state.selection.route.name:state.selection.id||'Custom study area';$('mapShareSummary').append(N('span','','Selected: '+selectedName));}if(state.study)$('mapShareSummary').append(N('span','','Drawn study area included.'));$('mapShareMessage').textContent=omitted||'Ready to copy.';}catch(e){if(token===build)$('mapShareMessage').textContent='Could not create the link: '+e.message;}}
 button.addEventListener('click',open);$('mapShareUrl').addEventListener('focus',()=> $('mapShareUrl').select());$('mapShareCopy').addEventListener('click',async()=>{try{await copyText($('mapShareUrl').value);$('mapShareMessage').textContent='Link copied. Your coworker can open it without signing in.';}catch{$('mapShareMessage').textContent='Select the link above and copy it manually.';}});
 function choose(id,wanted,fallback,warnings){const e=$(id);if(!e)return;if([...e.options].some(o=>o.value===wanted)){e.value=wanted;return;}e.value=fallback;warnings.push('A saved '+(e.getAttribute('aria-label')||id)+' option is no longer available.');}
 function toggle(id,on){const e=$(id);if(e)e.checked=on;}
@@ -67,6 +67,28 @@ async function apply(state){
 }
 function requestApply(state){if(applying){pendingState=state;return;}return apply(state).finally(()=>{if(pendingState){const next=pendingState;pendingState=null;requestApply(next);}});}
 function restore(){let state;try{state=C.readUrl(location.href);}catch(e){notice(e.message);return;}if(!state)return;if(document.querySelector('dialog[open],.modal.open')){notice('Close your current tool, then reload to open this shared map view.');return;}return requestApply(state);}
-window.addEventListener('popstate',restore);restore();
-window.TracksideMapView={open};
+function profileButton(host,label,id,openProfile){
+  const control=N('button','detail-share',label);
+  control.id=id;control.type='button';control.addEventListener('click',openProfile);host?.append(control);
+}
+let openedStation,openedCorridor;
+const previousStation=showStationOverview;
+showStationOverview=function (station,...args){openedStation=station;return previousStation.call(this,station,...args);};
+const previousCorridor=showCorridorOverview;
+showCorridorOverview=function (corridor,...args){openedCorridor=corridor;return previousCorridor.call(this,corridor,...args);};
+profileButton($('stationDetail')?.querySelector('.detail-body'),'Share station','shareStationProfile',()=>{
+  if(!openedStation)return;
+  const [id,lat,lng]=openedStation;
+  open({v:1,map:[lat,lng,15],filters:{station:id},selection:{type:'station',id}});
+});
+profileButton($('corridorDetail')?.querySelector('.detail-body'),'Share corridor','shareCorridorProfile',()=>{
+  if(!openedCorridor)return;
+  const settings=routeSetting(openedCorridor),bounds=L.latLngBounds(routePointParts(openedCorridor.route).flat());
+  if(!bounds.isValid())return notice('This corridor has no available alignment.');
+  const center=bounds.getCenter(),zoom=Math.max(9,Math.min(15,map.getBoundsZoom(bounds.pad(.12))));
+  open({v:1,map:[center.lat,center.lng,zoom],filters:{corridor:settings},
+    layers:{routes:settings.kind==='rail'?[]:[settings.route]},selection:{type:'route',...settings}});
+});
+window.addEventListener('popstate',restore);const restored=Promise.resolve(restore());
+window.TracksideMapView={open,restored};
 })();

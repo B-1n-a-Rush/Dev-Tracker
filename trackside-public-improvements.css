@@ -1,0 +1,41 @@
+.ts-place-search .ts-place-nearby {
+  background: var(--brand-blue);
+  border: 1px solid var(--brand-blue-line);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+  margin-top: 6px;
+  min-height: 36px;
+  padding: 5px 11px;
+}
+.ts-place-search .ts-place-nearby[hidden] { display: none; }
+.sr2t-source-comparison {
+  background: var(--brand-blue-soft);
+  border: 1px solid var(--brand-blue-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+}
+.sr2t-source-comparison h4 { margin: 0; }
+.sr2t-compare-legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0; }
+.sr2t-compare-legend span::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: #174a83;
+}
+.sr2t-compare-legend span + span::before { background: #b84f2a; }
+#coordSavedList .coord-recheck-warning { display: block; white-space: normal; }
+#coordSavedExtras:not([hidden]) {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--brand-blue-line);
+  border-radius: 8px;
+}
+#coordSavedList { display: grid; gap: 7px; margin-top: 8px; }
+#coordSavedList button { text-align: left; }

@@ -1,7 +1,7 @@
 /* A read-only, location-centered overview of the connected Trackside datasets. */
 (function(){
   'use strict';
-  const C=window.TracksideLandCore,H=window.TracksideHereCore,A=window.TracksideLand;
+  const C=window.TracksideLandCore,H=window.TracksideHereCore,A=window.TracksideLand,D=window.TracksideInfrastructureDates;
   if(!C||!H||!A||typeof map==='undefined')return;
   const $=id=>document.getElementById(id),aside=document.querySelector('aside.detail');
   const n=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;};
@@ -77,7 +77,7 @@
   }
   function infrastructureCard({record:r,distance:d}){
     const card=n('article','here-card');card.append(action(r.name,()=>A.focusInfrastructure(r),'land-project-name'),note([r.jurisdiction,r.category,distance(d)+' from published geometry'].join(' · ')),n('span','land-badge',r.source.kind==='arc'?'ARC · '+r.sourceStatus:r.sourceStatus||'Phase not published'));
-    card.append(note(r.scheduleType+': '+C.dateLabel(r.start)+' → '+C.dateLabel(r.finish)),note(r.geometryBasis));
+    card.append(note(r.scheduleType+': '+D.endpointLabel(r,'start')+' → '+D.endpointLabel(r,'finish')),note(r.geometryBasis));
     if(!C.dateRange(r.start)||!C.dateRange(r.finish))card.append(n('span','land-badge unknown','Schedule incomplete / unknown'));
     if(r.source.kind==='arc')card.append(note('Planning area; ARC programming status does not establish that construction has started.'));
     if(r.arcReferences?.length)card.append(note('Local and ARC records linked; counted once.'));
@@ -89,6 +89,14 @@
   }
   function stationCard({record:r,distance:d}){
     const card=n('article','here-card');card.append(action(r.name+' Station',()=>showStationOverview(r.raw),'land-project-name'),note(r.lines+' · '+distance(d)+' straight-line distance'));return card;
+  }
+  function sr2tCard({record:site,distance:d}){
+    const card=n('article','here-card'),p=site.profile;
+    card.append(action(p.name,()=>window.TracksideSR2T.open(false,site.site_id),'land-project-name'),note([p.status,p.phase,p.jurisdiction,distance(d)+' to nearest linked stop'].filter(Boolean).join(' · ')));
+    const dates=[p.start_date,p.finish_date].map(value=>C.dateRange(value)?C.dateLabel(value):'Timing unknown');
+    if(dates.some(value=>value!=='Timing unknown'))card.append(note((p.date_certainty==='Confirmed'?'Confirmed':p.date_certainty==='Estimated'?'Estimated':'Certainty unknown')+' · '+dates.join(' → ')));
+    else card.append(note('Construction timing unknown'));
+    return card;
   }
   function parcelCard(item){
     const row=C.parcel(item.group[0],item.source),card=n('article','here-card');
@@ -117,6 +125,8 @@
     const facts=n('dl','land-facts');for(const [label,value]of [['Hotel rooms',t.hotel],['Retail sq ft',t.retail],['Commercial sq ft',t.commercial],['Medical sq ft',t.medical]]){const pair=n('div');pair.append(n('dt','',label),n('dd','',count(value)));facts.append(pair);}quantities.append(facts);
     quantities.append(note(t.reportedResidential+' projects report a positive residential-unit count. Totals sum recorded quantities; missing values are not evidence of zero development.'),note(result.types.map(([type,total])=>type+' · '+total).join(' / ')));
     root.append(quantities,listSection('Development projects',result.projects,projectCard,'No tracked, located development projects were found within this radius.','projects'),listSection('Nearby infrastructure',result.infrastructure,infrastructureCard,loading.infrastructure?'Loading connected infrastructure sources…':'No mapped infrastructure matches were found within the connected sources and these overview settings.','infrastructure'),listSection('Nearby transit alignments',result.routes,routeCard,'No loaded transit alignment falls within this radius.','routes'),listSection('Rail stations',result.stations,stationCard,'No tracked rail station falls within this radius.','stations'));
+    root.append(listSection('Safe Routes to Transit sites',result.sr2t,sr2tCard,loading.sr2t?'Loading published SR2T sites…':loading.sr2tError?'SR2T coverage unavailable.':'No published sites with a current linked stop in this radius.','sr2t'));
+    if(loading.sr2tError)root.append(note('SR2T sites could not load: '+loading.sr2tError));
     renderParcels(root,parcels,loading.parcels);
     const coverage=n('details','here-section');coverage.append(n('summary','','Sources, coverage & limitations'));
     for(const source of A.sourceResults){const row=n('div','here-source');row.append(link(source.source.name+' ↗',source.source.viewer),note(source.ok?'Connected · dataset update '+C.dateLabel(source.sourceUpdated):source.cached?'Refresh unsuccessful · showing previous records':'Source unavailable on latest attempt'));coverage.append(row);}
@@ -139,20 +149,21 @@
   let repaint=null;
   async function refresh(force=false){
     if(!active||panel.hidden)return;
-    const token=++generation,center={...active.center},context=active.parcelContext,loading={infrastructure:true,parcels:true};
-    let parcels=null,infraError='';$('hereRefresh').disabled=true;
+    const token=++generation,center={...active.center},context=active.parcelContext,loading={infrastructure:true,parcels:true,sr2t:true,sr2tError:''};
+    let parcels=null,infraError='',sr2t=[];$('hereRefresh').disabled=true;
     function paint(fit=false){
       if(!current(token))return;
-      const result=H.analyze({center,radiusMeters:Number($('hereRadius').value),projects:dataProjects(),infrastructure:A.infrastructureRows,routes:dataRoutes(),stations:dataStations(),includeCompleted:$('hereCompleted').checked,includeLongRange:$('hereLongRange').checked});
+      const result=H.analyze({center,radiusMeters:Number($('hereRadius').value),projects:dataProjects(),infrastructure:A.infrastructureRows,routes:dataRoutes(),stations:dataStations(),sr2t,includeCompleted:$('hereCompleted').checked,includeLongRange:$('hereLongRange').checked});
       lastResult=result;
       const failed=A.sourceResults.filter(r=>!r.ok),unavailable=Boolean(infraError)||(A.sourceResults.length>0&&failed.length===A.sourceResults.length);
       renderStats(result,unavailable||(loading.infrastructure&&!A.sourceResults.length));renderResults(result,parcels,loading);draw(result,fit);
-      if(loading.infrastructure||loading.parcels)$('hereStatus').textContent='Showing loaded development and transit. Checking '+[loading.infrastructure?'infrastructure':null,loading.parcels?'parcel sources':null].filter(Boolean).join(' and ')+'…';
+      if(loading.infrastructure||loading.parcels||loading.sr2t)$('hereStatus').textContent='Showing loaded development and transit. Checking '+[loading.infrastructure?'infrastructure':null,loading.parcels?'parcel sources':null,loading.sr2t?'SR2T':null].filter(Boolean).join(' and ')+'…';
       else $('hereStatus').textContent=(Number($('hereRadius').value)/1609.344).toLocaleString('en-US',{maximumFractionDigits:2})+'-mile overview · '+result.projects.length+' development projects'+(unavailable?' · Infrastructure unavailable':failed.length?' · '+failed.length+' infrastructure feed(s) unavailable; counts incomplete':' · Connected infrastructure loaded')+(parcels?.failures.length?' · Parcel coverage incomplete':'');
       if(infraError)$('hereStatus').textContent+=' · '+infraError;
     }
     repaint=()=>paint();paint(true);
     await Promise.allSettled([
+      Promise.resolve().then(()=>{if(!window.TracksideSR2T?.publicLocations)throw Error('SR2T inventory is unavailable.');return window.TracksideSR2T.publicLocations(force);}).then(result=>{sr2t=result;},error=>{loading.sr2tError=error.message;}).finally(()=>{loading.sr2t=false;paint();}),
       A.loadInfrastructure(force).catch(e=>{infraError=e.message;}).finally(()=>{loading.infrastructure=false;paint();}),
       parcelsAt(center,context,force).then(result=>{parcels=result;},()=>{parcels={groups:[],failures:['Connected parcel sources'],truncated:false};}).finally(()=>{loading.parcels=false;paint();})
     ]);

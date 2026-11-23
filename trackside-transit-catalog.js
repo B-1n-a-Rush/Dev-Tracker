@@ -6,9 +6,19 @@
 function existing(route){return String(route?.remoteId??route?.id??'')==='18'||String(route?.slug||'').toLowerCase()==='atlanta-streetcar'||String(route?.name||'').trim().toLowerCase()==='atlanta streetcar';}
 function mode(route){return existing(route)?'Streetcar':String(route?.mode||(/\bLRT\b/i.test(route?.name||'')?'LRT':/\bART\b/i.test(route?.name||'')?'ART':'BRT'));}
 function project(route){return !existing(route)&&route?.isPublished!==false&&route?.is_published!==false;}
+// Published Clifton (26) replaced the old bundled Clifton BRT alignment.
+function legacyName(route){return String(route?.remoteId??route?.id??'')==='26'?'Clifton BRT':null;}
+function matchesName(route,name){return typeof name==='string'&&(route?.name===name||legacyName(route)===name);}
 function category(route){return existing(route)?'Existing transit service':'Planned high-capacity transit';}
+function nameKey(route){return String(route.name).toLowerCase();}
+function publishedRoutes(bundled,uploaded,visibility){
+  const published=uploaded.filter(route=>route.isPublished);
+  const uploadedNames=new Set(published.map(nameKey));
+  const fallbacks=bundled.filter(route=>visibility.get(route.name)?.is_published!==false&&!uploadedNames.has(nameKey(route)));
+  return fallbacks.concat(published);
+}
 // Cache exact geometry screening by route object and project location. Replacing
 // a route object on refresh/replacement naturally invalidates its WeakMap entry.
 function distanceMemo(calculate){const cache=new WeakMap();return function(point,route){if(!point||!route)return Infinity;const lat=Number(point.lat),lng=Number(point.lng);if(!Number.isFinite(lat)||!Number.isFinite(lng))return Infinity;let entry=cache.get(route);const geometry=route.geometry||route.lines||route.points;if(!entry||entry.geometry!==geometry){entry={geometry,points:new Map()};cache.set(route,entry);}const key=lat+','+lng;if(entry.points.has(key))return entry.points.get(key);const value=calculate(point,route);if(entry.points.size>=2048)entry.points.clear();entry.points.set(key,value);return value;};}
-return Object.freeze({existing,mode,project,category,distanceMemo});
+return Object.freeze({existing,mode,project,category,legacyName,matchesName,distanceMemo,nameKey,publishedRoutes});
 });

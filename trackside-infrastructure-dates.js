@@ -121,8 +121,34 @@
     };
   }
 
-  function matchesFilter(row, filter) {
+  function atlantaDay(now = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', year: 'numeric', month: 'numeric', day: 'numeric'
+    }).formatToParts(now);
+    const part = name => Number(parts.find(value => value.type === name).value);
+    return Date.UTC(part('year'), part('month')-1, part('day'));
+  }
+
+  function constructionOutlook(row, today) {
+    if (row.complete || row.longRange || /\b(?:on[ -]hold|suspended|deferred|cancelled|canceled|complete|completed)\b/i.test(row.sourceStatus || '')) return null;
+    const phase = clean(row.sourceStatus);
+    const reportedActive = /^(?:construction(?: in progress| underway| ongoing| phase)?|under construction|in construction|active construction|construction started|construction phase underway)$/i.test(phase);
+    const start = land.dateRange(row.manualSchedule?.construction_start ?? agencyConstructionDate(row,'start'));
+    const finish = land.dateRange(row.manualSchedule?.construction_finish ?? agencyConstructionDate(row,'finish'));
+    if (reportedActive) return {group:'under-construction', reason:'Agency reports active construction'};
+    if (coverage(row).invalid) return null;
+    if (row.manualSchedule?.start_certainty === 'confirmed' && start?.last < today + 86400000 && finish?.last >= today) {
+      return {group:'under-construction', reason:'Confirmed start and a finish window that has not passed'};
+    }
+    if (start?.first > today && start.last < today + 91*86400000) {
+      return {group:'starts-next-90', reason:'Published start falls within the next 90 days'};
+    }
+    return null;
+  }
+
+  function matchesFilter(row, filter, today) {
     if (!filter) return true;
+    if (filter === 'under-construction' || filter === 'starts-next-90') return constructionOutlook(row,today??atlantaDay())?.group===filter;
     if (filter === 'manual') return Boolean(row.manualSchedule);
     if (filter === 'changed') return agencyChanged(row);
     const dates = coverage(row);
@@ -173,5 +199,5 @@
     return record;
   }
 
-  return {eligible, apply, endpointLabel, routeEndpointLabel, projectDateSources, routeDateSources, agencyChanged, reviewSnapshot, reviewNeeded, coverage, matchesFilter, matchesSearch, validate, certainty};
+  return {eligible, apply, endpointLabel, routeEndpointLabel, projectDateSources, routeDateSources, agencyChanged, reviewSnapshot, reviewNeeded, coverage, atlantaDay, constructionOutlook, matchesFilter, matchesSearch, validate, certainty};
 });

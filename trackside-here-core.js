@@ -18,7 +18,7 @@
   }
   function quantity(value){const n=C.numeric(value);return n!==null&&n>=0?n:null;}
   function unique(rows,key){const seen=new Set();return rows.filter(r=>{const id=key(r);if(seen.has(id))return false;seen.add(id);return true;});}
-  function analyze({center,radiusMeters=804.672,projects=[],infrastructure=[],routes=[],stations=[],includeCompleted=false,includeLongRange=false}={}){
+  function analyze({center,radiusMeters=804.672,projects=[],infrastructure=[],routes=[],stations=[],sr2t=[],includeCompleted=false,includeLongRange=false}={}){
     const origin=geometry(center),radius=Number(radiusMeters);
     if(!origin||!Number.isFinite(radius)||radius<=0||radius>1609.344)throw new Error('Choose a valid location and a radius up to one mile.');
     const published=unique(projects.filter(p=>p.published!==false&&p.isPublished!==false),(p)=>p.id||JSON.stringify([p.name,p.lat,p.lng]));
@@ -27,6 +27,9 @@
     const nearbyInfrastructure=unique(eligible.filter(r=>r.geometry),r=>r.id).map(record=>({record,distance:C.geometryDistance(origin,record.geometry)})).filter(r=>r.distance<=radius).sort((a,b)=>a.distance-b.distance||C.text(a.record.name).localeCompare(C.text(b.record.name)));
     const nearbyRoutes=unique(routes.filter(r=>r.geometry&&r.published!==false),r=>r.id||r.kind+':'+r.name).map(record=>({record,distance:C.geometryDistance(origin,record.geometry)})).filter(r=>r.distance<=radius).sort((a,b)=>a.distance-b.distance);
     const nearbyStations=unique(stations.filter(s=>point(s)),s=>s.name).map(record=>({record,distance:C.geometryDistance(origin,geometry(record))})).filter(r=>r.distance<=radius).sort((a,b)=>a.distance-b.distance);
+    const nearbySr2t=unique(sr2t.filter(site=>site.is_published===true&&!site.removed_at),site=>site.site_id)
+      .map(record=>({record,distance:Math.min(...record.positions.filter(p=>point(p)).map(p=>C.geometryDistance(origin,geometry(p))))}))
+      .filter(item=>item.distance<=radius).sort((a,b)=>a.distance-b.distance);
     const totals={residential:0,hotel:0,retail:0,commercial:0,medical:0,reportedResidential:0,statuses:{Planning:0,Construction:0,Complete:0,Unknown:0}};
     const fields={residential:'residentialUnits',hotel:'hotelUnits',retail:'retailSpaceSqFt',commercial:'commercialSpaceSqFt',medical:'medicalSpaceSqFt'},types=new Map();
     for(const {record}of nearbyProjects){
@@ -34,7 +37,7 @@
       totals.statuses[status(record.status)]++;
       const type=C.text(record.projectType)||'Type not recorded';types.set(type,(types.get(type)||0)+1);
     }
-    return {center:point(center),radiusMeters:radius,projects:nearbyProjects,infrastructure:nearbyInfrastructure,routes:nearbyRoutes,stations:nearbyStations,totals,types:[...types].sort((a,b)=>b[1]-a[1]),unlocatedProjects:published.filter(p=>!point(p)).length,unlocatedInfrastructure:eligible.filter(r=>!r.geometry).length};
+    return {center:point(center),radiusMeters:radius,projects:nearbyProjects,infrastructure:nearbyInfrastructure,routes:nearbyRoutes,stations:nearbyStations,sr2t:nearbySr2t,totals,types:[...types].sort((a,b)=>b[1]-a[1]),unlocatedProjects:published.filter(p=>!point(p)).length,unlocatedInfrastructure:eligible.filter(r=>!r.geometry).length};
   }
   return {point,geometry,status,quantity,analyze};
 });

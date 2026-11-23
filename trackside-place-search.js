@@ -29,6 +29,7 @@ const status=make('p','ts-place-status','Enter an address or place, then press F
 const list=make('ul','ts-place-results');list.id='placeSearchResults';list.setAttribute('aria-label','Matching places');
 const foot=make('div','ts-place-foot'),credit=make('span'),osm=make('a','','OpenStreetMap'),photon=make('a','','Photon');osm.href='https://www.openstreetmap.org/copyright';photon.href='https://photon.komoot.io/';for(const a of[osm,photon]){a.target='_blank';a.rel='noopener noreferrer';}credit.append('Addresses: county parcel GIS · Place names: ',osm,' / ',photon);
 const clear=make('button','ts-place-clear','Remove search pin');clear.type='button';clear.hidden=true;clear.id='placeSearchClear';foot.append(credit,clear);panel.append(head,help,status,list,foot);root.append(panel);
+const nearby=make('button','ts-place-nearby','What’s near this address?');nearby.type='button';nearby.hidden=true;nearby.id='placeSearchNearby';root.append(nearby);
 const parcelClient=window.TracksideParcelSearchCore.createClient(),placeClient=window.TracksidePlaceSearchCore.createClient({endpoint:window.TracksidePlaceSearchConfig?.endpoint||undefined});
 let boundaryCache=null,boundaryPending=null;
 async function serviceBoundaries({signal}={}){
@@ -45,7 +46,9 @@ function openPanel(){panel.hidden=false;}
 function closePanel(focus=false){if(focus)placeInput.focus({preventScroll:true});panel.hidden=true;}
 function message(text,error=false){status.textContent=text;status.classList.toggle('error',error);}
 function cancel(){generation++;controller?.abort();controller=null;busy=false;submit.disabled=false;list.removeAttribute('aria-busy');}
-function clearPin(){if(parcelOutline){map.removeLayer(parcelOutline);parcelOutline=null;}if(marker){map.removeLayer(marker);marker=null;}selectedPlace=null;clear.hidden=true;message('Search pin removed. Enter another address or place.');}
+function openNearby(place=selectedPlace){if(!place||!window.TracksideHere?.open)return;closePanel();marker?.closePopup();const parcelContext=place.feature?{group:[place.feature],source:place.source}:null;return window.TracksideHere.open({center:L.latLng(place.lat,place.lon),label:place.title,parcelContext});}
+nearby.addEventListener('click',()=>openNearby());
+function clearPin(){nearby.hidden=true;if(parcelOutline){map.removeLayer(parcelOutline);parcelOutline=null;}if(marker){map.removeLayer(marker);marker=null;}selectedPlace=null;clear.hidden=true;message('Search pin removed. Enter another address or place.');}
 async function selectPlace(place){
  cancel();const token=generation;controller=new AbortController();busy=true;submit.disabled=true;
  try{
@@ -55,12 +58,12 @@ async function selectPlace(place){
  const mapButton=document.querySelector('.view-switch [data-view="map"]');if(document.querySelector('.shell')?.classList.contains('list-mode'))mapButton?.click();
  if(marker)map.removeLayer(marker);if(parcelOutline){map.removeLayer(parcelOutline);parcelOutline=null;}
  const popup=make('div','ts-place-popup'),title=make('strong','',place.title);popup.append(title);if(place.detail)popup.append(make('p','',place.detail));popup.append(make('small','',place.kind==='parcel'?'County parcel footprint · marker is inside the parcel, not a surveyed entrance.':'Supplemental place result · approximate location'));
- if(window.TracksideHere?.open){const here=make('button','','What’s happening here?');here.type='button';here.addEventListener('click',()=>{marker?.closePopup();window.TracksideHere.open({center:L.latLng(place.lat,place.lon),label:place.title});});popup.append(here);}
+ if(window.TracksideHere?.open){const here=make('button','','What’s near this address?');here.type='button';here.addEventListener('click',()=>openNearby(place));popup.append(here);}
  if(place.kind==='parcel'&&window.TracksideLand?.showParcel){const details=make('button','','View parcel overview');details.type='button';details.addEventListener('click',()=>{marker?.closePopup();window.TracksideLand.showParcel([place.feature],place.source,L.latLng(place.lat,place.lon));});popup.append(details);}
  if(place.source?.viewer){const source=make('a','','Official parcel viewer ↗');source.href=place.source.viewer;source.target='_blank';source.rel='noopener noreferrer';popup.append(source);}
  const remove=make('button','','Remove search pin');remove.type='button';remove.addEventListener('click',clearPin);popup.append(remove);
  marker=L.marker([place.lat,place.lon],{title:place.title,alt:'Search location: '+place.title,zIndexOffset:900,bubblingMouseEvents:false,icon:L.divIcon({className:'ts-place-marker',html:'<span aria-hidden="true"></span>',iconSize:[26,34],iconAnchor:[13,34],popupAnchor:[0,-32]})}).addTo(map).bindPopup(popup,{maxWidth:290});
- selectedPlace={...place};clear.hidden=false;closePanel();map.invalidateSize();if(place.feature){parcelOutline=L.geoJSON(place.feature,{style:{color:'#174a83',weight:3,fillColor:'#174a83',fillOpacity:.15},interactive:false}).addTo(map);map.fitBounds(parcelOutline.getBounds(),{padding:[45,45],maxZoom:18});}else map.setView([place.lat,place.lon],17);marker.openPopup();
+ selectedPlace={...place};nearby.hidden=!window.TracksideHere?.open;nearby.textContent=place.kind==='parcel'?'What’s near this address?':'What’s near this place?';clear.hidden=false;closePanel();map.invalidateSize();if(place.feature){parcelOutline=L.geoJSON(place.feature,{style:{color:'#174a83',weight:3,fillColor:'#174a83',fillOpacity:.15},interactive:false}).addTo(map);map.fitBounds(parcelOutline.getBounds(),{padding:[45,45],maxZoom:18});}else map.setView([place.lat,place.lon],17);marker.openPopup();
  document.dispatchEvent(new CustomEvent('trackside:place-selected',{detail:{title:place.title,lat:place.lat,lon:place.lon,kind:place.kind,sourceId:place.sourceId}}));
  }catch(e){if(token===generation&&e.name!=='AbortError'){openPanel();message(e.message||'The selected location could not load. Search again.',true);}}finally{if(token===generation){busy=false;controller=null;submit.disabled=false;}}
 }
