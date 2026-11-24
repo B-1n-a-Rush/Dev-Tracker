@@ -128,7 +128,6 @@
   function setInfrastructureVisible(visible){layerInput.checked=visible;if(visible){infraLayer.addTo(map);loadInfrastructure();}else{map.removeLayer(infraLayer);infraHighlight.clearLayers();}updateMapLayersCount();}
   layerInput.addEventListener('change',()=>setInfrastructureVisible(layerInput.checked));
   $('browseInfrastructure').addEventListener('click',browseInfrastructure);
-  const outlookButton=button('Construction outlook',()=>{scheduleFilter.value='under-construction';browseInfrastructure();$('infraRoute').value='';screenInfrastructure();scheduleFilter.focus();},'land-button');outlookButton.id='openConstructionOutlook';$('browseInfrastructure').after(outlookButton);
   function safeSourceLink(text,url){const safe=C.http(url),element=node(safe?'a':'span','land-link',safe?text:'Source link unavailable');if(safe){element.href=safe;element.target='_blank';element.rel='noopener noreferrer';}return element;}
   function browseInfrastructure(){
     setPage('explore');
@@ -139,10 +138,26 @@
     $('mapLayersButton').setAttribute('aria-expanded','false');
   }
   const originalCount=updateMapLayersCount;updateMapLayersCount=function(){originalCount();if(layerInput.checked){const count=$('mapLayersCount');count.textContent=String((Number(count.textContent)||0)+1);}};
-  infraPanel.innerHTML='<div class="eyebrow">Infrastructure coordination</div><h2 id="infraProfileHeading">Coordinate along a corridor</h2><p class="land-subtitle">Local-agency and ARC projects · MARTA’s four jurisdictions</p><div class="land-banner">ARC projects are limited to Atlanta, Fulton, DeKalb and Clayton, including cross-county projects touching them. Programmed does not mean under construction. Long-range plans, completed work and possible duplicates are optional. ART, BRT and LRT routes are shown only from route shapefiles uploaded to the tracker; imported rapid-transit alignments are excluded.</div><div class="land-controls"><label class="land-field">MARTA route / alignment<select id="infraRoute"><option value="">All loaded projects</option></select></label><label class="land-field">Distance from alignment<select id="infraDistance"><option value="30.48">100 feet</option><option value="76.2" selected>250 feet</option><option value="152.4">500 feet</option><option value="402.336">¼ mile</option><option value="804.672">½ mile</option></select></label><div class="land-control-row"><label class="land-field">Jurisdiction<select id="infraJurisdiction"><option value="">All four</option><option>Atlanta</option><option>DeKalb</option><option>Fulton</option><option>Clayton</option></select></label><label class="land-field">Project type<select id="infraCategory"><option value="">All types</option></select></label></div><label class="land-field">Municipality<select id="infraMunicipality"><option value="">All / not published</option></select></label><label class="land-field">Source / program<select id="infraProgram"><option value="">All connected sources</option></select></label><fieldset class="land-window"><legend>Your comparison window</legend><label class="land-field">Start<input type="date" id="infraStart" /></label><label class="land-field">Finish<input type="date" id="infraFinish" /></label><p>Enter the MARTA construction phase or study dates you want to compare. These dates are for this browser session.</p></fieldset><label class="land-check"><input id="infraIncludeComplete" type="checkbox" /> Include completed / closeout projects</label><label class="land-check"><input id="infraIncludeLongRange" type="checkbox" /> Include ARC long-range projects</label><label class="land-check"><input id="infraIncludePossible" type="checkbox" /> Include possible duplicates in map and totals</label><label class="land-check"><input id="infraOverlapOnly" type="checkbox" /> Overlaps + unknown schedules only</label></div><p class="land-message" id="infraMessage" role="status"></p><div class="land-stats" id="infraStats"></div><div class="land-actions"><button type="button" class="land-button" id="infraRefresh">Refresh sources</button><button type="button" class="land-button" id="infraExport">Export comparison CSV</button></div><p class="land-note">Proximity and schedule matches identify potential coordination needs. Line geometry is not a construction footprint. Project dates and anticipated construction dates are labeled separately. ARC planning areas use dashed outlines.</p><div id="infrastructureList" class="land-project-list"></div><details class="land-raw" id="infraDuplicates"><summary id="infraDuplicatesSummary">Possible duplicate ARC projects</summary><p class="land-note">Name/location similarities and ambiguous identifiers are not automatic merges. These candidates match your current filters but stay out of map totals unless explicitly included above. Compare both sources; related phases can be distinct projects.</p><button type="button" class="land-button" id="infraExportDuplicates">Export duplicate candidates</button><div id="infraDuplicatesList" class="land-project-list"></div></details><details class="land-raw" id="infraUnlocated"><summary id="infraUnlocatedSummary">Unmapped / area-wide records</summary><p class="land-note">Not plotted or counted in route proximity totals. These records may still need agency coordination. Jurisdiction, municipality, type and source filters apply; route and date-overlap filters do not.</p><button type="button" class="land-button" id="infraExportUnlocated">Export unmapped CSV</button><div id="infraUnlocatedList" class="land-project-list"></div></details><details class="land-raw"><summary>Sources & coverage</summary><div id="infraCoverage"></div></details>';
+  infraPanel.innerHTML='<div class="eyebrow">Infrastructure coordination</div><h2 id="infraProfileHeading">Public infrastructure</h2><p class="land-subtitle">Local-agency and ARC projects · MARTA’s four jurisdictions</p><div class="land-banner">ARC projects are limited to Atlanta, Fulton, DeKalb and Clayton, including cross-county projects touching them. Programmed does not mean under construction. Long-range plans, completed work and possible duplicates are optional. ART, BRT and LRT routes are shown only from route shapefiles uploaded to the tracker; imported rapid-transit alignments are excluded.</div><div class="land-controls"><label class="land-field">MARTA route / alignment<select id="infraRoute"><option value="">All loaded projects</option></select></label><label class="land-field">Distance from alignment<select id="infraDistance"><option value="30.48">100 feet</option><option value="76.2" selected>250 feet</option><option value="152.4">500 feet</option><option value="402.336">¼ mile</option><option value="804.672">½ mile</option></select></label><div class="land-control-row"><label class="land-field">Jurisdiction<select id="infraJurisdiction"><option value="">All four</option><option>Atlanta</option><option>DeKalb</option><option>Fulton</option><option>Clayton</option></select></label><label class="land-field">Project type<select id="infraCategory"><option value="">All types</option></select></label></div><label class="land-field">Municipality<select id="infraMunicipality"><option value="">All / not published</option></select></label><label class="land-field">Source / program<select id="infraProgram"><option value="">All connected sources</option></select></label><fieldset class="land-window"><legend>Your comparison window</legend><label class="land-field">Start<input type="date" id="infraStart" /></label><label class="land-field">Finish<input type="date" id="infraFinish" /></label><p>Enter the MARTA construction phase or study dates you want to compare. These dates are for this browser session.</p></fieldset><label class="land-check"><input id="infraIncludeComplete" type="checkbox" /> Include completed / closeout projects</label><label class="land-check"><input id="infraIncludeLongRange" type="checkbox" /> Include ARC long-range projects</label><label class="land-check"><input id="infraIncludePossible" type="checkbox" /> Include possible duplicates in map and totals</label><label class="land-check"><input id="infraOverlapOnly" type="checkbox" /> Overlaps + unknown schedules only</label></div><p class="land-message" id="infraMessage" role="status"></p><div class="land-stats" id="infraStats"></div><div class="land-actions"><button type="button" class="land-button" id="infraRefresh">Refresh sources</button><button type="button" class="land-button" id="infraExport">Export comparison CSV</button></div><p class="land-note">Proximity and schedule matches identify potential coordination needs. Line geometry is not a construction footprint. Project dates and anticipated construction dates are labeled separately. ARC planning areas use dashed outlines.</p><div id="infrastructureList" class="land-project-list"></div><details class="land-raw" id="infraDuplicates"><summary id="infraDuplicatesSummary">Possible duplicate ARC projects</summary><p class="land-note">Name/location similarities and ambiguous identifiers are not automatic merges. These candidates match your current filters but stay out of map totals unless explicitly included above. Compare both sources; related phases can be distinct projects.</p><button type="button" class="land-button" id="infraExportDuplicates">Export duplicate candidates</button><div id="infraDuplicatesList" class="land-project-list"></div></details><details class="land-raw" id="infraUnlocated"><summary id="infraUnlocatedSummary">Unmapped / area-wide records</summary><p class="land-note">Not plotted or counted in route proximity totals. These records may still need agency coordination. Jurisdiction, municipality, type and source filters apply; route and date-overlap filters do not.</p><button type="button" class="land-button" id="infraExportUnlocated">Export unmapped CSV</button><div id="infraUnlocatedList" class="land-project-list"></div></details><details class="land-raw"><summary>Sources & coverage</summary><div id="infraCoverage"></div></details>';
   const scheduleFilter=node('select');scheduleFilter.id='infraScheduleFilter';scheduleFilter.setAttribute('aria-label','Construction dates');
-  for(const [value,label]of [['','All schedules'],['under-construction','Under construction now'],['starts-next-90','Expected to start in the next 90 days'],['missing','Any date missing'],['start','Missing start'],['finish','Missing finish'],['both','Both dates missing'],['invalid','Dates need review'],['manual','Saved manual dates'],['changed','Agency dates changed']])scheduleFilter.add(new Option(label,value));
-  const scheduleField=node('label','land-field','Construction dates');scheduleField.append(scheduleFilter);$('infraOverlapOnly').parentElement.after(scheduleField);
+  for(const [value,label]of [['','All schedules'],['under-construction','Under construction now'],['starts-next-90','Starting in the next 90 days'],['missing','Any date missing'],['start','Missing start'],['finish','Missing finish'],['both','Both dates missing'],['invalid','Dates need review'],['manual','Saved manual dates'],['changed','Agency dates changed']])scheduleFilter.add(new Option(label,value));
+  const quickViews=node('div','infra-quick-views');
+  quickViews.setAttribute('role','group');
+  quickViews.setAttribute('aria-label','Infrastructure views');
+  const viewButtons=new Map();
+  for(const [value,label] of [['','All projects'],['under-construction','Under construction now'],['starts-next-90','Starting in the next 90 days']]){
+    const view=button(label,()=>{scheduleFilter.value=value;applyInfrastructureFilters();});
+    view.setAttribute('aria-pressed',String(value===''));
+    quickViews.append(view);
+    viewButtons.set(value,view);
+  }
+  $('infraProfileHeading').after(quickViews);
+  const dateFilters=node('details','infra-date-filters');
+  const dateSummary=node('summary','','More date filters');
+  const scheduleField=node('label','land-field','Construction dates');
+  scheduleField.append(scheduleFilter);
+  dateFilters.append(dateSummary,scheduleField);
+  $('infraOverlapOnly').parentElement.after(dateFilters);
   const infrastructureSearch=node('input');
   infrastructureSearch.type='search';
   infrastructureSearch.maxLength=160;
@@ -151,6 +166,14 @@
   const searchField=node('label','land-field','Find infrastructure');
   searchField.append(infrastructureSearch);
   $('infraRoute').parentElement.before(searchField);
+  const filterActions=node('div','land-actions');
+  const clearInfrastructureFiltersButton=button('Clear filters',()=>{
+    resetInfrastructureFilters();
+    infrastructureSearch.focus();
+  });
+  clearInfrastructureFiltersButton.id='infraClearFilters';
+  filterActions.append(clearInfrastructureFiltersButton);
+  searchField.after(filterActions);
   const infrastructureReview=$('adminInfrastructureReview');
   if(infrastructureReview){
     infrastructureReview.append(button('Find projects with missing construction dates',()=>{
@@ -430,9 +453,12 @@
     $('infraDistance').disabled=!reference;$('infraOverlapOnly').disabled=!start||!finish;
     const base=infrastructureRows.filter(r=>($('infraIncludeComplete').checked||!r.complete)&&($('infraIncludeLongRange').checked||!r.longRange)&&(!jurisdiction||rowJurisdictions(r).includes(jurisdiction))&&(!cat||r.category===cat)&&(!municipality||rowMunicipalities(r).includes(municipality))&&(!program||rowSourceIds(r).includes(program)));
     const query=infrastructureSearch.value.trim();
-    const outlook=['under-construction','starts-next-90'].includes(scheduleFilter.value),today=outlook?D.atlantaDay():null;
-    $('infraProfileHeading').textContent=outlook?'Construction outlook':'Coordinate along a corridor';
-    const scheduled=base.filter(row=>D.matchesFilter(row,scheduleFilter.value,today)&&D.matchesSearch(row,query));
+    const schedule=scheduleFilter.value;
+    const outlook=schedule==='under-construction'||schedule==='starts-next-90',today=outlook?D.atlantaDay():null;
+    for(const [value,view] of viewButtons)view.setAttribute('aria-pressed',String(value===schedule));
+    const activeDateFilter=viewButtons.has(schedule)?'':scheduleFilter.options[scheduleFilter.selectedIndex]?.text;
+    dateSummary.textContent=activeDateFilter?'More date filters · '+activeDateFilter:'More date filters';
+    const scheduled=base.filter(row=>D.matchesFilter(row,schedule,today)&&D.matchesSearch(row,query));
     lastUnlocated=scheduled.filter(r=>!r.geometry).map(r=>({...r,distance:null,screen:'not-located'}));
     const visible=scheduled.filter(r=>r.geometry).map(r=>{
       const coverage=D.coverage(r);
@@ -559,8 +585,18 @@
     const url=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));const a=node('a');a.href=url;a.download='trackside-infrastructure-'+(unmapped?'unmapped':duplicates?'duplicate-candidates':'comparison')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
   function clearInfrastructureDetail(){selectedInfrastructureId='';$('infraSelectedProject')?.remove();infraHighlight.clearLayers();}
-  ['infraRoute','infraDistance','infraJurisdiction','infraCategory','infraMunicipality','infraProgram','infraStart','infraFinish','infraIncludeComplete','infraIncludeLongRange','infraIncludePossible','infraOverlapOnly'].forEach(id=>$(id).addEventListener('change',()=>{clearInfrastructureDetail();screenInfrastructure();if(id==='infraRoute'){const geometry=referenceGeometry();if(geometry){const bounds=L.geoJSON(geometry).getBounds();if(bounds.isValid())map.fitBounds(bounds,{padding:[35,35],maxZoom:15});}}}));
+  const infrastructureFilterValues=['infraRoute','infraDistance','infraJurisdiction','infraCategory','infraMunicipality','infraProgram','infraStart','infraFinish'];
+  const infrastructureFilterChecks=['infraIncludeComplete','infraIncludeLongRange','infraIncludePossible','infraOverlapOnly'];
+  const initialFilterValues=infrastructureFilterValues.map(id=>$(id).value);
+  [...infrastructureFilterValues,...infrastructureFilterChecks].forEach(id=>$(id).addEventListener('change',()=>{clearInfrastructureDetail();screenInfrastructure();if(id==='infraRoute'){const geometry=referenceGeometry();if(geometry){const bounds=L.geoJSON(geometry).getBounds();if(bounds.isValid())map.fitBounds(bounds,{padding:[35,35],maxZoom:15});}}}));
   let searchTimer;
+  function resetInfrastructureFilters(){
+    infrastructureFilterValues.forEach((id,index)=>{$(id).value=initialFilterValues[index];});
+    infrastructureFilterChecks.forEach(id=>{$(id).checked=false;});
+    infrastructureSearch.value='';
+    scheduleFilter.value='';
+    applyInfrastructureFilters();
+  }
   function applyInfrastructureFilters(){
     clearTimeout(searchTimer);
     clearInfrastructureDetail();

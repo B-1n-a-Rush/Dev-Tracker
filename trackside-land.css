@@ -28,3 +28,24 @@
 .infra-preview-records{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .infra-preview-records pre{margin:5px 0;max-height:210px;overflow:auto;background:#fffefa;padding:8px;font-size:11px}
 @media(max-width:520px){.infra-preview-records{grid-template-columns:minmax(0,1fr)}}
+.infra-quick-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+}
+.infra-quick-views .land-button {
+  min-height: 36px;
+}
+.infra-quick-views .land-button[aria-pressed="true"] {
+  color: #fffefa;
+  background: var(--brand-blue, #174a83);
+  border-color: var(--brand-blue, #174a83);
+}
+.infra-date-filters summary {
+  padding: 8px 0;
+  color: var(--brand-blue, #174a83);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}

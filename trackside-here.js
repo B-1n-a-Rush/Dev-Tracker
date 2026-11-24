@@ -24,7 +24,7 @@
   }
   function dataStations(){return (typeof railStations==='undefined'?[]:railStations).map(raw=>({raw,name:raw[0],lat:raw[1],lng:raw[2],lines:raw[3]}));}
   function cancelPick(){if(!picking)return;picking=false;map.off('click',pickPoint);map.getContainer().classList.remove('here-picking');$('herePick').textContent='Choose another point';$('herePick').setAttribute('aria-pressed','false');}
-  function dismiss(){cancelPick();panel.hidden=true;overlay.clearLayers();generation++;tool.setAttribute('aria-pressed','false');}
+  function dismiss(){cancelPick();panel.hidden=true;overlay.clearLayers();active=null;lastResult=null;repaint=null;generation++;tool.setAttribute('aria-pressed','false');}
   function openAtCurrent(){
     const p=typeof projects!=='undefined'&&typeof selected!=='undefined'?projects.find(p=>p.id===selected):null;
     return open({center:p||map.getCenter(),label:p?.name||'Selected map center',projectId:p?.id});

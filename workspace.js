@@ -7,7 +7,7 @@ if(!shell||!main||!sidebar||typeof map==='undefined')return;
 document.body.classList.add('workspace-preview');
 let mode='explore',followingReturnMode='explore',currentDock=null,changing=false,resizing=false;
 const panel=make('aside','ws-panel');panel.id='workspacePanel';panel.setAttribute('aria-label','Workspace tools');
-const panelHead=make('div','ws-panel-head'),back=make('button','ws-back','Back to results'),collapse=make('button','ws-collapse','Hide panel');back.type=collapse.type='button';back.id='workspaceBack';back.hidden=true;collapse.setAttribute('aria-controls',panel.id);collapse.setAttribute('aria-expanded','true');panelHead.append(back,collapse);panel.append(panelHead);main.prepend(panel);
+const panelHead=make('div','ws-panel-head'),back=make('button','ws-back','Back to results'),clearAnalysis=make('button','ws-analysis-clear','Clear analysis'),collapse=make('button','ws-collapse','Hide panel');back.type=clearAnalysis.type=collapse.type='button';back.id='workspaceBack';back.hidden=clearAnalysis.hidden=true;collapse.setAttribute('aria-controls',panel.id);collapse.setAttribute('aria-expanded','true');panelHead.append(back,clearAnalysis,collapse);panel.append(panelHead);main.prepend(panel);
 const rail=make('nav','ws-rail');rail.setAttribute('aria-label','Main workspace');shell.append(rail);
 const railMain=make('div','ws-rail-main'),railExtras=make('div','ws-rail-extra'),railBottom=make('div','ws-rail-bottom');rail.append(railMain,railExtras,railBottom);
 const icon=(name)=>{const img=make('img','ws-icon');img.src='./workspace-assets/'+name+'.svg?v=20261118-interface-palette';img.alt='';img.width=img.height=26;return img;};
@@ -15,7 +15,7 @@ const navButtons=new Map();for(const[key,label,image]of[['explore','Explore','ma
 const originalNav=header.querySelector('nav');railExtras.append(originalNav);originalNav.querySelectorAll('button[data-page]').forEach(b=>{if(b.dataset.page==='news'||b.dataset.page==='explore'||b.dataset.page==='saved'&&window.TracksideDigest){b.hidden=true;return;}b.prepend(icon(b.dataset.page==='news'?'newspaper':'bookmark-simple'));b.addEventListener('click',()=>{if(!leaveDock()){setPage('explore');return;}mode=b.dataset.page;setCurrentNavigation();});});
 const adminNav=make('button','ws-nav');adminNav.id='workspaceAdmin';adminNav.type='button';const adminLabel=make('span','','Admin login');adminNav.append(icon('gear-six'),adminLabel);adminNav.setAttribute('aria-haspopup','dialog');adminNav.setAttribute('aria-controls','authModal');adminNav.addEventListener('click',()=>$('adminButton').click());railBottom.append(adminNav);
 const layerSection=make('section','ws-mode');layerSection.dataset.wsPanel='layers';layerSection.append(make('h1','','Map layers'),make('p','ws-help','Choose the information you want on the map.'));panel.append(layerSection);
-const analyzeSection=make('section','ws-mode');analyzeSection.dataset.wsPanel='analyze';analyzeSection.append(make('h1','','Analyze an area'),make('p','ws-help','Explore development, access and transit alternatives.'));panel.append(analyzeSection);
+const analyzeSection=make('section','ws-mode');analyzeSection.dataset.wsPanel='analyze';analyzeSection.append(make('h1','','Analyze an area'),make('p','ws-help','Explore development, nearby places and walking access.'));panel.append(analyzeSection);
 const coordinateSection=make('section','ws-mode');coordinateSection.dataset.wsPanel='coordinate';coordinateSection.append(make('h1','','Coordinate work'),make('p','ws-help','Review nearby construction, route impacts and published schedules.'));panel.append(coordinateSection);
 const moreSection=make('section','ws-mode ws-more');moreSection.dataset.wsPanel='more';moreSection.append(make('h1','','More tools'));panel.append(moreSection);const moreButton=make('button','ws-nav ws-more-nav');moreButton.type='button';moreButton.append(icon('bookmark-simple'),make('span','','More'));moreButton.addEventListener('click',e=>{e.stopPropagation();activate('more');});railMain.append(moreButton);navButtons.set('more',moreButton);moreButton.hidden=![...originalNav.querySelectorAll('button')].some(b=>!b.hidden);
 const phoneQuery=matchMedia('(max-width:740px)');function moveExtraNav(){(phoneQuery.matches?moreSection:railExtras).append(originalNav);}phoneQuery.addEventListener('change',moveExtraNav);moveExtraNav();
@@ -43,7 +43,7 @@ filters.addEventListener('toggle',placeActiveFilters);
 new MutationObserver(placeActiveFilters).observe(shell,{attributes:true,attributeFilter:['class']});
 const resultToolbar=make('div','ws-result-toolbar'),resultHeading=sidebar.querySelector('.section-head');resultHeading.before(resultToolbar);resultToolbar.append(resultHeading,viewSwitch);placeActiveFilters();
 const layersControl=$('mapLayersControl');layerSection.append(layersControl);
-for(const id of ['studyAreaControl','hereButton','walkingAccessButton','openConstructionOutlook'])if($(id))analyzeSection.append($(id));
+for(const id of ['studyAreaControl','hereButton','walkingAccessButton'])if($(id))analyzeSection.append($(id));
 for(const id of ['browseInfrastructure','openCoordinationWatchlist','sr2tCoordOpen','openScheduleCoverage','openCoordinationHotspots','openLocalBusImpacts'])if($(id))coordinateSection.append($(id));
 const helper=make('p','ws-help','Automated proximity and schedule matches are potential impacts for review.');coordinateSection.append(helper);
 if(window.tracksideAppReady?.then){const launchers=[...coordinateSection.querySelectorAll('button')];launchers.forEach(b=>b.disabled=true);helper.textContent='Loading the current route library…';window.tracksideAppReady.then(()=>{launchers.forEach(b=>b.disabled=false);helper.textContent='Automated proximity and schedule matches are potential impacts for review.';}).catch(()=>{helper.textContent='The route library could not load. Reload the tracker to try again.';});}
@@ -72,13 +72,80 @@ function panelWidth(value){const width=Math.max(300,Math.min(540,Math.min(innerW
 resizeHandle.setAttribute('aria-valuemin','300');resizeHandle.setAttribute('aria-valuemax','540');
 resizeHandle.addEventListener('pointerdown',e=>{resizing=true;resizeHandle.setPointerCapture(e.pointerId);e.preventDefault();});resizeHandle.addEventListener('pointermove',e=>{if(resizing)panelWidth(e.clientX-rail.getBoundingClientRect().width);});resizeHandle.addEventListener('pointerup',()=>resizing=false);resizeHandle.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight'].includes(e.key))return;e.preventDefault();panelWidth(panel.getBoundingClientRect().width+(e.key==='ArrowRight'?20:-20));});
 const footer=make('footer','ws-footer');footer.append(make('span','','MARTA service area'),make('span','ws-preview-label','Connected to live data'));shell.append(footer);
-const originalDetail=setDetailDrawerOpen;setDetailDrawerOpen=function(open){if(open&&mode==='review')activate('explore');const r=originalDetail(open);back.hidden=!open;if(open)setCollapsed(false);return r;};
-back.addEventListener('click',()=>{if(!window.TracksideAreaNavigation?.back())setDetailDrawerOpen(false);});collapse.addEventListener('click',()=>{setCollapsed(true);showTools.focus({preventScroll:true});});
+const analysisLaunchers={study:'studyAreaButton',here:'hereButton',walking:'walkingAccessButton'};
+const studyPanel=$('studyAreaPanel');
+function visibleProfile(id){
+ const profile=$(id);
+ return profile&&!profile.hidden&&profile.style.display!=='none';
+}
+function viewingCoordinateInfrastructure(){
+ return mode==='coordinate'&&shell.classList.contains('detail-open')&&visibleProfile('infrastructureProfile');
+}
+function currentAnalysis(){
+ if(mode!=='analyze')return null;
+ if(window.TracksideHere?.picking)return 'here';
+ if(shell.classList.contains('detail-open')){
+  if(visibleProfile('hereProfile'))return 'here';
+  return visibleProfile('studyAreaDetail')&&studyAreaGeometry?'study':null;
+ }
+ return studyPanel&&!studyPanel.hidden?'study':null;
+}
+function syncAnalysisActions(){
+ const tool=currentAnalysis(),hasDetail=shell.classList.contains('detail-open');
+ back.hidden=!tool&&!hasDetail;
+ back.textContent=tool?'Back to Analyze':viewingCoordinateInfrastructure()?'Back to Coordinate':'Back to results';
+ const canClearStudy=mode==='analyze'&&(tool==='study'||(!tool&&!hasDetail))&&(studyAreaGeometry||studyAreaMode);
+ clearAnalysis.hidden=tool!=='here'&&!canClearStudy;
+ clearAnalysis.textContent=tool==='here'?'Clear location':'Clear study area';
+}
+function closeAnalysis(tool=currentAnalysis()){
+ if(tool==='here')window.TracksideHere?.dismiss();
+ if(tool==='study'){
+  setStudyAreaPanelOpen(false);
+  if(studyAreaMode)clearStudyArea({clearDetail:false});
+ }
+ if(tool)setDetailDrawerOpen(false);
+}
+function backToAnalyze(tool){
+ closeAnalysis(tool);
+ $(analysisLaunchers[tool])?.focus({preventScroll:true});
+}
+analyzeSection.addEventListener('click',event=>{
+ const next=Object.keys(analysisLaunchers).find(key=>event.target.closest('#'+analysisLaunchers[key]));
+ if(!next)return;
+ const current=currentAnalysis();
+ if(current&&current!==next)closeAnalysis(current);
+},true);
+$('studyAreaClose')?.addEventListener('click',()=>backToAnalyze('study'));
+const analysisObserver=new MutationObserver(syncAnalysisActions);
+for(const id of ['studyAreaPanel','studyAreaButton','studyAreaDetail','hereButton','hereProfile','infrastructureProfile']){
+ const element=$(id);
+ if(element)analysisObserver.observe(element,{attributes:true,attributeFilter:['hidden','class','style','aria-pressed']});
+}
+const originalDetail=setDetailDrawerOpen;setDetailDrawerOpen=function(open){if(open&&mode==='review')activate('explore');const r=originalDetail(open);if(open)setCollapsed(false);syncAnalysisActions();return r;};
+back.addEventListener('click',()=>{
+ const tool=currentAnalysis();
+ if(tool)backToAnalyze(tool);
+ else if(viewingCoordinateInfrastructure()){
+  setDetailDrawerOpen(false);
+  $('browseInfrastructure')?.focus({preventScroll:true});
+ }
+ else if(!window.TracksideAreaNavigation?.back())setDetailDrawerOpen(false);
+});
+clearAnalysis.addEventListener('click',()=>{
+ if(currentAnalysis()==='here')backToAnalyze('here');
+ else{
+  clearStudyArea();
+  const focusTarget=studyPanel?.hidden?'studyAreaButton':'studyPolygonMode';
+  $(focusTarget)?.focus({preventScroll:true});
+ }
+});
+collapse.addEventListener('click',()=>{setCollapsed(true);showTools.focus({preventScroll:true});});
 function setCollapsed(value){if(value&&shell.classList.contains('list-mode'))viewSwitch.querySelector('[data-view="map"]').click();shell.classList.toggle('ws-panel-collapsed',value);panel.hidden=value;collapse.setAttribute('aria-expanded',String(!value));showTools.setAttribute('aria-expanded',String(!value));setTimeout(()=>map.invalidateSize(),0);}
 const originalLayers=setMapLayersMenuOpen;setMapLayersMenuOpen=function(open){return originalLayers(mode==='layers'&&!changing?true:open);};
 function leaveDock(){if(!currentDock)return true;currentDock.close();return !currentDock?.open;}
-function setCurrentNavigation(){const visibleMode=mode==='following'?followingReturnMode:mode;shell.dataset.workspace=visibleMode;for(const[key,b]of navButtons){const active=key===mode||mode==='review'&&key==='explore';b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}for(const section of panel.querySelectorAll('[data-ws-panel]'))section.hidden=section.dataset.wsPanel!==visibleMode;}
-function activate(next,{fromDock=false}={}){if(!fromDock&&!leaveDock())return false;if(next!=='review'&&(mode==='review'||mode==='following'&&followingReturnMode==='review'))window.TracksideDigestMapReview?.close();const switched=mode!==next;filters.open=false;changing=true;mode=next;setPage('explore');if(next!=='explore'&&shell.classList.contains('list-mode'))viewSwitch.querySelector('[data-view="map"]').click();setDetailDrawerOpen(false);setSidebarCollapsed(false,false);originalLayers(next==='layers');setCollapsed(false);setCurrentNavigation();if(switched){const view=panel.querySelector(`[data-ws-panel="${next}"]`);if(view)view.scrollTop=0;}changing=false;return true;}
+function setCurrentNavigation(){const visibleMode=mode==='following'?followingReturnMode:mode;shell.dataset.workspace=visibleMode;for(const[key,b]of navButtons){const active=key===mode||mode==='review'&&key==='explore';b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}for(const section of panel.querySelectorAll('[data-ws-panel]'))section.hidden=section.dataset.wsPanel!==visibleMode;syncAnalysisActions();}
+function activate(next,{fromDock=false}={}){if(!fromDock&&!leaveDock())return false;if(mode==='analyze')closeAnalysis();if(next!=='review'&&(mode==='review'||mode==='following'&&followingReturnMode==='review'))window.TracksideDigestMapReview?.close();const switched=mode!==next;filters.open=false;changing=true;mode=next;setPage('explore');if(next!=='explore'&&shell.classList.contains('list-mode'))viewSwitch.querySelector('[data-view="map"]').click();setDetailDrawerOpen(false);setSidebarCollapsed(false,false);originalLayers(next==='layers');setCollapsed(false);setCurrentNavigation();if(switched){const view=panel.querySelector(`[data-ws-panel="${next}"]`);if(view)view.scrollTop=0;}changing=false;return true;}
 const originalPage=setPage;setPage=function(page){if(page==='saved'&&window.TracksideDigest?.openSaved){window.TracksideDigest.openSaved();return;}const result=originalPage(page);if(page==='explore'&&(mode==='news'||mode==='saved')){mode='explore';setCurrentNavigation();}return result;};
 const followingDialog=$('changeDigest');if(followingDialog)new MutationObserver(()=>{if(followingDialog.open){if(mode!=='following'){followingReturnMode=mode;mode='following';setCurrentNavigation();}}else if(mode==='following'){mode=followingReturnMode;setCurrentNavigation();}}).observe(followingDialog,{attributes:true,attributeFilter:['open']});
 $('brandHome').addEventListener('click',()=>activate('explore'));
@@ -87,6 +154,7 @@ const resizeObserver=new ResizeObserver(()=>requestAnimationFrame(()=>map.invali
 
 // Embed the existing walking calculation UI as an analysis workspace, without a modal backdrop.
 const walking=$('walkingAccessDialog');if(walking){walking.classList.add('ws-walking');main.append(walking);const actions=walking.querySelector('.walk-actions');actions.classList.add('ws-walk-actions');walking.querySelector('.walk-side').append(actions);new ResizeObserver(()=>window.dispatchEvent(new Event('resize'))).observe($('walkMap'));walking.showModal=function(){if(!activate('analyze'))return;currentDock=walking;shell.classList.add('ws-walking-open');walking.setAttribute('open','');};walking.addEventListener('close',()=>{shell.classList.remove('ws-walking-open');if(currentDock===walking)currentDock=null;resizeMaps();if(mode==='analyze'&&(walking.contains(document.activeElement)||document.activeElement===document.body))$('walkingAccessButton')?.focus({preventScroll:true});});}
+if(walking){const walkBack=$('walkClose');walkBack.textContent='Back to Analyze';walkBack.setAttribute('aria-label',walkBack.textContent);}
 if(walking&&$('walkLegend')){const key=make('details','ws-walk-map-key');key.append(make('summary','','Estimated walking time'),$('walkLegend'));key.open=!phoneQuery.matches;phoneQuery.addEventListener('change',e=>{if(e.matches)key.open=false;});$('walkMap').append(key);walking.querySelector('.walk-legend-title').hidden=true;}
 
 // The coordination watchlist keeps its original standalone modal, timeline and close guards.
@@ -111,6 +179,6 @@ function syncAdmin(){const source=$('adminButton'),active=source.classList.conta
 new MutationObserver(syncAdmin).observe($('adminButton'),{attributes:true,childList:true,subtree:true});new MutationObserver(syncAdmin).observe($('adminTeamAccess'),{attributes:true,attributeFilter:['hidden']});new MutationObserver(syncAdmin).observe($('adminOwnerTools'),{attributes:true,attributeFilter:['hidden']});syncAdmin();
 document.addEventListener('keydown',e=>{if(e.key!=='Escape'||document.querySelector('.modal.open,dialog[open]:modal'))return;if(mode==='review'){e.preventDefault();activate('explore');navButtons.get('explore')?.focus({preventScroll:true});return;}if(!currentDock)return;e.preventDefault();currentDock.close();});
 if($('routeUploadFile')){$('routeUploadFile').style.display='block';$('routeUploadFile').style.position='static';$('routeUploadFile').style.opacity='1';$('routeUploadFile').style.width='100%';$('routeUploadFile').style.height='auto';}
-setSidebarCollapsed(false,false);setCurrentNavigation();back.hidden=!shell.classList.contains('detail-open');
+setSidebarCollapsed(false,false);setCurrentNavigation();
 window.TracksideWorkspacePreview={activate,get mode(){return mode;},get dock(){return currentDock?.id||null;}};
 })();
