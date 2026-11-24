@@ -439,6 +439,29 @@
     if(!Array.isArray(rows)||rows.length!==1)throw new Error('Another administrator changed this record. Refresh the watchlist before saving again.');
     return rows[0];
   }
+  async function listInfrastructureSourceFindings() {
+    const rows = [];
+    for (let offset = 0; ; offset += 200) {
+      const page = await dataRequest('infrastructure_source_findings?select=*&order=priority.desc,checked_at.desc,id.asc&limit=200&offset='+offset, {}, true);
+      if (!Array.isArray(page)) throw Error('Invalid infrastructure findings response.');
+      rows.push(...page);
+      if (page.length < 200) return rows;
+    }
+  }
+
+  async function saveInfrastructureSourceReview(id, version, decision, review_note) {
+    if (!/^[a-f0-9]{64}$/.test(id) || !Number.isSafeInteger(version) || version < 0 ||
+        !['keep_current','verified_update','agency_confirmation'].includes(decision) || typeof review_note !== 'string' || review_note.length > 1000) {
+      throw Error('Choose a valid review decision and note.');
+    }
+    const rows = await dataRequest('infrastructure_source_findings?id=eq.'+id+'&review_version=eq.'+version, {
+      method:'PATCH', headers:{'Content-Type':'application/json',Prefer:'return=representation'},
+      body:JSON.stringify({decision,review_note})
+    }, true);
+    if (rows?.length !== 1) throw Error('Another administrator changed this finding. Refresh findings and verify the latest decision.');
+    return rows[0];
+  }
+
   async function listInfrastructureDates() {
     const rows = [];
     for (let offset = 0; ; offset += 500) {
@@ -1089,6 +1112,8 @@
     listOwnerAutomationStatus,
     changeOwnerRoute,
     listRouteSchedules,
+    listInfrastructureSourceFindings,
+    saveInfrastructureSourceReview,
     listInfrastructureDates,
     listInfrastructureDateHistory,
     saveInfrastructureDates,

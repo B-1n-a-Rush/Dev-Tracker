@@ -4,6 +4,7 @@ const { atomicWrite, reviewStore, runtimeFile } = require('./check-infrastructur
 const catalog = require(runtimeFile('trackside-infrastructure-sources.js'));
 const { captureProjectPages } = require('./check-atlanta-project-pages.cjs');
 const { captureRegional } = require('./check-regional-infrastructure-feeds.cjs');
+const { writeMonitoringImport } = require('./infrastructure-review-import.cjs');
 
 const root = path.resolve(__dirname,'..');
 const sortValues = values => [...new Set(values)].sort((a,b)=>String(a??'').localeCompare(String(b??''),'en'));
@@ -97,12 +98,13 @@ async function run() {
       status:'failed',message:gis.reason.message,alert:previous?.atlantaGIS.status!=='failed'||previous?.atlantaGIS.message!==gis.reason.message
     };
     const report={version:1,checkedAt,atlantaGIS,sources};
+    const queueImport=writeMonitoringImport(dir,report,atlantaGIS.status==='checked'?existing.latest().report:null);
     atomicWrite(file,JSON.stringify(report,null,2)+'\n');
     const findings=sources.flatMap(source=>(source.changes||[]).map(change=>({...change,source:source.name})));
     const counts=Object.fromEntries(['new','changed','missing'].map(kind=>[kind,findings.filter(row=>row.kind===kind).length]));
     const failures=[...(atlantaGIS.status==='failed'?[{name:'Atlanta DOT GIS',message:atlantaGIS.message,alert:atlantaGIS.alert}]:[]),
       ...sources.filter(x=>x.status==='failed').map(({name,message,alert})=>({name,message,alert}))];
-    console.log(JSON.stringify({checkedAt,reportFile:file,coverage:sources.map(({name,status,count})=>({name,status,count})),
+    console.log(JSON.stringify({checkedAt,reportFile:file,...queueImport,coverage:sources.map(({name,status,count})=>({name,status,count})),
       atlantaGIS,counts,findings:findings.slice(0,20),failures,recovered:sources.filter(x=>x.recovered).map(x=>x.name)}));
   } finally {
     fs.closeSync(fd);
