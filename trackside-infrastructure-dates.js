@@ -18,11 +18,8 @@
   }
 
   function agencyConstructionDate(row, endpoint) {
-    const kind = row.source?.kind;
-    if (kind === 'atlanta' || (endpoint === 'finish' && ['fulton', 'clayton'].includes(kind))) {
-      return land.dateRange(row[endpoint]) ? row[endpoint] : null;
-    }
-    return null;
+    const value = land.constructionDates(row)[endpoint];
+    return land.dateRange(value) ? value : null;
   }
 
   function apply(row, manual) {
@@ -38,7 +35,7 @@
   }
 
   function endpointLabel(row, endpoint) {
-    const value = row[endpoint];
+    const value = land.constructionDates(row)[endpoint];
     if (!land.dateRange(value)) return missingDate(value) ? 'Not published' : 'Needs review';
     const date = land.dateLabel(value);
     const status = row.manualSchedule?.[endpoint + '_certainty'];
@@ -46,7 +43,7 @@
     const basis = row.agencySchedule?.label || row.scheduleType || '';
     if (endpoint === 'finish' && /^actual completion\b/i.test(basis)) return date + ' (confirmed)';
     if (/^(?:anticipated|estimated)\b/i.test(basis)) return date + ' (estimated)';
-    return date + (row.manualSchedule ? ' (agency)' : '');
+    return date + ' (confidence not stated)';
   }
 
   function missingDate(value) {
@@ -58,6 +55,16 @@
     const label = clean(schedule[endpoint + '_label']);
     if (!land.dateRange(value) && missingDate(label)) return missingDate(value) ? 'Not published' : 'Needs review';
     return missingDate(label) ? land.dateLabel(value) : label;
+  }
+
+  function routeConstructionLabel(schedule, endpoint) {
+    const value = schedule['construction_' + endpoint];
+    if (!land.dateRange(value)) return missingDate(value) ? 'Not published' : 'Needs review';
+    const date = routeEndpointLabel(schedule, endpoint);
+    if (/\b(?:confirmed|estimated)\b/i.test(date)) return date;
+    if (/\b(?:anticipated|expected|target|planned|scheduled|forecast)\b/i.test(date)) return date + ' · estimated';
+    if (/\b(?:actual|began|started|completed|immediate start)\b/i.test(date)) return date + ' · confirmed';
+    return date + ' (confidence not stated)';
   }
 
   function endpointSources(values) {
@@ -73,8 +80,8 @@
 
   function projectDateSources(row, agencyUrl) {
     return endpointSources(endpoints.map(endpoint => {
-      if (!land.dateRange(row[endpoint])) return null;
-      return row.manualSchedule?.['construction_' + endpoint] != null ? row.manualSchedule.source_url : agencyUrl;
+      if (!land.dateRange(land.constructionDates(row)[endpoint])) return null;
+      return row.manualSchedule?.['construction_' + endpoint] != null ? row.manualSchedule.source_url : row.agencyDateSources?.[endpoint] || agencyUrl;
     }));
   }
 
@@ -100,7 +107,7 @@
   function reviewSnapshot(row) {
     if (!row) return null;
     return endpoints.map(endpoint => {
-      const range = land.dateRange(row[endpoint]);
+      const range = land.dateRange(land.constructionDates(row)[endpoint]);
       return [range?.first ?? null, range?.last ?? null, row.manualSchedule?.[endpoint + '_certainty'] ?? null];
     });
   }
@@ -112,12 +119,13 @@
   }
 
   function coverage(row) {
-    const start = land.dateRange(row.start), finish = land.dateRange(row.finish);
+    const dates = land.constructionDates(row);
+    const start = land.dateRange(dates.start), finish = land.dateRange(dates.finish);
     const invalid = (value, range) => !range && Boolean(clean(value)) && !/^(tbd|tba|unknown|not set|pending|0)$/i.test(clean(value));
     return {
-      missingStart: !start && !invalid(row.start,start),
-      missingFinish: !finish && !invalid(row.finish,finish),
-      invalid: invalid(row.start,start) || invalid(row.finish,finish) || Boolean(start && finish && start.first > finish.last)
+      missingStart: !start && !invalid(dates.start,start),
+      missingFinish: !finish && !invalid(dates.finish,finish),
+      invalid: invalid(dates.start,start) || invalid(dates.finish,finish) || Boolean(start && finish && start.first > finish.last)
     };
   }
 
@@ -199,5 +207,5 @@
     return record;
   }
 
-  return {eligible, apply, endpointLabel, routeEndpointLabel, projectDateSources, routeDateSources, agencyChanged, reviewSnapshot, reviewNeeded, coverage, atlantaDay, constructionOutlook, matchesFilter, matchesSearch, validate, certainty};
+  return {eligible, apply, endpointLabel, routeEndpointLabel, routeConstructionLabel, projectDateSources, routeDateSources, agencyChanged, reviewSnapshot, reviewNeeded, coverage, atlantaDay, constructionOutlook, matchesFilter, matchesSearch, validate, certainty};
 });

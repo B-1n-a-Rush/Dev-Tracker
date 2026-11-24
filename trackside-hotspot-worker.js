@@ -1,5 +1,5 @@
 /* Full-precision screening and display anchors stay off the map's UI thread. */
-importScripts('./trackside-land-core.js?v=20261117-geometry-speed','./trackside-coordination-core.js','./trackside-coordination-hotspots-core.js?v=20261117-geometry-speed');
+importScripts('./trackside-land-core.js?v=20261124-infrastructure-dates','./trackside-coordination-core.js?v=20261124-corridor-dates','./trackside-coordination-hotspots-core.js?v=20261124-corridor-dates');
 let pairs=new Map();
 self.onmessage=e=>{const{id,type,...v}=e.data;try{
  if(type==='screen'){pairs=new Map();const result=[],errors=[];for(const{route,schedule}of v.routes){try{for(const pair of TracksideHotspotsCore.screenRoute(route,schedule,v.rows,v.distance)){pairs.set(pair.key,pair);const{route:unusedRoute,row:unusedRow,schedule:unusedSchedule,...rest}=pair;result.push({...rest,routeKey:TracksideCoordinationCore.routeKey(route),rowId:pair.row.id});}}catch{errors.push(route.name)}}self.postMessage({id,result:{pairs:result,errors}});}

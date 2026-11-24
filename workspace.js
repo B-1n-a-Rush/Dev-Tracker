@@ -7,7 +7,7 @@ if(!shell||!main||!sidebar||typeof map==='undefined')return;
 document.body.classList.add('workspace-preview');
 let mode='explore',followingReturnMode='explore',currentDock=null,changing=false,resizing=false;
 const panel=make('aside','ws-panel');panel.id='workspacePanel';panel.setAttribute('aria-label','Workspace tools');
-const panelHead=make('div','ws-panel-head'),back=make('button','ws-back','Back to results'),collapse=make('button','ws-collapse','Hide panel');back.type=collapse.type='button';back.hidden=true;collapse.setAttribute('aria-controls',panel.id);collapse.setAttribute('aria-expanded','true');panelHead.append(back,collapse);panel.append(panelHead);main.prepend(panel);
+const panelHead=make('div','ws-panel-head'),back=make('button','ws-back','Back to results'),collapse=make('button','ws-collapse','Hide panel');back.type=collapse.type='button';back.id='workspaceBack';back.hidden=true;collapse.setAttribute('aria-controls',panel.id);collapse.setAttribute('aria-expanded','true');panelHead.append(back,collapse);panel.append(panelHead);main.prepend(panel);
 const rail=make('nav','ws-rail');rail.setAttribute('aria-label','Main workspace');shell.append(rail);
 const railMain=make('div','ws-rail-main'),railExtras=make('div','ws-rail-extra'),railBottom=make('div','ws-rail-bottom');rail.append(railMain,railExtras,railBottom);
 const icon=(name)=>{const img=make('img','ws-icon');img.src='./workspace-assets/'+name+'.svg?v=20261118-interface-palette';img.alt='';img.width=img.height=26;return img;};
@@ -17,7 +17,7 @@ const adminNav=make('button','ws-nav');adminNav.id='workspaceAdmin';adminNav.typ
 const layerSection=make('section','ws-mode');layerSection.dataset.wsPanel='layers';layerSection.append(make('h1','','Map layers'),make('p','ws-help','Choose the information you want on the map.'));panel.append(layerSection);
 const analyzeSection=make('section','ws-mode');analyzeSection.dataset.wsPanel='analyze';analyzeSection.append(make('h1','','Analyze an area'),make('p','ws-help','Explore development, access and transit alternatives.'));panel.append(analyzeSection);
 const coordinateSection=make('section','ws-mode');coordinateSection.dataset.wsPanel='coordinate';coordinateSection.append(make('h1','','Coordinate work'),make('p','ws-help','Review nearby construction, route impacts and published schedules.'));panel.append(coordinateSection);
-const moreSection=make('section','ws-mode ws-more');moreSection.dataset.wsPanel='more';moreSection.append(make('h1','','More from Trackside'));panel.append(moreSection);const moreButton=make('button','ws-nav ws-more-nav');moreButton.type='button';moreButton.append(icon('bookmark-simple'),make('span','','More'));moreButton.addEventListener('click',e=>{e.stopPropagation();activate('more');});railMain.append(moreButton);navButtons.set('more',moreButton);moreButton.hidden=![...originalNav.querySelectorAll('button')].some(b=>!b.hidden);
+const moreSection=make('section','ws-mode ws-more');moreSection.dataset.wsPanel='more';moreSection.append(make('h1','','More tools'));panel.append(moreSection);const moreButton=make('button','ws-nav ws-more-nav');moreButton.type='button';moreButton.append(icon('bookmark-simple'),make('span','','More'));moreButton.addEventListener('click',e=>{e.stopPropagation();activate('more');});railMain.append(moreButton);navButtons.set('more',moreButton);moreButton.hidden=![...originalNav.querySelectorAll('button')].some(b=>!b.hidden);
 const phoneQuery=matchMedia('(max-width:740px)');function moveExtraNav(){(phoneQuery.matches?moreSection:railExtras).append(originalNav);}phoneQuery.addEventListener('change',moveExtraNav);moveExtraNav();
 sidebar.dataset.wsPanel='explore';panel.append(sidebar,detail);sidebar.querySelector('h1').textContent='Explore projects';sidebar.querySelector('.intro').textContent='Find development around stations and transit corridors.';
 const toolbar=document.querySelector('.shell > .toolbar'),search=toolbar.querySelector('.search');header.insertBefore(search,header.querySelector('.header-right'));search.querySelector('input').placeholder='Search projects…';
@@ -32,8 +32,16 @@ const metrics=sidebar.querySelector('.metric-grid'),totals=make('details','ws-to
 sidebar.querySelector('.section-head h2').childNodes[0].textContent='';sidebar.querySelector('.eyebrow').hidden=true;
 const resultCount=make('span','ws-result-count');sidebar.querySelector('.section-head h2').prepend(resultCount);const updateResultCount=()=>{const count=$('projectList').querySelectorAll('button.project').length;resultCount.textContent=count+' project'+(count===1?'':'s');filterResults.textContent=count+' project'+(count===1?'':'s')+' match';};new MutationObserver(updateResultCount).observe($('projectList'),{childList:true});updateResultCount();
 const viewSwitch=toolbar.querySelector('.view-switch');sidebar.querySelector('.section-head').after(viewSwitch);
-sidebar.querySelector('.section-head').before($('activeFiltersBar'));
-const resultToolbar=make('div','ws-result-toolbar'),resultHeading=sidebar.querySelector('.section-head');resultHeading.before(resultToolbar);resultToolbar.append(resultHeading,viewSwitch);
+const activeFilters=$('activeFiltersBar');
+function placeActiveFilters(){
+ if(filters.open){if(activeFilters.parentElement!==filterContent)filterHead.after(activeFilters);}
+ else if(shell.classList.contains('list-mode')){if(activeFilters.parentElement!==sidebar)resultToolbar.before(activeFilters);}
+ else if(activeFilters.parentElement!==mapArea)mapArea.append(activeFilters);
+}
+L.DomEvent.disableClickPropagation(activeFilters);L.DomEvent.disableScrollPropagation(activeFilters);
+filters.addEventListener('toggle',placeActiveFilters);
+new MutationObserver(placeActiveFilters).observe(shell,{attributes:true,attributeFilter:['class']});
+const resultToolbar=make('div','ws-result-toolbar'),resultHeading=sidebar.querySelector('.section-head');resultHeading.before(resultToolbar);resultToolbar.append(resultHeading,viewSwitch);placeActiveFilters();
 const layersControl=$('mapLayersControl');layerSection.append(layersControl);
 for(const id of ['studyAreaControl','scenarioControl','hereButton','walkingAccessButton','openConstructionOutlook'])if($(id))analyzeSection.append($(id));
 for(const id of ['browseInfrastructure','openCoordinationWatchlist','sr2tCoordOpen','openScheduleCoverage','openCoordinationHotspots','openLocalBusImpacts'])if($(id))coordinateSection.append($(id));
@@ -63,9 +71,9 @@ const resizeHandle=make('div','ws-panel-resize');resizeHandle.tabIndex=0;resizeH
 function panelWidth(value){const width=Math.max(300,Math.min(540,Math.min(innerWidth-420,value)));document.documentElement.style.setProperty('--ws-panel-width',width+'px');resizeHandle.setAttribute('aria-valuenow',Math.round(width));}
 resizeHandle.setAttribute('aria-valuemin','300');resizeHandle.setAttribute('aria-valuemax','540');
 resizeHandle.addEventListener('pointerdown',e=>{resizing=true;resizeHandle.setPointerCapture(e.pointerId);e.preventDefault();});resizeHandle.addEventListener('pointermove',e=>{if(resizing)panelWidth(e.clientX-rail.getBoundingClientRect().width);});resizeHandle.addEventListener('pointerup',()=>resizing=false);resizeHandle.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight'].includes(e.key))return;e.preventDefault();panelWidth(panel.getBoundingClientRect().width+(e.key==='ArrowRight'?20:-20));});
-const footer=make('footer','ws-footer');footer.append(make('span','','Trackside ATL · MARTA service area'),make('span','ws-preview-label','Connected to live data'));shell.append(footer);
+const footer=make('footer','ws-footer');footer.append(make('span','','MARTA service area'),make('span','ws-preview-label','Connected to live data'));shell.append(footer);
 const originalDetail=setDetailDrawerOpen;setDetailDrawerOpen=function(open){if(open&&mode==='review')activate('explore');const r=originalDetail(open);back.hidden=!open;if(open)setCollapsed(false);return r;};
-back.addEventListener('click',()=>setDetailDrawerOpen(false));collapse.addEventListener('click',()=>{setCollapsed(true);showTools.focus({preventScroll:true});});
+back.addEventListener('click',()=>{if(!window.TracksideAreaNavigation?.back())setDetailDrawerOpen(false);});collapse.addEventListener('click',()=>{setCollapsed(true);showTools.focus({preventScroll:true});});
 function setCollapsed(value){if(value&&shell.classList.contains('list-mode'))viewSwitch.querySelector('[data-view="map"]').click();shell.classList.toggle('ws-panel-collapsed',value);panel.hidden=value;collapse.setAttribute('aria-expanded',String(!value));showTools.setAttribute('aria-expanded',String(!value));setTimeout(()=>map.invalidateSize(),0);}
 const originalLayers=setMapLayersMenuOpen;setMapLayersMenuOpen=function(open){return originalLayers(mode==='layers'&&!changing?true:open);};
 function leaveDock(){if(!currentDock)return true;currentDock.close();return !currentDock?.open;}

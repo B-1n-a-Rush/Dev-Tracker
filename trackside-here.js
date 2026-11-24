@@ -85,7 +85,7 @@
     return card;
   }
   function routeCard({record:r,distance:d}){
-    const card=n('article','here-card');card.append(action(r.name,()=>{if(typeof showCorridorHighlight==='function')showCorridorHighlight(r);showCorridorOverview(r);},'land-project-name'),note(r.mode+' · '+distance(d)+' from alignment'),note(r.kind==='rapid'?'Trackside project alignment':r.kind==='service'?'Existing streetcar service · saved route geometry':'MARTA rail service geometry in Trackside'));return card;
+    const card=n('article','here-card');card.append(action(r.name,()=>{if(typeof showCorridorHighlight==='function')showCorridorHighlight(r);showCorridorOverview(r);},'land-project-name'),note(r.mode+' · '+distance(d)+' from alignment'),note(r.kind==='rapid'?'Published project alignment':r.kind==='service'?'Existing streetcar service · saved route geometry':'MARTA rail service alignment'));return card;
   }
   function stationCard({record:r,distance:d}){
     const card=n('article','here-card');card.append(action(r.name+' Station',()=>showStationOverview(r.raw),'land-project-name'),note(r.lines+' · '+distance(d)+' straight-line distance'));return card;

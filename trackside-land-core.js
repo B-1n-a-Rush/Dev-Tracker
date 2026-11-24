@@ -82,6 +82,19 @@
     if(!a||!b)return 'unknown';if(a.first>b.last)return 'invalid';
     return a.first<=d.last&&b.last>=c.first?'overlap':'outside';
   }
+  function constructionDates(row) {
+    // The manual schedule has already been merged with the eligible agency dates.
+    if(row.manualSchedule)return {start:row.start??null,finish:row.finish??null};
+    const kind=row.source?.kind;
+    let start=row.start??null,finish=row.finish??null;
+    if(kind==='fulton'||kind==='clayton')start=null;
+    if(kind==='splost'||kind==='watershed'){
+      start=pick(row.raw||{},['CONSTRUCTION_START_DATE'])??null;
+      finish=pick(row.raw||{},['CONSTRUCTION_COMPLETION_DATE'])??null;
+    }
+    if(kind==='arc'||kind==='clayton-resurfacing')start=finish=null;
+    return {start,finish};
+  }
   function category(value) {
     const v=text(value).toLowerCase();
     if(/water|sewer|utility|storm|pump|drain/.test(v))return 'Utilities';
@@ -93,6 +106,35 @@
     if(/road|resurfac|pav|bridge|street repair|intersection/.test(v))return 'Roads & bridges';
     return 'Other';
   }
+  function completeStatus(status) {
+    return /complete|closeout|closed|cancel/i.test(status)&&!(/not\s+complete/i.test(status));
+  }
+  function infrastructurePhase(status) {
+    if(/pre.?construct|planning|design|procure|not started|scop/i.test(status))return 'Planning / design';
+    return /construct|in progress|active/i.test(status)?'Construction':'Planning / design';
+  }
+  function applyAtlantaProjectPage(row,page) {
+    if(row.source.kind!=='atlanta'||!page||page.id!==row.sourceId)return row;
+    const url=http(page.url);
+    if(!url||!page.gis)return row;
+    const dates=constructionDates(row);
+    const currentDate=value=>{const date=dateRange(value);return date?new Date(date.first).toISOString().slice(0,10):null;};
+    // Let a later GIS revision supersede the date comparison made during this audit.
+    const sameSchedule=page.gis.start.includes(currentDate(dates.start))&&page.gis.finish.includes(currentDate(dates.finish));
+    const startFromPage=sameSchedule&&!!dateRange(page.start);
+    const finishFromPage=sameSchedule&&!!dateRange(page.finish);
+    const start=startFromPage&&currentDate(dates.start)!==page.start?page.start:dates.start;
+    const finish=finishFromPage&&currentDate(dates.finish)!==page.finish?page.finish:dates.finish;
+    const windowStart=dateRange(start),windowFinish=dateRange(finish);
+    const usable=!(windowStart&&windowFinish&&windowStart.first>windowFinish.last);
+    const sourceStatus=page.phase&&page.gis.phase.includes(row.sourceStatus||null)?page.phase:row.sourceStatus;
+    return {...row,
+      start:usable?start:dates.start,finish:usable?finish:dates.finish,
+      sourceStatus,complete:completeStatus(sourceStatus),phase:infrastructurePhase(sourceStatus),
+      projectUrl:url,
+      agencyDateSources:{start:usable&&startFromPage?url:null,finish:usable&&finishFromPage?url:null}
+    };
+  }
   function infrastructure(feature,source) {
     if(source.kind==='arc')return arcInfrastructure(feature,source);
     const p=feature.properties||{};
@@ -101,12 +143,12 @@
     const sourceStatus=text(pick(p,fulton?['current_stage_of_project']:clayton?['Stage','Status']:['RATL_STATUS','status','CurrentStatus','FIRST_CurrentStatus','Status']));
     const id=text(pick(p,['projNumber','PROJECT_NUMBER','project_id','OBJECTID','ObjectId','id']));
     const kind=resurfacing?'Road resurfacing':text(pick(p,['PROJECT_CATEGORY','projType','ProjectType','FIRST_ProjectType','project_type']))||(clayton?'Road improvements':'');
-    const complete=/complete|closeout|closed|cancel/i.test(sourceStatus)&&!(/not\s+complete/i.test(sourceStatus));
+    const complete=completeStatus(sourceStatus);
     const start=fulton?p.estimated_start_date_for:pick(p,['CONSTRUCTION_START_DATE','DateStart','start','AnticipatedStartDate','FIRST_AnticipatedStartDate']);
     const finish=fulton?p.estimated_construction:clayton?pick(p,complete?['ActComplDate','EstComplDate']:['EstComplDate']):pick(p,['CONSTRUCTION_COMPLETION_DATE','DateFinish','finish']);
     return {
       id:source.id+':'+id,sourceId:id,name,sourceStatus,category:category(kind+' '+name),kind,complete,
-      phase:/pre.?construct|planning|design|procure|not started|scop/i.test(sourceStatus)?'Planning / design':/construct|in progress|active/i.test(sourceStatus)?'Construction':'Planning / design',
+      phase:infrastructurePhase(sourceStatus),
       jurisdiction:source.jurisdiction,agency:source.agency,start:start??null,finish:finish??null,
       duration:text(pick(p,['AnticipatedDuration','FIRST_AnticipatedDuration'])),
       scheduleType:fulton?'Estimated project start / construction finish':clayton?(complete&&text(p.ActComplDate)?'Actual completion; start not published':'Estimated completion; start not published'):resurfacing?'Construction window not published':source.kind==='atlanta'?'Anticipated construction':source.kind==='splost'?'Published project schedule':'Anticipated project schedule',
@@ -264,5 +306,5 @@
       }
     }return Math.sqrt(minSquared);
   }
-  return {text,pick,numeric,http,parcel,groupParcels,dateRange,dateLabel,schedule,category,infrastructure,joinFulton,geometryDistance,arcJurisdictions,officialIdentifiers,reconcileInfrastructure,isImportedRapidTransit};
+  return {text,pick,numeric,http,parcel,groupParcels,dateRange,dateLabel,schedule,constructionDates,category,infrastructure,applyAtlantaProjectPage,joinFulton,geometryDistance,arcJurisdictions,officialIdentifiers,reconcileInfrastructure,isImportedRapidTransit};
 });

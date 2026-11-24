@@ -4,26 +4,102 @@
 const C=window.TracksideLegendCore;if(!C||typeof map==='undefined')return;
 const $=id=>document.getElementById(id),N=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;},panels=new Map();
 let scheduled=false,printing=false;
-function swatch(row){const e=N('span','ts-key-swatch ts-key-'+row.kind);e.setAttribute('aria-hidden','true');if(row.kind==='cluster'){e.textContent='3';return e;}e.style.setProperty('--key-color',C.color(row.color));if(row.colors?.length)e.style.setProperty('--key-paint','linear-gradient(90deg,'+row.colors.map((v,i)=>C.color(v)+' '+i/row.colors.length*100+'% '+(i+1)/row.colors.length*100+'%').join(',')+')');if(row.kind==='walk'){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');const c=document.createElementNS(svg.namespaceURI,'circle');c.setAttribute('cx','13');c.setAttribute('cy','4');c.setAttribute('r','2');const p=document.createElementNS(svg.namespaceURI,'path');p.setAttribute('d','m10 9 3-2 3 4 3 1 M13 7l-2 7-4 6 M11 14l5 6 M10 9l-3 4');svg.append(c,p);e.append(svg);}return e;}
-function content(model,staticMode=false){const body=N('div','ts-key-body');if(model.context)body.append(N('p','ts-key-context',model.context));for(const g of model.groups){const section=N(!staticMode&&g.fold?'details':'section','ts-key-group');section.dataset.keyGroup=g.id;const title=N(section.tagName==='DETAILS'?'summary':'h3','',g.title+(g.fold&&g.rows.length?' · '+g.rows.length:''));section.append(title);for(const row of g.rows){const item=N('div','ts-key-row'),copy=N('span','ts-key-copy');copy.append(N('span','',row.label));if(row.note)copy.append(N('small','',row.note));item.append(swatch(row),copy);section.append(item);}if(g.note)section.append(N('p','ts-key-note',g.note));body.append(section);}if(!model.groups.length)body.append(N('p','ts-key-note','No optional map layers are enabled. The basemap remains visible.'));return body;}
+function swatch(row){
+ const e=N('span','ts-key-swatch ts-key-'+row.kind);
+ e.setAttribute('aria-hidden','true');
+ if(row.kind==='cluster'){e.textContent='3';return e;}
+ if(row.kind==='status-palette'){
+  for(const paint of row.colors){
+   const dot=N('span','ts-key-status-dot');
+   dot.style.setProperty('--key-color',C.color(paint));
+   e.append(dot);
+  }
+  return e;
+ }
+ e.style.setProperty('--key-color',C.color(row.color));
+ if(row.colors?.length)e.style.setProperty('--key-paint','linear-gradient(90deg,'+row.colors.map((v,i)=>C.color(v)+' '+i/row.colors.length*100+'% '+(i+1)/row.colors.length*100+'%').join(',')+')');
+ if(row.kind==='dash'&&row.dashArray){
+  const [dash,gap]=String(row.dashArray).trim().split(/[\s,]+/).map(Number);
+  if(Number.isFinite(dash+gap)&&dash>0&&gap>0){
+   const scale=100/(3*dash+2*gap);
+   e.style.setProperty('--key-dash-end',dash*scale+'%');
+   e.style.setProperty('--key-dash-repeat',(dash+gap)*scale+'%');
+  }
+ }
+ if(row.kind==='walk'){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox','0 0 24 24');
+  const c=document.createElementNS(svg.namespaceURI,'circle');
+  c.setAttribute('cx','13');c.setAttribute('cy','4');c.setAttribute('r','2');
+  const p=document.createElementNS(svg.namespaceURI,'path');
+  p.setAttribute('d','m10 9 3-2 3 4 3 1 M13 7l-2 7-4 6 M11 14l5 6 M10 9l-3 4');
+  svg.append(c,p);e.append(svg);
+ }
+ return e;
+}
+const markerGroups=new Set(['projects','stations','busStops','sr2t']);
+const routeHeadingSymbols={rail:C.keySymbols.service,service:C.keySymbols.service,bus:C.keySymbols.service,rapid:C.keySymbols.corridor};
+function renderGroup(group,staticMode,main){
+ const section=N(!staticMode&&group.fold?'details':'section','ts-key-group');
+ section.dataset.keyGroup=group.id;
+ const title=N(section.tagName==='DETAILS'?'summary':'h3');
+ const icon=main&&routeHeadingSymbols[group.id];
+ if(icon){
+  title.className='ts-key-route-heading';
+  title.append(swatch(icon));
+ }
+ title.append(N('span','',group.title+(group.fold&&group.rows.length?' · '+group.rows.length:'')));
+ section.append(title);
+ for(const row of group.rows){
+  const item=N('div','ts-key-row'),copy=N('span','ts-key-copy');
+  copy.append(N('span','',row.label));
+  if(row.note)copy.append(N('small','',row.note));
+  item.append(swatch(row),copy);section.append(item);
+ }
+ if(group.note)section.append(N('p','ts-key-note',group.note));
+ return section;
+}
+function content(model,staticMode=false,main=false){
+ const body=N('div','ts-key-body');
+ if(model.context)body.append(N('p','ts-key-context',model.context));
+ if(main){
+  const sections={'Map markers':[],'Transit lines':[],'Map overlays':[]};
+  for(const group of model.groups){
+   const label=markerGroups.has(group.id)?'Map markers':routeHeadingSymbols[group.id]?'Transit lines':'Map overlays';
+   sections[label].push(renderGroup(group,staticMode,main));
+  }
+  for(const [label,groups] of Object.entries(sections)){
+   if(!groups.length)continue;
+   const section=N('section','ts-key-section');
+   section.append(N('h2','',label),...groups);
+   body.append(section);
+  }
+ }else{
+  for(const group of model.groups)body.append(renderGroup(group,staticMode,main));
+ }
+ if(!model.groups.length)body.append(N('p','ts-key-note','No optional map layers are enabled. The basemap remains visible.'));
+ return body;
+}
 function elementFor(type,state){const model=C[type](state),box=N('section','ts-map-key ts-key-static');box.setAttribute('aria-label',model.title);box.append(N('h3','ts-key-static-title',model.title),content(model,true));return box;}
 function mount(host,id,read){if(!host||panels.has(id))return;const box=N('details','ts-map-key');box.id=id;const summary=N('summary','ts-key-toggle','Map key');summary.setAttribute('aria-label','Map key');box.append(summary);host.append(box);if(typeof L!=='undefined'){L.DomEvent.disableClickPropagation(box);L.DomEvent.disableScrollPropagation(box);}box.addEventListener('keydown',event=>{if(event.key==='Escape'&&box.open){event.preventDefault();event.stopPropagation();box.open=false;summary.focus();}});panels.set(id,{box,summary,read,key:'',prior:false});}
 const checked=id=>!!$(id)?.checked;
-function mainState(){const bus=window.TracksideLocalBus?.legendState,infra=window.TracksideLand?.legendState,sr=window.TracksideSR2T?.legendState;return{projects:typeof projectLayer!=='undefined'&&map.hasLayer(projectLayer),projectStatuses:typeof lastVisibleProjects!=='undefined'?[...new Set(lastVisibleProjects.map(p=>p.status))]:undefined,projectEmpty:typeof lastVisibleProjects!=='undefined'&&!lastVisibleProjects.length,clustered:typeof projectClusteringEnabled!=='undefined'&&projectClusteringEnabled&&map.getZoom()<14,rail:typeof railLayer!=='undefined'&&map.hasLayer(railLayer),railRoutes:typeof railLines!=='undefined'?railLines:[],stations:typeof stationLayer!=='undefined'&&map.hasLayer(stationLayer),routes:typeof brtArtRoutes!=='undefined'?brtArtRoutes.filter(r=>{const l=brtRouteLayers.get(r.name);return l&&brtLayer.hasLayer(l)&&map.hasLayer(brtLayer);}).map(r=>({name:r.name,color:r.color,mode:r.mode||r.sourceMode||'',dashed:!isExistingTransitRoute(r),existing:isExistingTransitRoute(r)})):[],bus:bus?.main,sr2t:sr,reach:window.TracksideReach?.legendState,infrastructure:infra,parcels:checked('layerParcels'),boundaries:typeof serviceAreaLayer!=='undefined'&&map.hasLayer(serviceAreaLayer),zoom:map.getZoom(),stationBuffer:typeof stationBuffer!=='undefined'&&stationBuffer&&map.hasLayer(stationBuffer),study:typeof studyAreaLayer!=='undefined'&&studyAreaLayer.getLayers().length>0,scenario:typeof scenarioLayer!=='undefined'&&scenarioLayer.getLayers().length>0,search:!!window.TracksidePlaceSearch?.selection,searchParcel:!!window.TracksidePlaceSearch?.selection?.feature};}
-function update(){scheduled=false;for(const [id,p]of panels){let model;try{model=p.read();}catch{continue;}const key=JSON.stringify(model);if(key===p.key)continue;p.key=key;const old=new Map([...p.box.querySelectorAll('details[data-key-group]')].map(d=>[d.dataset.keyGroup,d.open]));const body=content(model);p.box.querySelector('.ts-key-body')?.remove();p.box.append(body);for(const d of body.querySelectorAll('details[data-key-group]'))d.open=old.get(d.dataset.keyGroup)||printing;(p.summary.querySelector('.ts-key-title')||p.summary).textContent=model.title+' · '+model.groups.length;p.summary.setAttribute('aria-label',model.title+', '+model.groups.length+' groups');}}
+function mainState(){const bus=window.TracksideLocalBus?.legendState,infra=window.TracksideLand?.legendState,sr=window.TracksideSR2T?.legendState;return{projects:typeof projectLayer!=='undefined'&&map.hasLayer(projectLayer),projectStatuses:typeof lastVisibleProjects!=='undefined'?[...new Set(lastVisibleProjects.map(p=>p.status))]:undefined,projectEmpty:typeof lastVisibleProjects!=='undefined'&&!lastVisibleProjects.length,clustered:typeof projectClusteringEnabled!=='undefined'&&projectClusteringEnabled&&map.getZoom()<clusteringZoom,rail:typeof railLayer!=='undefined'&&map.hasLayer(railLayer),railRoutes:typeof railLines!=='undefined'?railLines:[],stations:typeof stationLayer!=='undefined'&&map.hasLayer(stationLayer),routes:typeof brtArtRoutes!=='undefined'?brtArtRoutes.filter(r=>{const l=brtRouteLayers.get(r.name);return l&&brtLayer.hasLayer(l)&&map.hasLayer(brtLayer);}).map(r=>({name:r.name,color:r.color,mode:r.mode||r.sourceMode||'',dashArray:r.dashArray,dashed:!isExistingTransitRoute(r),existing:isExistingTransitRoute(r)})):[],bus:bus?.main,sr2t:sr,reach:window.TracksideReach?.legendState,infrastructure:infra,parcels:checked('layerParcels'),boundaries:typeof serviceAreaLayer!=='undefined'&&map.hasLayer(serviceAreaLayer),zoom:map.getZoom(),stationBuffer:typeof stationBuffer!=='undefined'&&stationBuffer&&map.hasLayer(stationBuffer),study:typeof studyAreaLayer!=='undefined'&&studyAreaLayer.getLayers().length>0,scenario:typeof scenarioLayer!=='undefined'&&scenarioLayer.getLayers().length>0,search:!!window.TracksidePlaceSearch?.selection,searchParcel:!!window.TracksidePlaceSearch?.selection?.feature};}
+function update(){scheduled=false;for(const [id,p]of panels){let model;try{model=p.read();}catch{continue;}const key=JSON.stringify(model);if(key===p.key)continue;p.key=key;const old=new Map([...p.box.querySelectorAll('details[data-key-group]')].map(d=>[d.dataset.keyGroup,d.open]));const main=id==='adaptiveMapKey';const body=content(model,false,main);p.box.querySelector('.ts-key-body')?.remove();p.box.append(body);for(const d of body.querySelectorAll('details[data-key-group]'))d.open=old.get(d.dataset.keyGroup)||printing;if(!main){p.summary.textContent=model.title+' · '+model.groups.length;p.summary.setAttribute('aria-label',model.title+', '+model.groups.length+' groups');}}}
 function refresh(){if(scheduled)return;scheduled=true;requestAnimationFrame(update);}
 function mountQuickKey(){
  const summary=panels.get('adaptiveMapKey')?.summary;
  if(!summary)return;
  const quick=N('span','ts-map-mini');
- const rows=[['Project','dot','#f4a261'],['Cluster','cluster','#adc9e8'],['Station','ring','#174a83'],['Existing','line','#174a83'],['Project route','dash','#174a83']];
- for(const [label,kind,color] of rows){
+ for(const row of Object.values(C.keySymbols)){
   const item=N('span','ts-map-mini-item');
-  item.append(swatch({kind,color}),N('span','',label));
+  item.append(swatch(row),N('span','',row.label));
   quick.append(item);
  }
  summary.textContent='';
- summary.append(N('span','ts-key-title','Map key'),quick);
+ summary.setAttribute('aria-label','Map legend');
+ quick.id='mapLegendSymbols';
+ summary.setAttribute('aria-describedby',quick.id);
+ summary.append(N('span','ts-key-title','Legend'),quick);
 }
 function discover(){mount(document.querySelector('.map-area'),'adaptiveMapKey',()=>C.main(mainState()));mountQuickKey();mount($('walkMap'),'adaptiveWalkingKey',()=>C.walking(window.TracksideWalkingAccess?.legendState||{}));mount($('busImpactMap'),'adaptiveBusKey',()=>C.bus(window.TracksideLocalBus?.legendState?.detail||{}));mount($('coordinationHotspotMap'),'adaptiveHotspotKey',()=>C.hotspots(window.TracksideHotspots?.legendState||{}));}
 window.TracksideMapLegend={refresh,elementFor,get model(){return C.main(mainState());}};

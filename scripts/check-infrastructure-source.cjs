@@ -128,9 +128,13 @@ function conflict(message) {
   return Object.assign(new Error(message), { status: 409 });
 }
 
-function reviewStore(tracker = root) {
+function runtimeFile(name, tracker = root) {
   const runtime = fs.existsSync(path.join(tracker, 'outputs', 'index.html')) ? 'outputs' : '.';
-  const baselineFile = path.join(tracker, runtime, 'trackside-atlanta-reviewed.js');
+  return path.join(tracker, runtime, name);
+}
+
+function reviewStore(tracker = root) {
+  const baselineFile = runtimeFile('trackside-atlanta-reviewed.js', tracker);
   const folder = path.join(tracker, 'work', 'infrastructure-refresh');
   const reportFile = path.join(folder, 'latest.json');
   const attemptFile = path.join(folder, 'attempt.json');
@@ -270,7 +274,7 @@ async function main(args) {
   else throw new Error('Use no arguments to check the feed, --initialize to seed it, or --apply-reviewed followed by the review file path.');
   console.log(JSON.stringify(result));
 }
-module.exports = { capture, compare, reviewStore };
+module.exports = { atomicWrite, capture, compare, reviewStore, runtimeFile };
 if (require.main === module) main(process.argv.slice(2)).catch(error => {
   console.error(error.cause?.code ? error.message + ' (' + error.cause.code + ')' : error.message);
   process.exitCode = 1;

@@ -4,23 +4,27 @@
 const rank={overlap:0,unknown:1,'reference-needed':1,invalid:1,outside:2},anchorCache=new WeakMap();
 function screenRoute(route,schedule,rows,distanceMeters=76.2){const result=C.screen({route,rows,start:schedule?.construction_start||'',finish:schedule?.construction_finish||'',distanceMeters});return result.rows.map(item=>({...item,route,schedule:schedule||{},key:C.routeKey(route)+'|'+item.row.id}));}
 function yearMatches(pair,year){if(!year)return true;if(!/^\d{4}$/.test(String(year))||Number(year)<1900||Number(year)>2200)throw Error('Choose a supported calendar year.');const first=Date.UTC(Number(year),0,1),last=Date.UTC(Number(year)+1,0,1)-1;
- for(const [start,finish]of [[pair.schedule.construction_start,pair.schedule.construction_finish],[pair.row.start,pair.row.finish]]){const w=C.constructionWindow(start,finish);if(w.kind==='invalid')continue;if(w.start&&w.start.first>last)return false;if(w.finish&&w.finish.last<first)return false;}return true;
+ const work=C.projectWindow(pair.row),reference=C.constructionWindow(pair.schedule.construction_start,pair.schedule.construction_finish);
+ for(const w of pair.state==='outside'?[work]:[reference,work]){if(w.kind==='invalid')continue;if(w.start&&w.start.first>last)return false;if(w.finish&&w.finish.last<first)return false;}return true;
 }
 function qualify(row,opts){return (!opts.jurisdiction||(row.jurisdictions||[row.jurisdiction]).includes(opts.jurisdiction))&&(!opts.category||row.category===opts.category);}
 function model(pairs,opts={}){
  const near=pairs.filter(p=>(!opts.route||C.routeKey(p.route)===opts.route)&&qualify(p.row,opts)),groups=new Map(),seenPairs=new Set();
- for(const pair of near){if(seenPairs.has(pair.key))continue;seenPairs.add(pair.key);if(!yearMatches(pair,opts.year)||pair.state==='outside')continue;const state=pair.state==='overlap'?'overlap':'unknown';if(opts.timing==='overlap'&&state!=='overlap'||opts.timing==='unknown'&&state!=='unknown')continue;
-  if(!groups.has(pair.row.id))groups.set(pair.row.id,{row:pair.row,matches:[],state:'unknown'});const group=groups.get(pair.row.id);group.matches.push(pair);if(state==='overlap')group.state='overlap';
+ for(const pair of near){if(seenPairs.has(pair.key))continue;seenPairs.add(pair.key);if(!yearMatches(pair,opts.year))continue;
+  const state=rank[pair.state]===1?'unknown':pair.state;
+  if(opts.timing&&state!==opts.timing)continue;
+  if(!groups.has(pair.row.id))groups.set(pair.row.id,{row:pair.row,matches:[],state});const group=groups.get(pair.row.id);group.matches.push(pair);if(rank[state]<rank[group.state])group.state=state;
  }
  const projects=[...groups.values()];for(const g of projects)g.matches.sort((a,b)=>rank[a.state]-rank[b.state]||a.distance-b.distance||a.route.name.localeCompare(b.route.name));projects.sort((a,b)=>rank[a.state]-rank[b.state]||a.row.name.localeCompare(b.row.name));
- return {projects,matches:projects.flatMap(g=>g.matches),overlaps:projects.filter(g=>g.state==='overlap').length,unknown:projects.filter(g=>g.state==='unknown').length,nearbyProjects:new Set(near.map(p=>p.row.id)).size};
+ return {projects,matches:projects.flatMap(g=>g.matches),overlaps:projects.filter(g=>g.state==='overlap').length,unknown:projects.filter(g=>g.state==='unknown').length,outside:projects.filter(g=>g.state==='outside').length,nearbyProjects:new Set(near.map(p=>p.row.id)).size};
 }
 function unlocated(rows,opts={}){const seen=new Set();return rows.filter(row=>{if(seen.has(row.id)||row.complete||row.longRange||L.isImportedRapidTransit(row)||!qualify(row,opts))return false;seen.add(row.id);return !row.geometry;}).length;}
-function years(pairs,now=Date.now()){const current=new Date(now).getUTCFullYear(),values=[current,current+10];for(const p of pairs)for(const v of [p.schedule.construction_start,p.schedule.construction_finish,p.row.start,p.row.finish]){const date=L.dateRange(v);if(date)values.push(new Date(date.first).getUTCFullYear());}const lo=Math.max(1900,Math.min(...values)),hi=Math.min(2200,Math.max(...values));return Array.from({length:hi-lo+1},(_,i)=>String(lo+i));}
+function years(pairs,now=Date.now()){const current=new Date(now).getUTCFullYear(),values=[current,current+10];for(const p of pairs)for(const date of [L.dateRange(p.schedule.construction_start),L.dateRange(p.schedule.construction_finish),C.projectWindow(p.row).start,C.projectWindow(p.row).finish])if(date)values.push(new Date(date.first).getUTCFullYear());const lo=Math.max(1900,Math.min(...values)),hi=Math.min(2200,Math.max(...values));return Array.from({length:hi-lo+1},(_,i)=>String(lo+i));}
 function reasons(pair,year){const reasons=['Published geometry is '+Math.round(pair.distance/.3048).toLocaleString()+' ft from '+pair.route.name+'.'];
- if(pair.state==='overlap')reasons.push(year?'The route and infrastructure windows can both include '+year+'.':'The published route and infrastructure schedule windows intersect.');
- else for(const [label,start,finish]of [['Route',pair.schedule.construction_start,pair.schedule.construction_finish],['Infrastructure',pair.row.start,pair.row.finish]]){const w=C.constructionWindow(start,finish);if(w.kind==='invalid')reasons.push(label+' dates need review.');else{if(!w.start)reasons.push(label+' construction start is not published.');if(!w.finish)reasons.push(label+' construction finish is not published.');}}
- if([pair.schedule.construction_start,pair.schedule.construction_finish,pair.row.start,pair.row.finish].some(v=>L.dateRange(v)?.precision!=='day'&&L.dateRange(v)))reasons.push('Month/year ranges preserve uncertainty; this is a potential overlap, not a confirmed construction conflict.');
+ if(pair.state==='outside')reasons.push(pair.reason);
+ else if(pair.state==='overlap')reasons.push(year?'The route and infrastructure windows can both include '+year+'.':'The published route and infrastructure schedule windows intersect.');
+ else for(const [label,w]of [['Route',C.constructionWindow(pair.schedule.construction_start,pair.schedule.construction_finish)],['Infrastructure',C.projectWindow(pair.row)]]){if(w.kind==='invalid')reasons.push(label+' dates need review.');else{if(!w.start)reasons.push(label+' construction start is not published.');if(!w.finish)reasons.push(label+' construction finish is not published.');}}
+ if(pair.state==='overlap'&&pair.overlap.approximate)reasons.push('Month/year ranges preserve uncertainty; this is a potential overlap, not a confirmed construction conflict.');
  return [...reasons,...pair.warnings];
 }
 function parts(g){if(!g)return [];if(g.type==='GeometryCollection')return(g.geometries||[]).flatMap(parts);if(g.type==='Point')return[[g.coordinates]];if(g.type==='MultiPoint')return g.coordinates.map(p=>[p]);if(g.type==='LineString')return[g.coordinates];if(['MultiLineString','Polygon'].includes(g.type))return g.coordinates;if(g.type==='MultiPolygon')return g.coordinates.flat();return [];}

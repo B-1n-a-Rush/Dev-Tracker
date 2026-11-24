@@ -24,7 +24,8 @@ function notice(text){bannerText.textContent=text;banner.hidden=false;}
 function cleanViewParameter(){if(applying)return;const u=new URL(location.href);if(!u.searchParams.has(C.parameter))return;u.searchParams.delete(C.parameter);history.replaceState(history.state,'',u.pathname+u.search+u.hash);}
 const originalSync=syncSelectedProjectUrl;syncSelectedProjectUrl=function(...args){cleanViewParameter();return originalSync(...args);};
 // User changes leave the received snapshot URL, so reload never silently reverts later edits.
-map.on('dragstart zoomstart',cleanViewParameter);document.addEventListener('change',e=>{if(e.target.closest?.('#workspaceFilters,#mapLayersControl')||['driOnlyFilter','infraScheduleFilter'].includes(e.target.id))cleanViewParameter();});document.addEventListener('input',e=>{if(['search','localBusMapSearch','sr2tSearch','infraProjectSearch'].includes(e.target.id))cleanViewParameter();});
+map.on('dragstart zoomstart',cleanViewParameter);
+document.addEventListener('click',event=>{if(event.target.closest?.('#activeFiltersBar button,#workspaceFilters .ws-filter-foot button'))cleanViewParameter();},true);document.addEventListener('change',e=>{if(e.target.closest?.('#workspaceFilters,#mapLayersControl')||['driOnlyFilter','infraScheduleFilter'].includes(e.target.id))cleanViewParameter();});document.addEventListener('input',e=>{if(['search','localBusMapSearch','sr2tSearch','infraProjectSearch'].includes(e.target.id))cleanViewParameter();});
 async function publicProject(id){if(!api?.listDigestProjects)return false;const rows=await api.listDigestProjects();return rows.some(r=>r.id===id);}
 async function capture(){
  if(typeof TracksideDiscoveryReview!=='undefined'&&TracksideDiscoveryReview.privateMapOpen)throw Error('Exit the admin review or project preview before sharing a public map view.');

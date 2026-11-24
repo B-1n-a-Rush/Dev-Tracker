@@ -13,7 +13,7 @@ function render(root,opts){
  const controls=N('div','coord-timeline-controls');
  function select(label,id,options,value,change){const wrap=N('label','land-field',label),el=N('select');el.id=id;for(const [v,t]of options)el.add(new Option(t,v));el.value=value;el.addEventListener('change',()=>change(el.value));wrap.append(el);controls.append(wrap);}
  if(!opts.print){select('Time scale','coordTimelineScale',[['years','Years'],['quarters','Quarters'],['months','Months']],opts.scale,opts.onScale);select('Visible period','coordTimelineFit',[['route',opts.existingService?'Fit project dates':'Fit route dates'],['all','Fit all dates']],opts.fit,opts.onFit);head.append(controls);}root.append(head);
- if(!opts.print&&opts.dateSources?.length){
+ if(opts.dateSources?.length){
   const evidence=N('div','land-actions');
   for(const source of opts.dateSources){const link=N('a','land-link','Route '+source.label.toLowerCase()+' ↗');link.href=source.url;link.target='_blank';link.rel='noopener noreferrer';evidence.append(link);}
   root.append(evidence);
@@ -21,7 +21,7 @@ function render(root,opts){
  if(opts.loading||opts.unavailable){root.append(N('p','land-message',opts.loading?'Loading the construction timeline…':'Infrastructure sources are unavailable. A project timeline cannot be drawn until sources load.'));return;}
  const model=C.timelineModel({start:opts.start,finish:opts.finish,rows:opts.items,fit:opts.fit}),axis=C.timelineTicks(model,opts.scale);
  const explanation=opts.existingService?'Visible period fits the available infrastructure project dates.':model.basis==='fallback'?'No usable dates are published. The calendar is shown for orientation only.':opts.fit==='route'&&model.basis==='all'?'Route dates are unavailable or invalid; the visible period fits the available project dates.':'Visible period: '+model.firstYear+'–'+(model.lastYear-1)+'.';
- root.append(N('p','land-note',explanation+' '+(opts.existingService?'Existing service: bars show nearby infrastructure work only; no route construction or operating hours are assumed.':opts.study?'The route row uses your temporary study dates.':'The route row uses the published construction schedule.')));
+ root.append(N('p','land-note',explanation+' '+(opts.existingService?'Existing service: bars show nearby infrastructure work only; no route construction or operating hours are assumed.':opts.study?'The route row uses your temporary study dates.':'The route row uses sourced construction dates.')));
  if(axis.step!==axis.requested)root.append(N('p','land-note','The scale is grouped into '+axis.step/12+'-year intervals to keep this long schedule readable.'));
  const pager=N('div','coord-timeline-pager'),count=opts.items.length,first=opts.print?0:opts.page*20,last=opts.print?count:Math.min(first+20,count);
  if(!opts.print){const previous=button('← Previous',()=>opts.onPage(opts.page-1)),next=button('Next →',()=>opts.onPage(opts.page+1));previous.disabled=opts.page===0;next.disabled=last>=count;pager.append(previous,N('p','land-note',count?'Showing '+(first+1)+'–'+last+' of '+count+' matching projects':'No matching projects'),next);root.append(pager);}
@@ -58,11 +58,11 @@ function render(root,opts){
  }
  const startLabel=opts.study?L.dateLabel(opts.start):opts.routeStartLabel||L.dateLabel(opts.start),finishLabel=opts.study?L.dateLabel(opts.finish):opts.routeFinishLabel||L.dateLabel(opts.finish);
  if(!opts.existingService)canvas.append(row({name:opts.route.name,start:startLabel,finish:finishLabel,window:model.route,route:true,subtitle:opts.study?'Temporary study window':'MARTA construction schedule'}));
- for(const entry of model.items.slice(first,last)){const item=entry.item,r=item.row;canvas.append(row({name:r.name,start:D.endpointLabel(r,'start'),finish:D.endpointLabel(r,'finish'),window:entry.window,state:item.state,timingLabel:C.timingLabel(item),id:r.id,subtitle:r.scheduleType||'Published project schedule',sharedWindow:item.overlap?'Potential shared window · '+C.overlapLabel(item.overlap):''}));}
+ for(const entry of model.items.slice(first,last)){const item=entry.item,r=item.row;canvas.append(row({name:r.name,start:D.endpointLabel(r,'start'),finish:D.endpointLabel(r,'finish'),window:entry.window,state:item.state,timingLabel:C.timingLabel(item),id:r.id,subtitle:r.manualSchedule?'Sourced construction dates':'Agency construction dates',sharedWindow:item.overlap?'Potential shared window · '+C.overlapLabel(item.overlap):''}));}
  if(!count)canvas.append(N('p','land-note coord-time-no-results','No loaded, mapped projects match these filters. This is not evidence that no nearby work exists.'));
  scroll.append(canvas);root.append(scroll);
  const legend=N('div','coord-time-legend');for(const [cls,text]of [['route','MARTA route'],['overlap','Potential overlap'],['other','Other recorded window'],['endpoint','Known endpoint only'],['hatch','Month/year uncertainty'],['today','Today']]){if(opts.existingService&&cls==='route')continue;const item=N('span'),swatch=N('i',cls);if(cls==='route'&&/^#[0-9a-f]{6}$/i.test(opts.route.color))swatch.style.backgroundColor=opts.route.color;item.append(swatch,N('span','',text));legend.append(item);}root.append(legend);
- root.append(N('p','land-note','Bars span the earliest recorded start to the latest recorded finish. Hatched ends preserve month/year uncertainty; endpoint-only marks are not durations. Target dates remain estimates. Project schedules may cover more than construction; check each row’s schedule label.'));
+ root.append(N('p','land-note','Bars span the earliest recorded start to the latest recorded finish. Hatched ends preserve month/year uncertainty; endpoint-only marks are not durations. Target dates remain estimates. Only dates identified as construction are used for overlaps.'));
  scroll.scrollLeft=position.left;scroll.scrollTop=position.top;
 }
 window.TracksideCoordinationTimeline={render};

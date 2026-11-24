@@ -125,3 +125,34 @@ test('Project evidence distinguishes an agency estimate from sourced manual date
   assert.equal(dates.endpointLabel({...agency,finish:'TBD'},'finish'),'Not published');
   assert.equal(dates.endpointLabel({...agency,finish:'2028-02-30'},'finish'),'Needs review');
 });
+
+test('The Atlanta project-page schedule corrects dated bus findings while preserving the GIS record', () => {
+  const land = require(runtimeFile('trackside-land-core.js'));
+  const gis = {...agency,start:'2026-07-28',finish:'2029-04-29',sourceStatus:'Construction',geometry:{type:'Point',coordinates:[-84.36,33.82]}};
+  const page = {id:'1',start:'2027-07-19',finish:'2028-10-15',phase:'Engineering/Design',url:'https://atldot.atlantaga.gov/projects/cheshire-bridge-rd-resurfacing-safety-improvements/',gis:{start:[gis.start],finish:[gis.finish],phase:[gis.sourceStatus]}};
+  const refreshed = land.applyAtlantaProjectPage(gis,page);
+  assert.equal(refreshed.id,gis.id);
+  assert.equal(refreshed.geometry,gis.geometry);
+  assert.equal(refreshed.sourceStatus,'Engineering/Design');
+  assert.equal(refreshed.phase,'Planning / design');
+  assert.deepEqual(land.constructionDates(refreshed),{start:page.start,finish:page.finish});
+  assert.deepEqual(dates.projectDateSources(refreshed,source_url),[{label:'Start and finish source',url:page.url}]);
+  assert.equal(bus.phases(refreshed)[0].finish,page.finish);
+  const laterGIS = {...gis,start:'2027-07-20',sourceStatus:'Closeout'};
+  const later = land.applyAtlantaProjectPage(laterGIS,page);
+  assert.equal(later.start,laterGIS.start);
+  assert.equal(later.finish,laterGIS.finish);
+  assert.equal(later.complete,true);
+  assert.deepEqual(dates.projectDateSources(later,source_url),[{label:'Start and finish source',url:source_url}]);
+});
+
+test('Bus screening retains explicit partial construction dates and excludes general project dates', () => {
+  const fulton = {...agency,source:{kind:'fulton'},start:'2027-08',finish:'2028-12',scheduleType:'Estimated project start / construction finish'};
+  const window = bus.phases(fulton)[0];
+  assert.equal(window.start,null);
+  assert.equal(window.finish,'2028-12');
+  assert.equal(window.timing_scope,'construction');
+  const watershed = {...agency,source:{kind:'watershed'},start:'2028-02',finish:null,scheduleType:'Anticipated project schedule'};
+  assert.equal(bus.phases(watershed)[0].start,null);
+  assert.equal(require(runtimeFile('trackside-land-core.js')).constructionDates(watershed).start,null);
+});

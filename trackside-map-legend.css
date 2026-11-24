@@ -11,17 +11,37 @@
 @media print{.ts-map-key{position:static!important;max-width:none!important;margin:8px 0;box-shadow:none!important;background:#fff!important;color:var(--brand-navy,#122e54)!important;break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}.ts-key-body{max-height:none!important;overflow:visible!important;min-width:0!important}.ts-key-group{break-inside:avoid}.ts-key-toggle{padding:6px 12px}.ts-key-swatch{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 .ws-walk-map-key[hidden],.hotspot-legend[hidden]{display:none!important}
 
-#adaptiveMapKey{max-width:calc(100% - 24px)}
-#adaptiveMapKey>.ts-key-toggle{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px}
-#adaptiveMapKey[open] .ts-map-mini{border-top:1px solid var(--line,#d7e0ed);padding:3px 8px}
-.ts-map-mini{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:2px 9px 2px 2px}
-.ts-map-mini-item{display:inline-flex;align-items:center;gap:2px;white-space:nowrap;font-size:10px}
-.ts-map-mini .ts-key-swatch{width:16px;height:16px;flex-basis:16px;margin:0}
-.ts-map-mini .ts-key-line:after,.ts-map-mini .ts-key-dash:after{width:15px;height:3px}
+#adaptiveMapKey{max-width:min(575px,calc(100% - 24px))}
+#adaptiveMapKey>.ts-key-toggle{position:relative;display:flex;align-items:center;flex-wrap:wrap;gap:3px 10px;padding:6px 30px 6px 10px;list-style:none}
+#adaptiveMapKey>.ts-key-toggle::-webkit-details-marker{display:none}
+#adaptiveMapKey>.ts-key-toggle:after{content:"";position:absolute;right:12px;top:14px;width:6px;height:6px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg)}
+#adaptiveMapKey[open]>.ts-key-toggle:after{transform:translateY(3px) rotate(225deg)}
+#adaptiveMapKey .ts-key-title{font-weight:800}
+.ts-map-mini{display:flex;flex-wrap:wrap;align-items:center;gap:3px 12px}
+.ts-map-mini-item{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;font-weight:600;min-height:22px}
+.ts-map-mini .ts-key-swatch{width:18px;height:18px;flex-basis:18px;margin:0}
+.ts-map-mini .ts-key-cluster{font-size:10px;outline:1px solid #122e5430}
+.ts-map-mini .ts-key-line,.ts-map-mini .ts-key-dash{width:24px;flex-basis:24px}
+.ts-map-mini .ts-key-line:after,.ts-map-mini .ts-key-dash:after{width:24px;height:3px}
+.ts-map-mini .ts-key-status-palette{display:inline-flex;justify-content:center;gap:1px;width:28px;flex-basis:28px}
+.ts-key-status-dot{width:8px;height:8px;box-sizing:border-box;border:1px solid #fffefa;border-radius:50%;background:var(--key-color);box-shadow:0 0 0 1px #122e5430}
+/* Keep complete dashes visible while reflecting the map line's dash-to-gap ratio. */
+.ts-map-mini .ts-key-dash:after,#adaptiveMapKey [data-key-group="rapid"] .ts-key-dash:after{
+ --dash-end:var(--key-dash-end,23%);
+ --dash-repeat:var(--key-dash-repeat,38.5%);
+ background:repeating-linear-gradient(90deg,var(--key-color) 0 var(--dash-end),transparent var(--dash-end) var(--dash-repeat));
+ border-radius:0;
+}
+#adaptiveMapKey .ts-key-body{border-top:1px solid var(--line,#d7e0ed);padding:8px 12px 10px}
+.ts-key-section+.ts-key-section{margin-top:8px}
+.ts-key-section>h2{margin:0;padding:5px 7px;border-radius:4px;background:var(--brand-blue-soft,#eaf2fc);font:800 10px/1.4 "DM Sans",Arial,sans-serif;color:var(--brand-navy,#122e54)}
+.ts-key-section .ts-key-group{padding:7px 3px;border-top:0}
+.ts-key-section .ts-key-group+.ts-key-group{border-top:1px solid var(--line,#d7e0ed)}
+.ts-key-section .ts-key-group:not([open])>summary{margin-bottom:0}
+.ts-key-route-heading .ts-key-swatch{vertical-align:middle;margin:0 5px 0 2px}
 @media(max-width:620px){
- #adaptiveMapKey:not([open]){display:block}
- #adaptiveMapKey>.ts-key-toggle{min-height:0;padding:5px 8px}
- .ts-map-mini{gap:3px 7px;padding:0 8px 4px}
- .ts-map-mini-item{font-size:9px}
- #adaptiveMapKey .ts-map-mini .ts-key-swatch{width:13px;height:13px;flex-basis:13px}
+ #adaptiveMapKey{left:8px;max-width:calc(100% - 16px)}
+ #adaptiveMapKey>.ts-key-toggle{display:block;padding:5px 27px 5px 8px}
+ .ts-map-mini{gap:2px 9px;margin-top:3px}
+ .ts-map-mini-item{font-size:10px;min-height:18px}
 }

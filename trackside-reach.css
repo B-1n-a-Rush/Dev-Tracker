@@ -1,25 +1,26 @@
 .reach-detail-hero { overflow: hidden; background: linear-gradient(145deg, var(--brand-blue-soft, #eaf2fc), var(--brand-blue-line, #c7d8ed)); }
+.reach-zone-mark {
+  position: absolute;
+  right: 27px;
+  bottom: 20px;
+  width: 79px;
+  height: 58px;
+  background: #51429a;
+  clip-path: polygon(12% 18%, 55% 3%, 93% 22%, 81% 70%, 62% 95%, 7% 76%);
+}
+.reach-zone-mark::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  background: #eee9fb;
+  clip-path: inherit;
+}
 .reach-detail .detail-body { padding-bottom: 28px; }
 .reach-detail h2 { overflow-wrap: anywhere; }
-.reach-source { margin: .5rem 0 1rem; font-size: .84rem; }
 .reach-section p { margin: .38rem 0; }
-.reach-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .55rem .75rem; }
-.reach-band { display: flex; align-items: center; gap: .35rem; max-width: 100%; font-size: .85rem; }
+.reach-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.reach-band { display: flex; align-items: center; flex-basis: 100%; gap: 6px; font-size: 12px; color: var(--muted, #53657b); }
 .reach-band input { margin: 0; accent-color: #51429a; }
-.reach-button {
-  min-height: 36px;
-  border-radius: 8px;
-  border: 1px solid #a6bddd;
-  padding: .35rem .68rem;
-  background: #edf4ff;
-  color: #164779;
-  font: inherit;
-  font-size: .86rem;
-  font-weight: 650;
-  text-align: left;
-  cursor: pointer;
-}
-.reach-button:hover { background: #dceaff; }
 .reach-detail a, .reach-text-button { color: #174a83; }
 .reach-text-button, .ts-place-popup button.reach-text-button {
   font: inherit;
@@ -33,16 +34,15 @@
   cursor: pointer;
 }
 .reach-note, .reach-list small, .reach-lookup small { color: #475d7a; font-size: .82rem; }
-.reach-list { list-style: none; margin: .38rem 0; padding: 0; }
-.reach-list li { margin: .5rem 0; padding-left: .55rem; border-left: 2px solid #c9d7ee; }
+.reach-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.reach-list li, .reach-projects { border: 1px solid var(--line, #d7e0ed); border-radius: 8px; background: #f8faff; padding: 8px 10px; }
+.reach-projects { margin-top: 7px; }
+.reach-projects .reach-list li { border: 0; border-top: 1px solid var(--line, #d7e0ed); border-radius: 0; padding: 6px 0 0; }
 .reach-list small, .reach-list li a, .reach-lookup small { display: block; }
-.reach-projects summary { margin-top: .5rem; font-weight: 650; cursor: pointer; }
-.reach-coordination:not(:empty) { margin: .65rem 0; }
-.reach-section > .reach-button { margin-top: .5rem; }
+.reach-projects summary { font-weight: 650; cursor: pointer; }
+.reach-coordination:not(:empty) { margin: 8px 0; }
+.reach-section > .area-view-button { margin-top: 7px; }
 .reach-lookup { padding: .58rem 0; }
 .reach-lookup p, .reach-lookup-row { margin: .25rem 0; }
 .reach-picker { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .35rem; margin: .3rem 0; }
 .reach-picker select { min-width: 0; width: 100%; font: inherit; font-size: .84rem; color: #172944; }
-@media (max-width: 480px) {
-  .reach-actions { gap: .5rem; }
-}

@@ -8,6 +8,15 @@ function bounds(g){if(boundsCache.has(g))return boundsCache.get(g);let x0=Infini
 function nearDistance(g,reference,threshold){const a=bounds(g),b=bounds(reference),lat=Math.max(Math.abs(a[1]),Math.abs(a[3]),Math.abs(b[1]),Math.abs(b[3])),dy=threshold/110000,dx=dy/Math.max(.05,Math.cos(lat*Math.PI/180));if(a[0]-dx>b[2]||a[2]+dx<b[0]||a[1]-dy>b[3]||a[3]+dy<b[1])return Infinity;let cache=distanceCache.get(reference);if(!cache){cache=new WeakMap();distanceCache.set(reference,cache);}if(!cache.has(g))cache.set(g,C.geometryDistance(g,reference));return cache.get(g);}
 function slug(value){return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');}
 function routeKey(route){return route.kind==='rail'?'rail:'+slug(route.name.replace(/\s+Lines?$/i,'')):route.remoteId?'rapid:'+String(route.remoteId):'rapid:'+slug(route.slug||route.name);}
+function resolveSchedule(route,live,snapshot,alias){
+ const current=route.remoteId&&live.get(String(route.remoteId));
+ if(current)return current;
+ for(const name of [route.slug,route.name,alias].filter(Boolean)){
+  const saved=snapshot.find(item=>item.route_slug===slug(name));
+  if(saved)return saved;
+ }
+ return null;
+}
 function routeGeometry(route){if(route.geometry)return route.geometry;const parts=route.lines||[route.points||[]];return {type:'MultiLineString',coordinates:parts.filter(p=>p.length>1).map(p=>p.map(c=>[c[1],c[0]]))};}
 function validateDate(value){return !String(value||'').trim()||!!C.dateRange(value);}
 function timing(reference,work,existingService){
@@ -39,7 +48,7 @@ function timing(reference,work,existingService){
 }
 function timingLabel(item) {
   if (['unknown','reference-needed'].includes(item.state)) {
-    const work = constructionWindow(item.row.start, item.row.finish);
+    const work = projectWindow(item.row);
     if (work.kind === 'start-only' || work.kind === 'finish-only') return 'Timing incomplete';
   }
   return labels[item.state];
@@ -56,7 +65,7 @@ function matchSummary(item,route='the route'){
   const location=item.distance!==0&&geometry!=='Mapped geometry'?geometry+' '+distance:distance;
   let timing=timingLabel(item);
   if(item.state==='unknown'||item.state==='reference-needed'){
-    const work=constructionWindow(item.row.start,item.row.finish);
+    const work=projectWindow(item.row);
     if(item.state==='reference-needed')timing=work.kind==='complete'?'Comparison dates incomplete':'Project and comparison dates incomplete';
     else if(work.kind==='start-only')timing='Project finish unknown';
     else if(work.kind==='finish-only')timing='Project start unknown';
@@ -77,7 +86,7 @@ function screen(opts){
   if(!row.geometry){unmapped++;continue;}
   const distance=nearDistance(row.geometry,geometry,threshold);if(!Number.isFinite(distance)||distance>threshold)continue;
   if(row.possibleMatches?.length&&!includePossible){duplicates++;continue;}
-  const work=constructionWindow(row.start,row.finish),assessment=timing(reference,work,opts.existingService),warnings=[];if(opts.existingService)warnings.push('Proximity to an existing service requires review; no closure, detour, or service-hours overlap is established.');
+  const work=projectWindow(row),assessment=timing(reference,work,opts.existingService),warnings=[];if(opts.existingService)warnings.push('Proximity to an existing service requires review; no closure, detour, or service-hours overlap is established.');
   if(/Representative/i.test(row.geometryBasis||''))warnings.push('Distance uses a representative point, not the construction alignment.');
   if(row.source?.kind==='arc'||/ARC/i.test(row.geometryBasis||''))warnings.push('ARC geometry is a planning area; construction dates are not supplied by ARC.');
   if(row.possibleMatches?.length)warnings.push('Possible duplicate included; related scopes may overlap.');
@@ -102,13 +111,17 @@ function constructionWindow(start,finish){
  const invalid=(!missing(start)&&!a)||(!missing(finish)&&!b)||(a&&b&&a.first>b.last);
  return {start:a,finish:b,kind:invalid?'invalid':a&&b?'complete':a?'start-only':b?'finish-only':'unknown',approximate:!!((a&&a.precision!=='day')||(b&&b.precision!=='day'))};
 }
+function projectWindow(row){
+ const {start,finish}=C.constructionDates(row);
+ return constructionWindow(start,finish);
+}
 function overlapLabel(overlap){
  if(!overlap)return '';
  const start=C.dateLabel(overlap.start.raw),finish=C.dateLabel(overlap.finish.raw);
  return start===finish?start:start+' – '+finish;
 }
 function timelineModel({start='',finish='',rows=[],fit='route',now=Date.now()}={}){
- const route=constructionWindow(start,finish),items=rows.map(item=>({item,window:constructionWindow(item.row.start,item.row.finish)}));
+ const route=constructionWindow(start,finish),items=rows.map(item=>({item,window:projectWindow(item.row)}));
  const endpoints=w=>w.kind==='invalid'?[]:[w.start?.first,w.start?.last,w.finish?.first,w.finish?.last].filter(Number.isFinite);
  let values=fit==='route'?endpoints(route):[],basis=values.length?'route':'all';
  if(!values.length)values=[...endpoints(route),...items.flatMap(i=>endpoints(i.window))];
@@ -139,5 +152,5 @@ function timelineTicks(domain,scale='quarters'){
  }
  return {ticks,step,requested,cellWidth:step>=12?150:scale==='months'?68:76};
 }
-return {labels,timingLabel,proximityLabel,matchSummary,statuses,slug,routeKey,routeGeometry,validateDate,comparison,screen,alignmentChange,csv,constructionWindow,overlapLabel,timelineModel,timelineMark,timelineTicks};
+return {labels,timingLabel,proximityLabel,matchSummary,statuses,slug,routeKey,resolveSchedule,routeGeometry,validateDate,comparison,screen,alignmentChange,csv,constructionWindow,projectWindow,overlapLabel,timelineModel,timelineMark,timelineTicks};
 });

@@ -42,7 +42,7 @@ body.workspace-preview{height:100dvh;overflow:hidden;background:#fffefa;font-fam
 .workspace-preview .ws-result-toolbar{display:flex;align-items:center;gap:10px;flex-shrink:0;border-bottom:1px solid var(--line,#d7e0ed);margin-bottom:4px}
 .workspace-preview .ws-result-toolbar .section-head{flex:1;min-width:0;border:0;padding:0}
 .workspace-preview .ws-result-toolbar .view-switch{margin:4px 0;align-self:center}
-.workspace-preview .sidebar:has(#activeFiltersBar:not([hidden])) #clear{display:none}
+.workspace-preview main:has(#activeFiltersBar:not([hidden])) .sidebar #clear{display:none}
 .workspace-preview #authModal:not([data-workspace-admin]) .auth-card{width:min(560px,96vw)}
 .workspace-preview .ws-map-key{position:absolute;bottom:22px;left:16px;z-index:400;padding:10px 12px;border:1px solid var(--line,#d7e0ed);border-radius:8px;background:#fffefaf5;box-shadow:0 2px 7px #174a8312;font-size:11px}
 .workspace-preview .ws-map-key summary{cursor:pointer;font-weight:600;min-height:22px}
@@ -130,4 +130,30 @@ body.workspace-preview{height:100dvh;overflow:hidden;background:#fffefa;font-fam
 .workspace-preview .ws-rail-main{overflow:visible}
 .workspace-preview .ws-rail-bottom #workspaceAdmin{width:54px;min-height:56px;font-size:9px}
 }
+}
+
+/* Keep project filters available beside the map, including while a detail is open. */
+.workspace-preview .active-filters-bar[hidden]{display:none}
+.workspace-preview .active-filters-bar .active-filter-chips{min-width:0;max-width:100%}
+.workspace-preview .active-filter-chip{min-width:0;max-width:100%;min-height:30px}
+.workspace-preview .active-filter-chip .active-filter-chip-label{font:inherit;color:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.workspace-preview .map-area>.active-filters-bar:not([hidden]){
+ position:absolute!important;z-index:420;top:64px;right:16px;bottom:auto;left:auto;
+ display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;width:max-content;
+ max-width:min(590px,calc(100% - 70px));margin:0;padding:5px;background:#fffefa;
+ border:1px solid var(--line,#d7e0ed);border-radius:8px;box-shadow:0 2px 8px #174a8318;
+}
+.workspace-preview .map-area>.active-filters-bar .active-filter-chips,
+.workspace-preview .ws-filter-content>.active-filters-bar .active-filter-chips{
+ overflow:auto;max-height:70px;overscroll-behavior:contain;scrollbar-width:thin;padding:2px;
+}
+.workspace-preview .ws-filter-content>.active-filters-bar:not([hidden]){
+ display:block;margin:0;padding:8px 12px;
+ background:#f8faff;border-bottom:1px solid var(--line,#d7e0ed);
+}
+.workspace-preview .ws-filter-content #clearAllFilters{display:none}
+.workspace-preview #workspaceBack{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:740px){
+ .workspace-preview .map-area>.active-filters-bar:not([hidden]){top:60px;right:12px;max-width:calc(100% - 66px)}
+ .workspace-preview .map-area>.active-filters-bar .active-filter-chips{max-height:68px}
 }

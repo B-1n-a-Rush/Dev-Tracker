@@ -66,13 +66,7 @@ function coverage(totals){
  if(totals.unknown)text+=' '+number(totals.unknown)+' housing project'+(totals.unknown===1?' has':'s have')+' an unknown count.';
  return text;
 }
-function render(prefix,model,openProject,openBrief){
- const {totals,nearby,scope,brief}=model;
- $(prefix+'ProjectCount').textContent=number(nearby);
- $(prefix+'MatchingCount').textContent=number(totals.rows.length);
- $(prefix+'ResidentialUnits').textContent=totals.known?number(totals.units):'—';
- const unitLabel=$(prefix+'ResidentialUnits').nextElementSibling;
- if(unitLabel)unitLabel.textContent='known homes in matches';
+function renderStatus(prefix,totals,openProject){
  for(const status of C.stages){
   const node=$(prefix+status+'Count'),stage=totals.stages[status],parent=node.parentElement;
   node.replaceChildren();
@@ -86,7 +80,8 @@ function render(prefix,model,openProject,openBrief){
   if(!note){note=element('small',undefined,'area-stage-units');parent.append(note);}
   note.textContent=stage.known?number(stage.units)+' known homes':stage.unknown?'Home counts unknown':'';
  }
- const summary=$(model.summaryId);
+}
+function renderCoverage(summary,totals,openProject){
  summary.replaceChildren(element('span',coverage(totals)));
  if(totals.masterPlans.length){
   const plans=button('View '+number(totals.masterPlans.length)+' master plan'+(totals.masterPlans.length===1?'':'s'),
@@ -94,6 +89,17 @@ function render(prefix,model,openProject,openBrief){
   plans.setAttribute('aria-haspopup','dialog');
   summary.append(element('span','District-wide figures are reported separately.'),plans);
  }
+}
+function render(prefix,model,openProject,openBrief){
+ const {totals,nearby,scope,brief}=model;
+ $(prefix+'ProjectCount').textContent=number(nearby);
+ $(prefix+'MatchingCount').textContent=number(totals.rows.length);
+ $(prefix+'ResidentialUnits').textContent=totals.known?number(totals.units):'—';
+ const unitLabel=$(prefix+'ResidentialUnits').nextElementSibling;
+ if(unitLabel)unitLabel.textContent='known homes in matches';
+ renderStatus(prefix,totals,openProject);
+ const summary=$(model.summaryId);
+ renderCoverage(summary,totals,openProject);
  let bar=summary.parentElement.querySelector('.area-brief-launch');
  if(!bar){bar=element('div',undefined,'area-brief-launch');summary.after(bar);}
  bar.replaceChildren();
@@ -142,7 +148,7 @@ function showBrief(model,buildMap){
  const title=brief.name+' · '+brief.kind+' brief';
  heading(briefDialog,title,print);
  const page=element('article',undefined,'area-brief-page');
- page.append(element('p','Trackside ATL · As of '+new Date().toLocaleDateString('en-US',{dateStyle:'long'}),'area-brief-kicker'));
+ page.append(element('p','Metro Atlanta Transit & Development Tracker · As of '+new Date().toLocaleDateString('en-US',{dateStyle:'long'}),'area-brief-kicker'));
  page.append(element('p',number(totals.rows.length)+' of '+number(nearby)+' projects match the current view. '+scope));
  if(brief.filters.length)page.append(element('p','Filters applied · '+brief.filters.join(' · '),'area-brief-context'));
  const map=buildMap(brief,totals.rows.map(row=>row.project));
@@ -178,5 +184,5 @@ function showBrief(model,buildMap){
 }
 window.addEventListener('beforeprint',()=>{if(briefDialog.open)document.body.classList.add('area-brief-printing');});
 window.addEventListener('afterprint',()=>document.body.classList.remove('area-brief-printing'));
-window.TracksideAreaViews={render,showBrief};
+window.TracksideAreaViews={render,renderStatus,renderCoverage,showBrief};
 })();

@@ -10,7 +10,7 @@
   const transfers=zone=>S.byZone[zone.id]||[];
   const miles=meters=>(meters/1609.344).toFixed(2)+' mi';
   const count=value=>value.toLocaleString('en-US');
-  const label={inside:'Inside mapped zone',boundary:'Meets zone boundary',near:'Near zone · expansion review'};
+  const label={inside:'Inside mapped zone',boundary:'Meets zone boundary',near:'Nearby project'};
   const pane=map.createPane('reachZones');
   pane.style.zIndex='415';
   const style={pane:'reachZones',color,weight:2,fillColor:color,fillOpacity:.09,bubblingMouseEvents:false};
@@ -22,7 +22,7 @@
   }});
   const zoneLayers=new Map(layer.getLayers().map(shape=>[String(shape.feature.id),shape]));
   const transferLayer=L.layerGroup();
-  const expansionLayer=L.layerGroup();
+  const nearbyLayer=L.layerGroup();
   const toggle=document.getElementById('layerReach'),picker=document.getElementById('reachZonePicker');
   const panel=element('section','reach-detail');
   panel.id='reachDetail';
@@ -38,7 +38,7 @@
     if(text!==undefined)node.textContent=text;
     return node;
   }
-  function button(text,action,cls='reach-button'){
+  function button(text,action,cls='area-view-button'){
     const node=element('button',cls,text);
     node.type='button';
     node.addEventListener('click',action);
@@ -57,15 +57,15 @@
 
   function showLayer(visible){
     toggle.checked=visible;
-    if(visible){layer.addTo(map);transferLayer.addTo(map);expansionLayer.addTo(map);}
-    else{layer.remove();transferLayer.remove();expansionLayer.remove();expansionLayer.clearLayers();}
+    if(visible){layer.addTo(map);transferLayer.addTo(map);nearbyLayer.addTo(map);}
+    else{layer.remove();transferLayer.remove();nearbyLayer.remove();nearbyLayer.clearLayers();}
     try{localStorage.setItem('trackside-reach-visible',visible?'1':'0');}catch{}
     updateMapLayersCount();
     window.TracksideMapLegend?.refresh?.();
   }
   function focusZone(zone,fit){
     for(const [id,shape] of zoneLayers)shape.setStyle(id===zone.id?{weight:3,fillOpacity:.16}:style);
-    expansionLayer.clearLayers();
+    nearbyLayer.clearLayers();
     transferLayer.clearLayers();
     for(const transfer of transfers(zone))for(const [id,lng,lat] of transfer.stops){
       const popup=element('div','reach-transfer-popup');
@@ -80,7 +80,7 @@
       map.fitBounds(scope,{padding:[35,35],maxZoom:15});
     }
   }
-  function showExpansion(model){
+  function showNearbyProjects(model,{fit=true}={}){
     focusZone(model.zone,false);
     const area=L.latLngBounds([]).extend(zoneLayers.get(model.zone.id).getBounds());
     for(const {project,distance,location} of model.groups.near){
@@ -88,13 +88,13 @@
       const coords=[(b[1]+b[3])/2,(b[0]+b[2])/2];
       const popup=element('div','reach-transfer-popup');
       popup.append(button(project.name,()=>{map.closePopup();show(project.id,true);},'reach-text-button'),
-        element('p','','Expansion review · '+miles(distance)+' to zone edge'),
+        element('p','','Nearby project · '+miles(distance)+' to zone edge'),
         element('small','',location.basis));
       L.circleMarker(coords,{radius:8,weight:3,color:transferColor,fillColor:'#fff',fillOpacity:.85})
-        .bindPopup(popup).addTo(expansionLayer);
+        .bindPopup(popup).addTo(nearbyLayer);
       area.extend(coords);
     }
-    map.fitBounds(area,{padding:[35,35],maxZoom:15});
+    if(fit)map.fitBounds(area,{padding:[35,35],maxZoom:15});
     window.TracksideMapLegend?.refresh?.();
   }
 
@@ -111,7 +111,7 @@
     if(!found.length&&!options.always)return false;
     const list=element('div','reach-lookup');
     list.append(element('strong','','MARTA Reach'));
-    if(!found.length)list.append(element('p','','Outside mapped zones and the ¼-mile review area.'));
+    if(!found.length)list.append(element('p','','Outside mapped zones and more than ¼ mile from a zone boundary.'));
     for(const {zone,relation,distance} of found){
       const row=element('div','reach-lookup-row');
       row.append(button(zone.id+' · '+name(zone),()=>open(zone.id),'reach-text-button'),
@@ -148,28 +148,31 @@
     const reported=affordability.filter(value=>value.units!==null);
     return {zone,groups,totals,reported,affordability,sr2t:null,sr2tError:false,coordination:null};
   }
+  function affordabilityText({reported,affordability}){
+    if(reported.length)return count(reported.reduce((sum,value)=>sum+value.units,0))+' source-backed affordable units across '+count(reported.length)+' project'+(reported.length===1?'.':'s.');
+    return affordability.length?'Some projects report affordability terms without counts.':'No source-backed affordable unit counts recorded.';
+  }
   function pipelineText(model){
-    const {totals,groups,reported,affordability}=model;
+    const {totals,groups}=model;
     return [
-      count(groups.inside.length)+' projects inside · '+count(groups.boundary.length)+' at the boundary · '+count(groups.near.length)+' just outside',
+      count(groups.inside.length)+' projects inside · '+count(groups.boundary.length)+' at the boundary · '+count(groups.near.length)+' nearby',
       (totals.known?count(totals.units)+' reported residential units inside':'No residential unit counts reported inside')+
         (totals.unknown?' · '+count(totals.unknown)+' housing project(s) without counts':''),
-      reported.length?count(reported.reduce((sum,value)=>sum+value.units,0))+' source-backed affordable units across '+count(reported.length)+' project(s)':
-        affordability.length?'Some projects report affordability terms without counts.':'No source-backed affordable unit counts recorded.'
+      affordabilityText(model)
     ];
+  }
+  function openProject(id){
+    show(id,true);
   }
   function projectList(model,relation,title){
     const items=model.groups[relation],list=element('details','reach-projects'),ul=element('ul','reach-list');
+    list.dataset.reachRelation=relation;
     list.open=relation==='near'&&items.length>0;
     list.append(element('summary','',title+' ('+count(items.length)+')'));
     for(const item of items){
       const {project,location,distance}=item;
       const li=element('li');
-      li.append(button(project.name,()=>{
-        window.TracksideWorkspacePreview?.activate('explore');
-        setPage('explore');
-        show(project.id,true);
-      },'reach-text-button'),element('small','',[displayStatus(project),window.TracksideAreaCore.projectScale(project),
+      li.append(button(project.name,()=>openProject(project.id),'reach-text-button'),element('small','',[displayStatus(project),window.TracksideAreaCore.projectScale(project),
         relation==='near'?miles(distance)+' to edge':'',location.basis].filter(Boolean).join(' · ')));
       ul.append(li);
     }
@@ -249,13 +252,13 @@
       kind:'Reach zone',name:zone.id+' · '+name(zone),filters:[],milestones:[],
       routes:transfers(zone).map(t=>({name:t.name,detail:t.service,source:S.source})),
       context:[
-        {title:'Zone and expansion review',lines:[...pipelineText(model),
-          'Inside-zone pipeline shown below. The ¼-mile outside band is for potential expansion review.',sr2tText(model),
+        {title:'Zone development and nearby projects',lines:[...pipelineText(model),
+          'The pipeline counts projects inside the zone. Nearby projects are up to ¼ mile outside the mapped boundary.',sr2tText(model),
           model.coordination?model.coordination.findings.length+' potential infrastructure item(s) near transfer references'+(model.coordination.partial?' · partial source coverage':'')+'.':
             'Transfer-area infrastructure screening was not run for this brief.',
           'Boundaries imported '+data.source.imported_on+' from '+data.source.filename+'. Effective date not supplied.']},
         ...(['boundary','near'].filter(key=>model.groups[key].length).map(key=>({
-          title:key==='boundary'?'Projects meeting the boundary':'Projects just outside the zone',
+          title:key==='boundary'?'Projects meeting the boundary':'Nearby projects',
           lines:model.groups[key].map(({project,distance,location})=>[project.name,displayStatus(project),
             window.TracksideAreaCore.projectScale(project),key==='near'?miles(distance)+' to edge':'',location.basis].filter(Boolean).join(' · '))
         })))
@@ -273,24 +276,49 @@
       });
     });
   }
+  function metric(value,caption,accent=false){
+    const card=element('div','station-stat'+(accent?' matching':''));
+    card.append(element('strong','',value),element('span','',caption));
+    return card;
+  }
   function render(model){
-    const {zone}=model;
+    const {zone,groups,totals}=model;
     const title=element('h2','',zone.id+' · '+name(zone));title.id='reachDetailTitle';
     title.tabIndex=-1;
     const hero=element('div','detail-hero reach-detail-hero');
-    hero.append(element('span','tag','MARTA REACH'));
+    const mark=element('div','reach-zone-mark');
+    mark.setAttribute('aria-hidden','true');
+    hero.append(element('span','tag','MARTA REACH'),mark);
     const main=element('div','detail-body'),actions=element('div','reach-actions');
     const include=element('input');include.type='checkbox';
-    const band=element('label','reach-band');band.append(include,document.createTextNode(' Include projects up to ¼ mile outside'));
-    actions.append(button('Show on map',()=>focusZone(zone,true)),
-      button('Open printable brief',()=>printBrief(model)),
+    const band=element('label','reach-band');
+    band.append(include,document.createTextNode('Include nearby projects in this watch'));
+    const brief=button('Open printable brief',()=>printBrief(model));
+    brief.setAttribute('aria-haspopup','dialog');
+    actions.append(button('Show zone on map',()=>focusZone(zone,true)),brief,
       button('Follow this Reach zone',()=>{
         window.TracksideDigest.open({type:'reach',key:zone.id,includeBoundary:include.checked,name:'Reach '+zone.id+' · '+name(zone)},{quick:true});
       }),band);
-    const summary=section('Development in and around the zone',...pipelineText(model).map(line=>element('p','',line)),
-      element('p','reach-note','The ¼-mile exterior band highlights projects for expansion review. Check MARTA’s zone profiles for service coverage.'),
-      projectList(model,'inside','Inside the mapped zone'),projectList(model,'boundary','At the zone boundary'),projectList(model,'near','Within ¼ mile outside'));
-    if(model.groups.near.length)summary.append(button('Show expansion candidates on map',()=>showExpansion(model)));
+    const metrics=element('div','station-stat-grid');
+    metrics.append(metric(count(groups.inside.length),'projects inside zone'),
+      metric(count(groups.near.length),'nearby projects',true),
+      metric(totals.known?count(totals.units):'—','known homes inside zone'));
+    const statuses=element('div','station-status-grid');
+    for(const status of window.TracksideAreaCore.stages){
+      const cell=element('div','station-status '+status.toLowerCase());
+      const total=element('strong');
+      total.id='reach'+status+'Count';
+      cell.append(total,element('span','',status));
+      statuses.append(cell);
+    }
+    const mix=element('div','station-type-mix');mix.id='reachTypeMix';
+    const coverage=element('p','station-summary');
+    const development=section('Development in and around the zone',coverage,
+      element('p','station-summary',affordabilityText(model)),
+      projectList(model,'inside','Inside the mapped zone'),projectList(model,'boundary','At the zone boundary'),
+      projectList(model,'near','Nearby projects'),
+      element('p','reach-note','Nearby projects are up to ¼ mile outside the mapped boundary. Check MARTA’s zone profiles for service coverage.'));
+    if(groups.near.length)development.append(button('Show nearby projects on map',()=>showNearbyProjects(model)));
     const connections=section('Designated out-of-zone transfers',connectionList(zone));
     if(transfers(zone).length){
       const coord=element('div','reach-coordination');
@@ -300,14 +328,16 @@
     }
     const sites=element('div');
     paintSR2T(sites,model);
-    const source=element('div','reach-source');
-    source.append(link('Official service and zone profiles',S.source));
-    main.append(element('div','eyebrow','MARTA Reach zone'),title,
-      element('div','location','Curb-to-curb service · '+S.hours),
-      source,actions,summary,connections,
-      section('Safe Routes to Transit',sites),
+    const source=section('Sources',link('Official service and zone profiles',S.source),
       element('p','reach-note','Boundaries: '+data.source.filename+' · imported '+data.source.imported_on+' · effective date unavailable. Service and transfer sources checked '+S.checked+'.'));
+    main.append(element('div','eyebrow','Zone overview'),title,
+      element('div','location','Curb-to-curb service · '+S.hours),
+      metrics,actions,section('Project status inside the zone',statuses),section('Development mix inside the zone',mix),
+      development,connections,section('Safe Routes to Transit',sites),source);
     panel.replaceChildren(hero,main);
+    window.TracksideAreaViews.renderStatus('reach',totals,openProject);
+    window.TracksideAreaViews.renderCoverage(coverage,totals,openProject);
+    renderTypeMix('reach',totals.rows);
     const token=generation;
     Promise.resolve().then(()=>window.TracksideSR2T.publicLocations()).then(records=>{
       if(token!==generation)return;
@@ -317,7 +347,7 @@
       }));
     },()=>{model.sr2tError=true;}).finally(()=>{if(token===generation&&isOpen())paintSR2T(sites,model);});
   }
-  function open(id,{fit=true}={}){
+  function open(id,{fit=true,showNearby=false}={}){
     const zone=zones.get(String(id));
     if(!zone||window.TracksideWorkspacePreview?.activate('explore')===false)return;
     if(document.querySelector('.shell')?.classList.contains('list-mode')){
@@ -328,11 +358,13 @@
     openButton.disabled=false;
     showLayer(true);
     generation++;
-    render(buildProfile(zone));
+    const model=buildProfile(zone);
+    render(model);
     window.TracksideLand.openContextProfile(panel);
     window.TracksideProjectDetails?.refresh();
     map.closePopup();
-    focusZone(zone,fit);
+    if(showNearby)showNearbyProjects(model,{fit});
+    else focusZone(zone,fit);
     panel.closest('aside').scrollTop=0;
     panel.querySelector('h2').focus({preventScroll:true});
   }
@@ -346,7 +378,7 @@
   window.TracksideReach={
     list:()=>[...zones.values()],get:id=>zones.get(String(id)),get selected(){return active;},get enabled(){return toggle.checked;},
     open,appendLookup,renderProject,transfers,service:S,
-    get legendState(){return {enabled:toggle.checked,transfers:transferLayer.getLayers().length>0,expansion:expansionLayer.getLayers().length>0};}
+    get legendState(){return {enabled:toggle.checked,transfers:transferLayer.getLayers().length>0,nearby:nearbyLayer.getLayers().length>0};}
   };
   const linked=new URLSearchParams(location.search).get('reach');
   if(zones.has(linked))void Promise.resolve(window.tracksideAppReady).then(()=>open(linked));
