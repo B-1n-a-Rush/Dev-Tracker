@@ -1,0 +1,48 @@
+.project-list-sort{display:flex;align-items:center;gap:8px;padding:8px 2px;color:var(--muted,#53657b);font-size:12px}
+.project-list-sort select{min-width:0;max-width:100%;font:inherit;color:var(--ink,#182b43);background:var(--paper,#fffefa);border:1px solid var(--line,#d7e0ed);border-radius:6px;padding:5px 7px}
+.area-view-button{padding:7px 10px;border:1px solid var(--line,#d7e0ed);border-radius:7px;background:#fff;color:#174a83;font:700 12px/1.3 "DM Sans",Arial,sans-serif;cursor:pointer}
+.area-view-button:hover:not(:disabled){background:#eaf2fc}.area-view-button:focus-visible{outline:2px solid #174a83;outline-offset:2px}
+.area-view-button:disabled{opacity:.5;cursor:wait}
+.station-status strong .area-view-button{padding:1px 7px;font:inherit;line-height:1.2;min-width:30px;background:transparent;color:inherit}
+.area-stage-units{display:block;margin-top:3px;color:var(--muted,#53657b);font-size:10px;line-height:1.2}
+.station-summary>span{display:block}.station-summary>span+span{margin-top:6px}
+.station-summary .area-view-button,.area-brief-launch:not(:empty){margin-top:8px}
+.area-view-dialog{width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 28px);border:1px solid #c7d8ed;border-radius:14px;padding:0;color:#182b43;background:#f8faff;overflow:auto;box-shadow:0 16px 70px #122e5440}
+.area-view-dialog::backdrop{background:#122e5466}
+.area-view-head{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;gap:12px;align-items:center;background:#f8faff;padding:14px 20px;border-bottom:1px solid #c7d8ed}
+.area-view-head h2{margin:0;font:700 clamp(17px,3vw,24px)/1.15 Fraunces,Georgia,serif}
+.area-view-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.area-brief-page{padding:14px 20px 20px;background:#fff;color:#182b43;font-size:13px;line-height:1.4}
+.area-brief-page h3{margin:11px 0 4px;font-size:14px;color:#122e54}
+.area-brief-page p{margin:4px 0}
+.area-brief-kicker{font-weight:700;color:#174a83}
+.area-brief-context{color:#53657b;font-size:11px}
+.area-brief-page .coord-briefing-map{margin:9px 0}
+.area-brief-page .coord-briefing-map-frame{min-height:0;max-height:none}.area-brief-page .coord-briefing-map-frame svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.area-brief-page .coord-map-credit,.area-brief-page .coord-briefing-map>.land-note{font-size:10px;margin:3px 0}
+.area-brief-table{width:100%;border-collapse:collapse;font-size:12px}
+.area-brief-table td,.area-brief-table th{padding:4px 6px;border-bottom:1px solid #d7e0ed;text-align:left}
+.area-brief-table thead{background:#eaf2fc}
+.area-match-list{padding:12px 20px;margin:0;list-style:none}
+.area-match-list li{display:grid;grid-template-columns:minmax(0,1fr) minmax(35%,auto);align-items:center;gap:8px;margin:0 0 7px}
+.area-match-list button{text-align:left}
+.project-evidence-fields{grid-column:1/-1;border:1px solid var(--line,#d7e0ed);border-radius:8px;padding:8px}
+.project-evidence-fields summary{cursor:pointer;font-weight:700}.project-evidence-fields .form-grid{margin-top:8px}
+@media(max-width:620px){.area-view-head{padding:12px;align-items:flex-start}.area-view-actions{flex:0 0 auto}.area-brief-page{padding:10px 12px 14px}.area-match-list li{grid-template-columns:1fr;gap:3px}}
+@media print{
+ body.area-brief-printing{margin:0!important;background:#fff!important;overflow:visible!important}
+ body.area-brief-printing>:not(#areaBriefDialog){display:none!important}
+ #areaBriefDialog[open]{position:static!important;inset:auto!important;margin:0!important;border:0!important;border-radius:0!important;max-height:none!important;max-width:none!important;width:100%!important;padding:.43in!important;box-sizing:border-box!important;overflow:visible!important;box-shadow:none!important;background:#fff!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ #areaBriefDialog::backdrop{display:none}
+ #areaBriefDialog .area-view-actions{display:none}
+ #areaBriefDialog .area-view-head{position:static;padding:0 0 6px;background:#fff}
+ #areaBriefDialog .area-brief-page{padding:5px 0 0;font-size:11.5px;line-height:1.28}
+ #areaBriefDialog .area-brief-page h3{margin:7px 0 3px;font-size:12px}
+ #areaBriefDialog .area-brief-page p{margin:3px 0}
+ #areaBriefDialog .area-brief-table{font-size:11px}
+ #areaBriefDialog .coord-briefing-map-frame{box-sizing:content-box}
+ #areaBriefDialog .coord-briefing-map{break-inside:avoid;margin:5px 0}
+ #areaBriefDialog .coord-briefing-map>.land-note:not(.land-banner){display:none}
+}
+@page areaBrief{size:letter;margin:.5in}
+@media print{#areaBriefDialog[open]{page:areaBrief}}

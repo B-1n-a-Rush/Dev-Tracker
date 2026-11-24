@@ -13,6 +13,12 @@ function main(s={}){
  if(s.projects){const rows=unique(s.projectStatuses||['Construction','Planning','Complete']).filter(k=>statusColors[k]).map(k=>row(k,'dot',statusColors[k]));if(s.clustered&&!s.projectEmpty)rows.push({label:'Grouped projects',kind:'cluster',note:'Number shows project count. Darker blue means more projects.'});groups.push(group('projects','Development',rows,s.projectEmpty?'Enabled; no filtered project pins are currently shown.':''));}
  if(s.rail)groups.push(group('rail','Existing rail',routes(s.railRoutes),'Paired colors identify shared rail segments.',true));
  if(s.stations)groups.push(group('stations','Rail stations',[row('Station reference point','ring','#14251e')]));
+ if(s.reach?.enabled){
+  const marks=[row('Mapped zone boundary','area','#51429a')];
+  if(s.reach.transfers)marks.push(row('GTFS transfer reference','dot','#a4510f'));
+  if(s.reach.expansion)marks.push(row('Project just outside the zone','ring','#a4510f','Within ¼ mile for expansion review'));
+  groups.push(group('reach','MARTA Reach',marks));
+ }
  const service=(s.routes||[]).filter(r=>r.existing),rapid=(s.routes||[]).filter(r=>!r.existing);
  if(service.length)groups.push(group('service','Existing streetcar',routes(service)));
  if(rapid.length)groups.push(group('rapid','BRT / ART / LRT alignments',routes(rapid),'Dashed alignment = high-capacity transit project; the line does not indicate a construction date.',true));

@@ -1584,6 +1584,21 @@
       "sha256": "8ca0b6bd4551ced05f6fbb4cb1043c0d3a44c8d36c4aeea5ee126c288a3e56ea",
       "source_way_count": 435,
       "data_status": "available"
+    },
+    {
+      "id": "brookwood-peachtree-sidewalks",
+      "name": "Brookwood / Peachtree sidewalk coverage",
+      "center": [
+        -84.3936232,
+        33.8054353
+      ],
+      "radius_m": 1400,
+      "file": "walk-data/brookwood-peachtree-sidewalks.json",
+      "retrieved_at": "2026-10-28T22:15:47.943Z",
+      "source_timestamp": "2026-10-27T21:23:59Z",
+      "sha256": "56f569054e4ae5281b641a995605752d19e1686f0cf0d780a3fae1a8ab7c9a2a",
+      "source_way_count": 1024,
+      "data_status": "available"
     }
   ],
   "source_extract": {

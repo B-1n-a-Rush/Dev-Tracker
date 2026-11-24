@@ -1,9 +1,7 @@
+const runtimeFile = require('./helpers/runtime-file.cjs');
 const {test} = require('node:test');
-const fs = require('node:fs');
-const path = require('node:path');
-const runtime = path.resolve(__dirname, fs.existsSync(path.resolve(__dirname, '../outputs/index.html')) ? '../outputs' : '..');
 const assert = require('node:assert/strict');
-const review = require(path.join(runtime, 'trackside-owner-route-review.js'));
+const review = require(runtimeFile('trackside-owner-route-review.js'));
 
 const bundled = {name: 'Example BRT', color: '#001122', lines: [[[33.75,-84.40],[33.75,-84.39]]]};
 const upload = {name: bundled.name, remoteId:'5', isPublished: true, color:'#b84f2a', lines: [[[33.70,-84.39],[33.72,-84.39]]]};

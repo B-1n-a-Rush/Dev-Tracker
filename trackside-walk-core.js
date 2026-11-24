@@ -8,11 +8,12 @@ function project(p,a,b){const scale=Math.cos((a[1]+b[1])*rad/2),x=(b[0]-a[0])*sc
 function restriction(tags={}){if(/^(no|private|customers|destination|permit)$/.test(tags.foot||''))return true;if(/^(yes|designated|permissive)$/.test(tags.foot||''))return Boolean(tags['foot:conditional']);return Boolean(tags['foot:conditional']||tags['access:conditional']||/^(no|private|customers|destination|permit)$/.test(tags.access||''));}
 function permittedWay(tags={},avoidSteps=false){if(restriction(tags)||tags.construction||tags.proposed||tags.highway==='construction'||tags.highway==='proposed'||(avoidSteps&&tags.highway==='steps'))return false;if(/^(footway|pedestrian|path|steps)$/.test(tags.highway||''))return true;return /^(cycleway|bridleway)$/.test(tags.highway||'')&&/^(yes|designated|permissive)$/.test(tags.foot||'');}
 function blockedNode(tags={}){return restriction(tags)||(/^(wall|fence|hedge|retaining_wall|gate|lift_gate|turnstile)$/.test(tags.barrier||'')&&!/^(yes|designated|permissive)$/.test(tags.foot||''));}
-function build(data,{avoidSteps=false}={}){
+function build(data,{avoidSteps=false,sidewalksOnly=false}={}){
  if(data?.remark||!Array.isArray(data?.elements)||!data.elements.length)throw Error('Incomplete pedestrian source response.');
  const nodes=new Map(),adj=new Map(),edges=[],seen=new Set(),ways=data.elements.filter(e=>e.type==='way');let excludedWays=0;
  for(const n of data.elements.filter(e=>e.type==='node')){const p=[n.lon,n.lat];if(!valid(p)||!Number.isSafeInteger(n.id))throw Error('Invalid source node.');if(nodes.has(n.id))throw Error('Repeated source node ID.');nodes.set(n.id,{id:n.id,point:p,tags:n.tags||{}});adj.set(n.id,[]);}
- for(const w of ways){if(!permittedWay(w.tags,avoidSteps)){excludedWays++;continue;}if(!Array.isArray(w.nodes)||w.nodes.length<2)throw Error('Invalid source path.');if(w.nodes.some(id=>!nodes.has(id)))throw Error('Source path has missing nodes; the download is incomplete.');
+ for(const w of ways){if(!permittedWay(w.tags,avoidSteps)||(sidewalksOnly&&
+  (!['sidewalk','crossing'].includes(w.tags.footway)||w.tags.crossing==='no'))){excludedWays++;continue;}if(!Array.isArray(w.nodes)||w.nodes.length<2)throw Error('Invalid source path.');if(w.nodes.some(id=>!nodes.has(id)))throw Error('Source path has missing nodes; the download is incomplete.');
   for(let i=1;i<w.nodes.length;i++){const a=nodes.get(w.nodes[i-1]),b=nodes.get(w.nodes[i]);if(blockedNode(a.tags)||blockedNode(b.tags)||a.id===b.id)continue;const meters=distance(a.point,b.point);if(meters===0||!Number.isFinite(meters))continue;const dir=w.tags?.['oneway:foot'],forward=dir!=='-1',backward=!/^(yes|1|true)$/.test(dir||''),key=w.id+':'+i;if(seen.has(key))throw Error('Repeated source path ID.');seen.add(key);const edge={id:key,way_id:w.id,a:a.id,b:b.id,meters,forward,backward,tags:w.tags||{}};edges.push(edge);if(forward)adj.get(a.id).push({to:b.id,meters,edge});if(backward)adj.get(b.id).push({to:a.id,meters,edge});}
  }
  return{nodes,adj,edges,excludedWays,avoidSteps};
@@ -73,5 +74,119 @@ function bandedFeatureCollection(result,{speed=1.2}={}){
 function projectAccess(result,projects,{connectorMeters=30,speed=1.2}={}){if(!Number.isFinite(speed)||speed<=0||!Number.isFinite(connectorMeters)||connectorMeters<0||connectorMeters>100)throw Error('Invalid access settings.');return projects.map(p=>{const point=[p.lng,p.lat];if(!valid(point))return{project:p,kind:'location_unknown'};let best=null;for(const s of result.segments){const hit=project(point,...s.coordinates);if(hit.distance>connectorMeters)continue;const t=s.t0+(s.t1-s.t0)*hit.t,cost=costAt(result,s.edge,t)+hit.distance;if(cost<=result.budget&&(!best||cost<best.meters))best={meters:cost,connector_m:hit.distance,way_id:s.edge.way_id,point:hit.point};}return{project:p,kind:best?'near_reachable_path':'access_unresolved',...(best||{}),minutes:best?best.meters/speed/60:null};});}
 function origins(stations,routes,legacy=[]){const out=stations.map(s=>({id:'rail:'+s[0],label:s[0]+' Station',kind:'Rail station reference · selected mapped entrance requires review',point:[s[2],s[1]]})).filter(o=>valid(o.point));for(const r of routes){if(r.published===false||r.isPublished===false||!['ART','BRT'].includes(r.mode||(/\bART\b/i.test(r.name)?'ART':'BRT')))continue;const original=legacy.find(l=>l.name===r.name),isLegacy=!Array.isArray(r.stops)&&Array.isArray(original?.stops),stops=Array.isArray(r.stops)?r.stops:isLegacy?original.stops:[];for(let i=0;i<stops.length;i++){const s=stops[i],point=Array.isArray(s)?[s[2],s[1]]:[s.lng,s.lat];if(!valid(point))continue;const parts=r.lines||(r.points?[r.points]:null);if(isLegacy&&(!parts||!parts.some(line=>line.slice(1).some((b,k)=>project(point,[line[k][1],line[k][0]],[b[1],b[0]]).distance<=100))))continue;out.push({id:'rapid:'+r.name+':'+i,label:r.name+' · '+(Array.isArray(s)?s[0]:s.name||'Mapped stop')+(isLegacy?' · planning reference':''),kind:isLegacy?'Legacy tracker planning stop · verify against the current stop plan and boarding location':'Mapped ART/BRT stop · boarding point and operating status unverified',route:r.name,point,legacy:isLegacy});}}return out;}
 function featureCollection(result){return{type:'FeatureCollection',features:result.segments.map(s=>({type:'Feature',properties:{osm_way_id:s.edge.way_id,classification:s.edge.tags.highway,footway:s.edge.tags.footway||null,basis:'Mapped connected pedestrian path; field verification required'},geometry:{type:'LineString',coordinates:s.coordinates}}))};}
-return{valid,distance,project,permittedWay,blockedNode,build,nearest,entranceCandidates,reach,projectAccess,featureCollection,bandedFeatureCollection,timeBands,origins};
+
+const incomingByGraph=new WeakMap();
+function traceToward(graph,projectPoint,seeds,{startGap,endpoint}){
+ if(!seeds.length)return null;
+ let incoming=incomingByGraph.get(graph);
+ if(!incoming){
+  incoming=new Map();
+  for(const [from,edges] of graph.adj)for(const {to,meters} of edges){
+    if(!incoming.has(to))incoming.set(to,[]);
+    incoming.get(to).push({from,meters});
+  }
+  incomingByGraph.set(graph,incoming);
+ }
+ const budget=1800,dist=new Map(),nextNode=new Map(),queue=new Heap();
+ for(const [id,meters] of seeds){dist.set(id,meters);queue.push([meters,id]);}
+ // Traverse incoming edges so one-way rules apply from the project toward the destination.
+ while(queue.length){
+  const [cost,to]=queue.pop();
+  if(cost!==dist.get(to))continue;
+  for(const {from,meters} of incoming.get(to)||[]){
+   const remaining=cost+meters;
+   if(remaining>budget||remaining>=(dist.get(from)??Infinity))continue;
+   dist.set(from,remaining);
+   nextNode.set(from,to);
+   queue.push([remaining,from]);
+  }
+ }
+ let best=null;
+ for(const edge of graph.edges){
+  const hit=project(projectPoint,graph.nodes.get(edge.a).point,graph.nodes.get(edge.b).point);
+  if(hit.distance>startGap||best&&hit.distance>best.gapMeters)continue;
+  const a=edge.backward||hit.t<=1e-9?(dist.get(edge.a)??Infinity)+hit.t*edge.meters:Infinity;
+  const b=edge.forward||hit.t>=1-1e-9?(dist.get(edge.b)??Infinity)+(1-hit.t)*edge.meters:Infinity;
+  const delta=endpoint?.edge===edge?endpoint.t-hit.t:null;
+  const direct=delta!==null&&((delta>0&&edge.forward)||(delta<0&&edge.backward))?Math.abs(delta)*edge.meters:Infinity;
+  const meters=Math.min(a,b,direct);
+  if(meters<=1||meters>budget||best&&hit.distance===best.gapMeters&&meters>=best.meters)continue;
+  best={start:hit.point,first:direct===meters?null:a<=b?edge.a:edge.b,gapMeters:hit.distance,meters};
+ }
+ if(!best)return null;
+ const coordinates=[best.start];
+ const append=point=>{
+  const prior=coordinates.at(-1);
+  if(point[0]!==prior[0]||point[1]!==prior[1])coordinates.push(point);
+ };
+ let node=best.first;
+ while(node!==null){
+  append(graph.nodes.get(node).point);
+  if(!nextNode.has(node))break;
+  node=nextNode.get(node);
+ }
+ if(endpoint)append(endpoint.point);
+ return {terminalNode:node,coordinates,meters:best.meters,gapMeters:best.gapMeters,minutes:best.meters/1.2/60};
+}
+function railEntranceAccess(graph,projectPoint,stationPoint){
+ if(!valid(projectPoint)||!valid(stationPoint))return null;
+ const seeds=[];
+ for(const {id,point,tags} of graph.nodes.values()){
+  if(tags.railway==='subway_entrance'&&!blockedNode(tags)&&
+   !['exit','exit_only','emergency','no'].includes(tags.entrance)&&distance(point,stationPoint)<=125)seeds.push([id,0]);
+ }
+ const trace=traceToward(graph,projectPoint,seeds,{startGap:75});
+ if(!trace)return null;
+ const {terminalNode,...result}=trace;
+ return {...result,entranceId:terminalNode};
+}
+function busStopAssessment(graph,projectPoint,stopPoint){
+ if(!valid(projectPoint)||!valid(stopPoint))return {state:'unavailable'};
+ if(!graph.edges.length)return {state:'no-sidewalks',mapPoint:stopPoint};
+ let endpoint=null;
+ for(const edge of graph.edges){
+  if(edge.tags.footway!=='sidewalk')continue;
+  const hit=project(stopPoint,graph.nodes.get(edge.a).point,graph.nodes.get(edge.b).point);
+  if(!endpoint||hit.distance<endpoint.distance)endpoint={...hit,edge};
+ }
+ const start=nearest(graph,projectPoint);
+ const projectGapMeters=start?.distance??null,stopGapMeters=endpoint?.distance??null;
+ if(!start||projectGapMeters>30)return {state:'project-gap',mapPoint:projectPoint,projectGapMeters,stopGapMeters};
+ if(!endpoint||stopGapMeters>20)return {state:'stop-gap',mapPoint:stopPoint,stopGapMeters};
+ const {t,edge}=endpoint,seeds=[];
+ if(edge.forward||t<=1e-9)seeds.push([edge.a,t*edge.meters]);
+ if(edge.backward||t>=1-1e-9)seeds.push([edge.b,(1-t)*edge.meters]);
+ const trace=traceToward(graph,projectPoint,seeds,{startGap:30,endpoint});
+ if(trace){
+  const {terminalNode,...result}=trace;
+  return {state:'found',trace:{...result,stopGapMeters:endpoint.distance}};
+ }
+ // Show the nearest mapped point actually reachable from the project-side path.
+ const reachable=reach(graph,{point:start.point,edge_id:start.edge.id},1800);
+ let closest=null;
+ for(const segment of reachable.segments){
+  const hit=project(stopPoint,...segment.coordinates);
+  if(!closest||hit.distance<closest.distance)closest=hit;
+ }
+ return {state:'disconnected',mapPoint:closest?.point||reachable.startPoint,stopPoint};
+}
+function busStopAccess(graph,projectPoint,stopPoint){
+ return busStopAssessment(graph,projectPoint,stopPoint).trace||null;
+}
+function localBusStops(data,classifiedRoutes){
+ const localRoutes=new Map(classifiedRoutes.filter(route=>route.mode==='local_bus').map(route=>[route.line_id,route.number]));
+ const byDirection=new Map(data.directions.filter(dir=>localRoutes.has(dir.line_id)).map(dir=>[dir.dir_id,dir.line_id]));
+ const routesByStop=new Map();
+ for(const {dir_id,stop_id} of data.relationships){
+  if(!byDirection.has(dir_id))continue;
+  if(!routesByStop.has(stop_id))routesByStop.set(stop_id,new Set());
+  const number=localRoutes.get(byDirection.get(dir_id));
+  if(number)routesByStop.get(stop_id).add(number);
+ }
+ return data.stops.filter(stop=>routesByStop.has(stop.stop_id)&&valid(stop.geometry?.coordinates)).map(stop=>({
+  id:stop.stop_id,name:stop.stop_name||'Local bus stop',point:stop.geometry.coordinates.slice(0,2),
+  routes:[...routesByStop.get(stop.stop_id)].sort((a,b)=>a.localeCompare(b,'en',{numeric:true}))
+ }));
+}
+return{valid,distance,project,railEntranceAccess,busStopAccess,busStopAssessment,localBusStops,permittedWay,blockedNode,build,nearest,entranceCandidates,reach,projectAccess,featureCollection,bandedFeatureCollection,timeBands,origins};
 });

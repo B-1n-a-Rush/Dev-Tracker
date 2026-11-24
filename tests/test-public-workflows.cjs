@@ -1,12 +1,10 @@
+const runtimeFile = require('./helpers/runtime-file.cjs');
 const assert = require('node:assert/strict');
 const {test} = require('node:test');
-const fs = require('node:fs');
-const path = require('node:path');
-const runtime = path.resolve(__dirname, fs.existsSync(path.resolve(__dirname, '../outputs/index.html')) ? '../outputs' : '..');
-const dates = require(path.join(runtime, 'trackside-infrastructure-dates.js'));
-const coord = require(path.join(runtime, 'trackside-coordination-core.js'));
-const here = require(path.join(runtime, 'trackside-here-core.js'));
-const view = require(path.join(runtime, 'trackside-map-view-core.js'));
+const dates = require(runtimeFile('trackside-infrastructure-dates.js'));
+const coord = require(runtimeFile('trackside-coordination-core.js'));
+const here = require(runtimeFile('trackside-here-core.js'));
+const view = require(runtimeFile('trackside-map-view-core.js'));
 
 test('outlook uses Atlanta day, appropriate date evidence, and a bounded 90-day window', () => {
   const today = dates.atlantaDay(new Date('2026-11-22T02:00:00Z'));

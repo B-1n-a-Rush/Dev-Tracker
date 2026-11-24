@@ -49,3 +49,5 @@
 
 .digest-matching-watches{display:flex;flex-wrap:wrap;gap:5px;list-style:none;padding:0;margin:7px 0}
 .digest-matching-watches li{background:var(--brand-blue-soft);border:1px solid var(--brand-blue-line);border-radius:6px;color:var(--brand-blue);font-size:12px;font-weight:600;padding:4px 7px;max-width:100%}
+
+.digest-context-help{margin:8px 17px 14px}.digest-context-help .digest-context-button{margin-bottom:4px}.digest-context-help p{margin:0;color:var(--muted,#53657b);font-size:12px;line-height:1.4}

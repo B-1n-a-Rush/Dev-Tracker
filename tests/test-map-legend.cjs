@@ -1,6 +1,6 @@
+const runtimeFile = require('./helpers/runtime-file.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const runtime = path.resolve(__dirname, fs.existsSync(path.resolve(__dirname, '../outputs/index.html')) ? '../outputs' : '..');
-const C=require(path.join(runtime, 'trackside-legend-core.js'));let count=0;
+const C=require(runtimeFile('trackside-legend-core.js'));let count=0;
 function test(name,fn){fn();console.log('PASS '+name);count++;}
 const g=(m,id)=>m.groups.find(g=>g.id===id);
 test('Disabled layers disappear and an empty map has no invented optional layer',()=>assert.deepEqual(C.main().groups,[]));
@@ -15,8 +15,8 @@ test('Walking keys use time bands and keep inventory and access limitations sepa
 test('Hotspot unknown timing never becomes a potential overlap by itself',()=>{const m=C.hotspots({unknown:true,overlap:false});assert.deepEqual(g(m,'screening').rows.map(r=>r.label),['Timing unknown']);assert.match(g(m,'screening').note,/does not establish an overlap/);});
 test('Briefing keys follow the report geometry and distinguish unknown from overlap',()=>{const m=C.briefing({route:{name:'ART',kind:'rapid',color:'#654321'},rows:[{state:'unknown'}]});assert.equal(g(m,'route').rows[0].kind,'dash');assert.deepEqual(g(m,'screening').rows.map(r=>r.label),['Other nearby infrastructure']);assert.equal(g(C.briefing({rows:[]}),'screening').rows.length,0);assert.equal(g(C.briefing({route:{kind:'rail'}}),'route').rows[0].kind,'line');});
 test('Unsafe colors cannot become CSS values and names remain plain data',()=>{assert.equal(C.color('url(https://bad.test)'),'#136647');assert.equal(C.routes([{name:'<img onerror=bad()>',color:'red'}])[0].label,'<img onerror=bad()>');});
-test('Legend scripts parse, coalesce updates and introduce no requests or database calls',()=>{for(const f of ['trackside-legend-core.js','trackside-map-legend.js']){const code=fs.readFileSync(path.join(runtime,f),'utf8');new vm.Script(code);assert(!/fetch\(|setInterval\(|\.from\(|\.rpc\(/.test(code));}const ui=fs.readFileSync(path.join(runtime,'trackside-map-legend.js'),'utf8');assert(!ui.includes('innerHTML'));assert.match(ui,/requestAnimationFrame\(update\)/);assert.match(ui,/beforeprint/);assert.match(ui,/afterprint/);});
-test('Briefing key uses report data and modified external scripts parse',()=>{const root=runtime;assert.match(fs.readFileSync(path.join(root,'trackside-briefing-map.js'),'utf8'),/elementFor\('briefing',\{route:opts.route,rows\}\)/);for(const f of ['trackside-local-bus.js','trackside-land.js','trackside-sr2t.js','trackside-walk.js','trackside-coordination-hotspots.js','trackside-briefing-map.js'])new vm.Script(fs.readFileSync(path.join(root,f),'utf8'));});
+test('Legend scripts parse, coalesce updates and introduce no requests or database calls',()=>{for(const f of ['trackside-legend-core.js','trackside-map-legend.js']){const code=fs.readFileSync(runtimeFile(f),'utf8');new vm.Script(code);assert(!/fetch\(|setInterval\(|\.from\(|\.rpc\(/.test(code));}const ui=fs.readFileSync(runtimeFile('trackside-map-legend.js'),'utf8');assert(!ui.includes('innerHTML'));assert.match(ui,/requestAnimationFrame\(update\)/);assert.match(ui,/beforeprint/);assert.match(ui,/afterprint/);});
+test('Briefing key uses report data and modified external scripts parse',()=>{const root=runtimeFile('');assert.match(fs.readFileSync(path.join(root,'trackside-briefing-map.js'),'utf8'),/elementFor\('briefing',\{route:opts.route,rows\}\)/);for(const f of ['trackside-local-bus.js','trackside-land.js','trackside-sr2t.js','trackside-walk.js','trackside-coordination-hotspots.js','trackside-briefing-map.js'])new vm.Script(fs.readFileSync(path.join(root,f),'utf8'));});
 
 function uiHarness(){
  const callbacks={},frames=[],observed=[];
@@ -31,7 +31,7 @@ function uiHarness(){
  }
  const area=new E('section'),routeOptions=new E('div'),lookup=new Map([['mapRouteOptions',routeOptions]]),doc={createElement:t=>new E(t),getElementById:id=>lookup.get(id)||null,querySelector:s=>s==='.map-area'?area:null,addEventListener(k,v){callbacks['doc:'+k]=v;}};
  const context={window:{TracksideLegendCore:C,addEventListener(k,v){callbacks[k]=v;}},document:doc,map:{getZoom:()=>10,hasLayer:()=>true,on(){}},projectLayer:{},lastVisibleProjects:[{status:'Planning'}],projectClusteringEnabled:false,railLayer:{},railLines:[{name:'Red',color:'#e0504f'}],requestAnimationFrame:fn=>frames.push(fn),matchMedia:()=>({addEventListener(){}}),MutationObserver:class{constructor(fn){this.fn=fn;}observe(target,opts){if(opts.attributeFilter&&opts.attributes===false)throw Error('Invalid observer options');observed.push(opts);}},Map,Set,JSON};
- vm.runInNewContext(fs.readFileSync(path.join(runtime,'trackside-map-legend.js'),'utf8'),context);
+ vm.runInNewContext(fs.readFileSync(runtimeFile('trackside-map-legend.js'),'utf8'),context);
  const flush=()=>{while(frames.length)frames.shift()();};flush();return {context,area,callbacks,frames,flush,observed};
 }
 test('UI observers initialize and repeated updates coalesce into one frame',()=>{const h=uiHarness();assert.equal(h.observed.length,1);for(let i=0;i<100;i++)h.context.window.TracksideMapLegend.refresh();assert.equal(h.frames.length,1);h.flush();assert.equal(h.area.children.length,1);});

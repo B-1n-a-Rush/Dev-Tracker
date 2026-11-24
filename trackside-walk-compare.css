@@ -1,0 +1,44 @@
+.walk-compare-dialog {
+  width: min(780px, calc(100% - 20px));
+  max-height: min(85dvh, 850px);
+  border: 1px solid var(--line, #d7e0ed);
+  border-radius: 14px;
+  padding: 0;
+  color: var(--ink, #172944);
+  background: #fffefa;
+  box-sizing: border-box;
+}
+.walk-compare-dialog::backdrop { background: #132b5260; }
+.walk-compare-header {
+  position: sticky;
+  top: 0;
+  background: #edf3ff;
+  border-bottom: 1px solid var(--line, #d7e0ed);
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: .6rem;
+  padding: .8rem 1rem;
+}
+.walk-compare-header h2, .walk-compare-header p { margin: 0 0 .2rem; }
+.walk-compare-body { padding: .65rem 1rem; }
+.walk-compare-body p { margin: .4rem 0 .65rem; font-size: .86rem; }
+.walk-compare-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.walk-compare-table th, .walk-compare-table td {
+  border-bottom: 1px solid var(--line, #d7e0ed);
+  vertical-align: top;
+  padding: .65rem .44rem;
+  text-align: left;
+}
+.walk-compare-table th:first-child { width: 40%; }
+.walk-compare-table td:nth-child(2) { white-space: nowrap; }
+.walk-compare-table small { display: block; color: #455c79; font-weight: 400; margin: .15rem 0 .3rem; }
+.walk-compare-table .walk-button, .project-walk-summary .walk-button { min-height: 33px; line-height: 1.25; }
+.walk-compare-actions { display: flex; flex-wrap: wrap; align-items: start; gap: .35rem; margin-top: .35rem; }
+.project-walk-launch { display: flex; flex-wrap: wrap; gap: .4rem; margin: .45rem 0; }
+@media (max-width: 480px) {
+  .walk-compare-header, .walk-compare-body { padding: .6rem; }
+  .walk-compare-header h2 { font-size: 1.15rem; }
+  .walk-compare-table th, .walk-compare-table td { padding: .45rem .22rem; overflow-wrap: anywhere; }
+  .walk-compare-table th:first-child { width: 34%; }
+}

@@ -5,7 +5,7 @@
   if(!C||typeof map==='undefined')return;
   const $=id=>document.getElementById(id);
   const aside=document.querySelector('aside.detail');
-  const profiles=['placeholder','detail','stationDetail','corridorDetail','studyAreaDetail','scenarioDetail','hereProfile'];
+  const profiles=['placeholder','detail','stationDetail','corridorDetail','studyAreaDetail','scenarioDetail','hereProfile','reachDetail'];
   const colors={'Utilities':'#2670ad','Trails & paths':'#44803e','Sidewalks':'#c45b91','Bikeways':'#168e93','Streetscape':'#9162b4','Signals & safety':'#b77a14','Roads & bridges':'#b85d35','Transit':'#3853a4','Other':'#6a7570'};
   function node(tag,cls,content){const n=document.createElement(tag);if(cls)n.className=cls;if(content!==undefined)n.textContent=content;return n;}
   function button(label,action,cls='land-button'){const b=node('button',cls,label);b.type='button';b.addEventListener('click',action);return b;}
@@ -19,7 +19,7 @@
   const parcelHighlight=L.geoJSON(null,{style:{color:'#0c6651',weight:4,fillColor:'#b6da69',fillOpacity:.22,interactive:false}}).addTo(map);
   const infraLayer=L.layerGroup();const infraHighlight=L.layerGroup().addTo(map);
   let parcelGeneration=0,profileGeneration=0,selectedInfrastructureId='';
-  function dismissProfiles(){window.TracksideHere?.dismiss();parcelPanel.hidden=true;infraPanel.hidden=true;parcelHighlight.clearLayers();infraHighlight.clearLayers();profileGeneration++;}
+  function dismissProfiles(){window.TracksideHere?.dismiss();const reach=$('reachDetail');if(reach)reach.style.display='none';parcelPanel.hidden=true;infraPanel.hidden=true;parcelHighlight.clearLayers();infraHighlight.clearLayers();profileGeneration++;}
   function openProfile(panel){if(panel.id!=='hereProfile')window.TracksideHere?.dismiss();profiles.forEach(id=>{if($(id))$(id).style.display=$(id)===panel?'':'none';});parcelPanel.hidden=panel!==parcelPanel;infraPanel.hidden=panel!==infraPanel;selected=null;setDetailDrawerOpen(true);if(typeof syncSelectedProjectUrl==='function')syncSelectedProjectUrl(null);}
   const oldShow=show;show=function(...args){dismissProfiles();return oldShow(...args);};
   const oldStation=showStationOverview;showStationOverview=function(...args){dismissProfiles();return oldStation(...args);};

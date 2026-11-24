@@ -1,12 +1,10 @@
+const runtimeFile = require('./helpers/runtime-file.cjs');
 const assert = require('node:assert/strict');
 const {test} = require('node:test');
-const fs = require('node:fs');
-const path = require('node:path');
-const runtime = path.resolve(__dirname, fs.existsSync(path.resolve(__dirname, '../outputs/index.html')) ? '../outputs' : '..');
-const dates = require(path.join(runtime, 'trackside-infrastructure-dates.js'));
-const coordination = require(path.join(runtime, 'trackside-coordination-core.js'));
-const bus = require(path.join(runtime, 'trackside-bus-core.js'));
-const shapes = require(path.join(runtime, 'trackside-shape-data.js'));
+const dates = require(runtimeFile('trackside-infrastructure-dates.js'));
+const coordination = require(runtimeFile('trackside-coordination-core.js'));
+const bus = require(runtimeFile('trackside-bus-core.js'));
+const shapes = require(runtimeFile('trackside-shape-data.js'));
 const agency = Object.freeze({id:'atl-capital:1',sourceId:'1',name:'Test roadwork',source:{kind:'atlanta'},start:'2028-02',finish:null,scheduleType:'Anticipated construction'});
 const source_url = 'https://example.gov/schedule';
 

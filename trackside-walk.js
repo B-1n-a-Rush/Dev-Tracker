@@ -37,5 +37,75 @@ $('walkAvoidSteps').addEventListener('change',()=>{if(!bundle?.data.elements.len
 const toolbar=document.querySelector('.map-toolbar');if(toolbar){const b=button('Walking access',()=>open(),'map-layers-button');b.id='walkingAccessButton';b.setAttribute('aria-controls','walkingAccessDialog');b.setAttribute('aria-haspopup','dialog');toolbar.append(b);L.DomEvent.disableClickPropagation(b);}
 const stationBody=$('stationDetail')?.querySelector('.detail-body');if(stationBody)stationBody.append(button('Explore station walking access',()=>{const s=typeof selectedStation==='function'?selectedStation():null;if(s)open({station:s});},'walk-button walk-entry'));
 const corridorBody=$('corridorDetail')?.querySelector('.detail-body');if(corridorBody)corridorBody.append(button('Explore mapped stop walking access',()=>{const c=typeof selectedCorridor==='function'?selectedCorridor():null;if(c)open({route:c.route});},'walk-button walk-entry'));
-window.TracksideWalkingAccess={get legendState(){return {base:!!graph&&!!origin,result:!!result,bands:result?C.timeBands.filter(b=>b.min_minutes<Number($("walkMinutes").value)):[],inventory:!!inventoryLayer?.getLayers().length};},open,get result(){return result;},get currentOrigin(){return origin;},get network(){return bundle;}};
+
+const projectEntranceGraphs=new WeakMap();
+const projectSidewalkGraphs=new WeakMap();
+async function estimateRailEntrance(projectPoint,stationPoint){
+ const snapshot=await loader.load(stationPoint);
+ if(C.distance(projectPoint,snapshot.center)>snapshot.radius_m)return null;
+ let graph=projectEntranceGraphs.get(snapshot);
+ if(!graph){graph=C.build(snapshot.data);projectEntranceGraphs.set(snapshot,graph);}
+ return C.railEntranceAccess(graph,projectPoint,stationPoint);
+}
+function nearbyRailStations(projectPoint){
+ return railStations.map(([name,lat,lng,lines])=>{
+  const point=[lng,lat];
+  return {name:name+' Station',point,lines,meters:C.distance(projectPoint,point)};
+ }).sort((a,b)=>a.meters-b.meters);
+}
+let busStops=null,busStopsPending=null;
+async function activeBusStops(){
+ if(busStops&&Date.now()-busStops.checkedAt<60000)return busStops;
+ if(!busStopsPending){
+  busStopsPending=(async()=>{
+   const api=window.tracksideSupabase,Bus=window.TracksideBusCore;
+   if(!api||!Bus)throw Error('Bus stop inventory is unavailable.');
+   const active=(await api.listLocalBusNetworks()).find(network=>network.is_active);
+   if(!active)throw Error('No active local bus stop inventory is available.');
+   const key=active.fingerprint+':'+active.updated_at;
+   let stops=busStops?.key===key?busStops.stops:null;
+   if(!stops){
+    const shared=window.TracksideLocalBus?.network;
+    const network=shared?.fingerprint===active.fingerprint?shared:await api.getLocalBusNetwork(active.fingerprint);
+    const routes=Bus.routes(network.data,window.TRACKSIDE_BUS_MODE_REFERENCE,active.mode_overrides);
+    stops=C.localBusStops(network.data,routes);
+   }
+   busStops={key,stops,name:active.map_name,verified:active.verification_status==='confirmed',checkedAt:Date.now()};
+   return busStops;
+  })().finally(()=>{busStopsPending=null;});
+ }
+ return busStopsPending;
+}
+async function nearbyBusStops(projectPoint){
+ const {stops,name,verified}=await activeBusStops();
+ return {name,verified,stops:stops.map(stop=>({...stop,meters:C.distance(projectPoint,stop.point)}))
+  .filter(stop=>stop.meters<=804.672).sort((a,b)=>a.meters-b.meters).slice(0,5)};
+}
+async function estimateBusStop(projectPoint,stopPoint){
+ let catalog;
+ try{catalog=await loader.list();}catch{return {state:'unavailable',mapPoint:stopPoint};}
+ // Keep the endpoints and their allowed snap offsets inside the saved area.
+ const entries=catalog.snapshots.map(entry=>({entry,distance:Math.max(C.distance(projectPoint,entry.center),C.distance(stopPoint,entry.center))}))
+  .filter(({entry,distance})=>entry.radius_m-distance>=30).sort((a,b)=>a.distance-b.distance);
+ if(!entries.length)return {state:'outside',mapPoint:stopPoint};
+ const priority={'disconnected':4,'stop-gap':3,'project-gap':2,'no-sidewalks':1};
+ let best=null;
+ for(const {entry} of entries.slice(0,3)){
+  try{
+   const snapshot=await loader.load(entry.center);
+   if(Math.max(C.distance(projectPoint,snapshot.center),C.distance(stopPoint,snapshot.center))>snapshot.radius_m-30)continue;
+   let sidewalkGraph=projectSidewalkGraphs.get(snapshot);
+   if(!sidewalkGraph&&snapshot.data.elements.length){
+    sidewalkGraph=C.build(snapshot.data,{sidewalksOnly:true});
+    projectSidewalkGraphs.set(snapshot,sidewalkGraph);
+   }
+   const result=sidewalkGraph?C.busStopAssessment(sidewalkGraph,projectPoint,stopPoint):{state:'no-sidewalks',mapPoint:stopPoint};
+   result.sourceDate=snapshot.source_timestamp||snapshot.data.osm3s?.timestamp_osm_base||'';
+   if(result.state==='found')return result;
+   if(!best||priority[result.state]>priority[best.state])best=result;
+  }catch{ /* An overlapping saved snapshot may still cover this pair. */ }
+ }
+ return best||{state:'unavailable',mapPoint:stopPoint};
+}
+window.TracksideWalkingAccess={estimateRailEntrance,nearbyRailStations,nearbyBusStops,estimateBusStop,get legendState(){return {base:!!graph&&!!origin,result:!!result,bands:result?C.timeBands.filter(b=>b.min_minutes<Number($("walkMinutes").value)):[],inventory:!!inventoryLayer?.getLayers().length};},open,get result(){return result;},get currentOrigin(){return origin;},get network(){return bundle;}};
 })();

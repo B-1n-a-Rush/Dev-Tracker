@@ -12,4 +12,56 @@ test('Role loss immediately removes private history and ignores its late respons
 test('A saved edit updates facts and refreshes active history while preserving the tab',async()=>{const h=fixture();h.staff(true);h.set({id:'A',units:10});h.s.refresh();h.s.tab('history');await tick();h.set({id:'A',units:20});h.s.refresh();await tick();assert.equal(h.s.getSnapshot().project.units,20);assert.equal(h.s.getSnapshot().tab,'history');assert.equal(h.historyCalls,2);assert.equal(h.newsCalls,1)});
 test('Changing projects clears the previous history and selects Overview',async()=>{const h=fixture();h.staff(true);h.set({id:'A'});h.s.refresh();h.s.tab('history');await tick();h.set({id:'B'});h.s.refresh();assert.equal(h.s.getSnapshot().tab,'overview');assert.deepEqual(h.s.getSnapshot().history.items,[])});
 test('Clearing the selection removes all displayed project and history data',async()=>{const h=fixture();h.staff(true);h.set({id:'A'});h.s.refresh();h.s.tab('history');await tick();h.set(null);h.s.refresh();assert.equal(h.s.getSnapshot().project,null);assert.deepEqual(h.s.getSnapshot().history.items,[]);assert.deepEqual(h.s.getSnapshot().news.items,[])});
+
+test('Project milestones stay visible behind a long series of routine edits',()=>{
+ const source='https://example.org/announcement';
+ const view=State.timeline([
+  ...Array.from({length:8},()=>['Oct 2026','Project details updated',0]),
+  ['Aug 2026','Construction groundbreaking',0],
+  ['TBD','Homes and retail delivery',1],
+ ],'Construction began August 2026; completion expected spring 2028',source);
+ assert.deepEqual(view.milestones,[
+  {date:'Aug 2026',label:'Construction groundbreaking',expected:false,sourceUrl:source},
+  {date:'Spring 2028',label:'Homes and retail delivery',expected:true,sourceUrl:source},
+ ]);
+ assert.deepEqual(view.history,[{date:'Oct 2026',label:'Project details updated',count:8}]);
+});
+test('The profile preserves existing dates and marks explicit estimates regardless of entry order',()=>{
+ const view=State.timeline([
+  ['Q1 2028','Estimated construction completion',0],['Jul 2026','Permit issued',0],
+ ],'Completion expected during an unspecified phase','https://example.org/source');
+ assert.deepEqual(view.milestones.map(({date,expected,sourceUrl})=>[date,expected,sourceUrl]),[['Jul 2026',false,''],['Q1 2028',true,'']]);
+ assert.equal(State.timeline([], 'Completion expected spring 2028').milestones.length,0);
+});
+test('Transit coverage distinguishes operating, planned and unverified service from alignment distance',()=>{
+ const result={mode:'BRT',distanceMeters:321.8688};
+ assert.deepEqual(State.routeAccessDetail(result,'Planning / environmental review',false),{service:'BRT · Planned service',distance:'0.2 mi straight-line to alignment'});
+ assert.equal(State.routeAccessDetail(result,'In service with remaining construction',false).service,'BRT · Operating service');
+ assert.equal(State.routeAccessDetail(result,'Current construction schedule unconfirmed',false).service,'BRT · Service status unverified');
+ assert.equal(State.routeAccessDetail({...result,distanceMeters:Infinity,overridden:true},'',true).distance,'Alignment distance unavailable · Admin selected');
+});
+
+test('Public record history shows cited before-and-after values and omits routine or malformed entries',()=>{
+ const source='https://example.org/public-announcement';
+ const change={changed_at:'2026-11-23T22:46:21.524Z',source_url:source,
+  fields:[{field:'units',before:120,after:130},{field:'actor',before:'private',after:'private2'}]};
+ const result=State.publishedRecordChanges([
+  {changed_at:'2026-11-23T22:00:00Z',fields:[{field:'units',before:100,after:120}]},
+  change,{...change,source_url:'javascript:alert(1)'},change,
+  {...change,fields:[{field:'status',before:'Planning',after:'Planning'}]},
+ ]);
+ assert.equal(result.length,1);
+ assert.deepEqual(result[0].fields,[{key:'units',label:'Residential units',before:120,after:130}]);
+ assert.equal(result[0].source,source);
+});
+test('A source-backed edit records only changed project facts with meaningful before values',()=>{
+ const old={id:'existing',residentialUnits:0,status:'Planning',metadata:{}};
+ const current={...old,status:'Construction',residentialUnits:130,notes:'private'};
+ const now='2026-11-23T22:46:21.524Z';
+ const rows=State.backedRecordEdit(old,current,'https://example.org/public-announcement',now);
+ assert.deepEqual(rows[0].fields,[{field:'status',before:'Planning',after:'Construction'},{field:'units',before:null,after:130}]);
+ assert.throws(()=>State.backedRecordEdit(old,current,'',now),/direct public source/);
+ assert.throws(()=>State.backedRecordEdit(old,old,'https://example.org',now),/Change a project fact/);
+ assert.throws(()=>State.backedRecordEdit(null,current,'https://example.org',now),/existing project/);
+});
 (async()=>{for(const[n,f]of tasks){await f();console.log('PASS '+n)}console.log(tasks.length+' project profile checks passed')})().catch(e=>{console.error(e);process.exitCode=1});

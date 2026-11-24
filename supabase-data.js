@@ -619,14 +619,26 @@
     if (!Array.isArray(rows) || rows.length !== 1) throw new Error('Route was not deleted. Reload the route and try again.');
   }
 
-  async function upsertProject(project, sortOrder) {
+  async function upsertProject(project, sortOrder, baselineUpdatedAt = '') {
+    const record = toRow(project, sortOrder);
+    if (baselineUpdatedAt) {
+      const filter = 'id=eq.' + encodeURIComponent(project.id) +
+        '&updated_at=eq.' + encodeURIComponent(baselineUpdatedAt);
+      const rows = await dataRequest('projects?' + filter, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify(record)
+      }, true);
+      if (!rows?.length) throw new Error('This project changed while you were editing. Refresh the tracker and reopen the record.');
+      return fromRow(rows[0]);
+    }
     const rows = await dataRequest('projects?on_conflict=id', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Prefer: 'resolution=merge-duplicates,return=representation'
       },
-      body: JSON.stringify(toRow(project, sortOrder))
+      body: JSON.stringify(record)
     }, true);
     return fromRow(rows[0]);
   }
