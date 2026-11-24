@@ -15,7 +15,7 @@ function harness(options={}){
   }
   function Option(label,value){const e=new Element('option');e._text=String(label);e._optionValue=String(value);return e;}
   const aside=new Element('aside');const panel=new Element();panel.id='mapLayersPanel';const head=new Element();head.className='map-layers-head';panel.append(head);
-  for(const id of ['mapLayersCount','mapLayersButton','placeholder','detail','stationDetail','corridorDetail','studyAreaDetail','scenarioDetail']){const e=new Element();e.id=id;}
+  for(const id of ['mapLayersCount','mapLayersButton','placeholder','detail','stationDetail','corridorDetail','studyAreaDetail']){const e=new Element();e.id=id;}
   class Layer{
     constructor(data){this.data=data;this.items=[];this.events={};}addTo(parent){parent.addLayer(this);return this;}addLayer(item){this.items.push(item);return this;}clearLayers(){this.items=[];return this;}addData(data){this.data=data;return this;}bindTooltip(){return this;}on(name,fn){this.events[name]=fn;return this;}setStyle(){return this;}getBounds(){return {isValid:()=>true};}
   }
@@ -33,7 +33,7 @@ function harness(options={}){
   const exportBlobs=[];
   class ExportURL extends URL{static createObjectURL(blob){exportBlobs.push(blob);return 'blob:test-'+exportBlobs.length;}static revokeObjectURL(){}}
   const context={console,setTimeout,clearTimeout,URL:options.captureExports?ExportURL:URL,URLSearchParams,Blob,AbortSignal,Option,fetch:fetchMock,document:{createElement:t=>new Element(t),getElementById:id=>registry.get(id)||null,querySelector:()=>aside},L:{geoJSON:d=>new Layer(d),layerGroup:()=>new Layer(),circleMarker:()=>new Layer(),DomEvent:{stopPropagation(){}}},map:{addLayer(){},removeLayer(){},fitBounds(){},getZoom:()=>17,getBounds:()=>({getWest:()=>-84.4,getEast:()=>-84.2,getSouth:()=>33.7,getNorth:()=>33.9})},parcelSources:[],parcelLayer:new Layer(),parcelsEnabled:options.enableParcels!==false,parcelMinimumZoom:16,parcelSelectionMode:false,draftParcels:[],selected:null,parcelStyle:()=>({}),parcelKey:p=>p.county+':'+p.id,updateParcelState(){},setParcelLayerHelp(){},setDetailDrawerOpen(){},syncSelectedProjectUrl(){},setPage(){},updateMapLayersCount(){},selectedCorridor:()=>null,railLines:[{name:'Test rail',points:[[33.7,-84.4],[33.9,-84.2]]}],brtArtRoutes:[],routePointParts:r=>[r.points],TracksideLandCore:C};
-  for(const name of ['show','showStationOverview','showCorridorOverview','showStudyAreaOverview','showScenarioComparison','clearDetailPanel'])context[name]=()=>{};
+  for(const name of ['show','showStationOverview','showCorridorOverview','showStudyAreaOverview','clearDetailPanel'])context[name]=()=>{};
   context.window=context;vm.createContext(context);
   return {context,registry,fixture,exportBlobs};
 }

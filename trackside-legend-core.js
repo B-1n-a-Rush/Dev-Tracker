@@ -39,7 +39,6 @@ function main(s={}){
  if(s.boundaries)groups.push(group('boundaries','Service-area boundaries',[row('County','dash','#136647'),row('City of Atlanta','dash','#365d8d')]));
  if(s.stationBuffer)groups.push(group('stationBuffer','Station distance',[row('Straight-line radius','area','#174a83')],'Proximity does not establish walking access.'));
  if(s.study)groups.push(group('study','Study area',[row('Selected study area','area','#174a83')]));
- if(s.scenario)groups.push(group('scenario','What-if routes',[row('Hypothetical alignment','dash','#6847a5'),row('Proposed stop','ring','#c9ee6e')],'Concepts are separate from published services and projects.'));
  if(s.search)groups.push(group('search','Search selection',[row('Search pin','pin','#174a83'),...(s.searchParcel?[row('Selected parcel','area','#174a83')]:[])],'A parcel pin is a representative interior point, not a surveyed entrance.'));
  return {title:'Map key',context:'Enabled layers · some symbols appear only when zoomed in.',groups};
 }

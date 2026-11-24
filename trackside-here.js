@@ -43,7 +43,7 @@
   function pickPoint(event){if(!picking)return;const center=event.latlng;cancelPick();open({center,label:'Selected map location'});}
   function startPick(){
     if(picking){cancelPick();$('hereStatus').textContent='Location selection canceled.';return;}
-    if((typeof studyAreaMode!=='undefined'&&studyAreaMode)||(typeof scenarioMapMode!=='undefined'&&scenarioMapMode)||(typeof pickLocation!=='undefined'&&pickLocation)||(typeof parcelSelectionMode!=='undefined'&&parcelSelectionMode)){$('hereStatus').textContent='Finish or cancel the current map drawing or editing task first.';return;}
+    if((typeof studyAreaMode!=='undefined'&&studyAreaMode)||(typeof pickLocation!=='undefined'&&pickLocation)||(typeof parcelSelectionMode!=='undefined'&&parcelSelectionMode)){$('hereStatus').textContent='Finish or cancel the current map drawing or editing task first.';return;}
     picking=true;$('herePick').textContent='Cancel point selection';$('herePick').setAttribute('aria-pressed','true');$('hereStatus').textContent='Click or tap the map to choose a location. Press Escape to cancel.';
     map.getContainer().classList.add('here-picking');map.on('click',pickPoint);setDetailDrawerOpen(false);
   }

@@ -43,7 +43,7 @@ filters.addEventListener('toggle',placeActiveFilters);
 new MutationObserver(placeActiveFilters).observe(shell,{attributes:true,attributeFilter:['class']});
 const resultToolbar=make('div','ws-result-toolbar'),resultHeading=sidebar.querySelector('.section-head');resultHeading.before(resultToolbar);resultToolbar.append(resultHeading,viewSwitch);placeActiveFilters();
 const layersControl=$('mapLayersControl');layerSection.append(layersControl);
-for(const id of ['studyAreaControl','scenarioControl','hereButton','walkingAccessButton','openConstructionOutlook'])if($(id))analyzeSection.append($(id));
+for(const id of ['studyAreaControl','hereButton','walkingAccessButton','openConstructionOutlook'])if($(id))analyzeSection.append($(id));
 for(const id of ['browseInfrastructure','openCoordinationWatchlist','sr2tCoordOpen','openScheduleCoverage','openCoordinationHotspots','openLocalBusImpacts'])if($(id))coordinateSection.append($(id));
 const helper=make('p','ws-help','Automated proximity and schedule matches are potential impacts for review.');coordinateSection.append(helper);
 if(window.tracksideAppReady?.then){const launchers=[...coordinateSection.querySelectorAll('button')];launchers.forEach(b=>b.disabled=true);helper.textContent='Loading the current route library…';window.tracksideAppReady.then(()=>{launchers.forEach(b=>b.disabled=false);helper.textContent='Automated proximity and schedule matches are potential impacts for review.';}).catch(()=>{helper.textContent='The route library could not load. Reload the tracker to try again.';});}

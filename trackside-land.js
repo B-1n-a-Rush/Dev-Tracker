@@ -5,7 +5,7 @@
   if(!C||typeof map==='undefined')return;
   const $=id=>document.getElementById(id);
   const aside=document.querySelector('aside.detail');
-  const profiles=['placeholder','detail','stationDetail','corridorDetail','studyAreaDetail','scenarioDetail','hereProfile','reachDetail'];
+  const profiles=['placeholder','detail','stationDetail','corridorDetail','studyAreaDetail','hereProfile','reachDetail'];
   const colors={'Utilities':'#2670ad','Trails & paths':'#44803e','Sidewalks':'#c45b91','Bikeways':'#168e93','Streetscape':'#9162b4','Signals & safety':'#b77a14','Roads & bridges':'#b85d35','Transit':'#3853a4','Other':'#6a7570'};
   function node(tag,cls,content){const n=document.createElement(tag);if(cls)n.className=cls;if(content!==undefined)n.textContent=content;return n;}
   function button(label,action,cls='land-button'){const b=node('button',cls,label);b.type='button';b.addEventListener('click',action);return b;}
@@ -25,7 +25,6 @@
   const oldStation=showStationOverview;showStationOverview=function(...args){dismissProfiles();return oldStation(...args);};
   const oldCorridor=showCorridorOverview;showCorridorOverview=function(...args){dismissProfiles();return oldCorridor(...args);};
   const oldStudy=showStudyAreaOverview;showStudyAreaOverview=function(...args){dismissProfiles();return oldStudy(...args);};
-  const oldScenario=showScenarioComparison;showScenarioComparison=function(...args){dismissProfiles();return oldScenario(...args);};
   const oldClear=clearDetailPanel;clearDetailPanel=function(...args){dismissProfiles();return oldClear(...args);};
   async function fetchJson(url,signal){const response=await fetch(url,{signal:signal||AbortSignal.timeout(25000)});if(!response.ok)throw new Error('HTTP '+response.status);const j=await response.json();if(j.error)throw new Error(j.error.message||'GIS service unavailable');return j;}
   async function queryFeatures(url,extra={},maximum=6000){

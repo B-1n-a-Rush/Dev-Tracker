@@ -8,8 +8,6 @@ Only explicit public settings and IDs are encoded. The generated URL clears old 
 
 Views show current data rather than frozen counts or geometry. Missing references and partial/offline source coverage are reported. Network-version changes are disclosed when local-bus data differs. A route ID that has been removed is not replaced by a similarly named route. Unknown options do not silently produce a claimed exact match. View payloads are versioned, bounded and validated before application; unknown fields are discarded. Portable study polygons support 3–120 vertices. No new service, account system, paid API, database schema or production dependency is introduced.
 
-Walking calculations and drawn scenario alternatives keep their existing dedicated tools. A sender with local scenario concepts is told to use Scenario studio’s own share link for those concepts. The recipient’s personal scenario overlays are temporarily kept out of a received public map; choosing Scenario studio restores them, without deleting saved concepts.
-
 The existing project-only, SR2T and coordination briefing links remain available. A view link uses a clean `view` parameter and does not interfere with the project URL loader. Back/forward view requests are serialized, and an open editor/tool is not discarded to apply a different shared view. Escape closes map sharing without closing the selected project behind it.
 
 ## Local preview and publication
